@@ -25,9 +25,41 @@ function ace_field_options_admin_menu() {
     );
 }
 
+// Enqueue the settings CSS
+function ace_field_options_enqueue_styles() {
+    $screen = get_current_screen();
+    
+    // Check if we are on the settings page
+    if ($screen->id === 'toplevel_page_ace-dropdown-groups') {
+        wp_enqueue_style(
+            'ace-field-options-settings', // Handle
+            plugins_url('/assets/styles/css/settings.css', __FILE__), // Path to the CSS file
+            array(), // Dependencies (if any)
+            null // Version number
+        );
+    }
+}
+add_action('admin_enqueue_scripts', 'ace_field_options_enqueue_styles');
+
+
+// Enqueue the editor CSS
+function ace_field_options_enqueue_editor_styles() {
+    wp_enqueue_style(
+        'ace-field-options-editor', // Handle
+        plugins_url('/assets/styles/css/editor.css', __FILE__), // Path to the CSS file
+        array(), // Dependencies (if any)
+        null // Version number
+    );
+}
+add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_styles');
+
+
 function create_underscored_value($string) {
     return strtolower(str_replace(' ', '_', $string));
 }
+
+
+
 
 // Admin page HTML to manage dropdown groups.
 function ace_field_options_groups_page_html() {
@@ -41,7 +73,6 @@ function ace_field_options_groups_page_html() {
 
     $true_false_fields = get_option('ace_custom_true_false_fields', array());
 
-    print_r($true_false_fields); 
 
     // Load each group's options dynamically from its own wp_option.
     if (!empty($group_names)) {
@@ -167,9 +198,35 @@ foreach ($_POST['true_false_fields'] as $field) {
 
     ?>
     <div class="wrap">
+    <style>
+        table {
+            margin: 0px 0px 4rem;
+            border-radius: .5rem;
+            overflow: hidden;
+            display: block;
+        }
+        table table {
+            display: table;
+            width: 100%;
+        }
+        thead {
+            background: lightgrey;
+            width: 100%;
+        }
+table, th, td {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 15px;
+}
+</style>
     <h1>Manage Dropdown Groups and True/False Fields</h1>
     <form method="POST">
         <?php wp_nonce_field('save_dropdown_groups'); ?>
+                <?php if (!empty($dropdown_groups)) : ?>
+                    <?php foreach ($dropdown_groups as $group_index => $group) : ?>
+                        <?php $meta_key = create_underscored_value($group['name']); ?>
         <table class="form-table" id="dropdown-groups-table">
             <thead>
                 <tr>
@@ -179,11 +236,8 @@ foreach ($_POST['true_false_fields'] as $field) {
                 </tr>
             </thead>
             <tbody>
-                <?php if (!empty($dropdown_groups)) : ?>
-                    <?php foreach ($dropdown_groups as $group_index => $group) : ?>
-                        <?php $meta_key = create_underscored_value($group['name']); ?>
                         <tr class="dropdown-group-row">
-                            <td>
+                            <td style="vertical-align: top;">
                                 <input type="text" name="dropdown_groups[<?php echo $group_index; ?>][name]" value="<?php echo esc_attr($group['name']); ?>" />
                                 <p><strong>Meta Key:</strong> <?php echo esc_html($meta_key); ?></p>
                             </td>
@@ -200,7 +254,7 @@ foreach ($_POST['true_false_fields'] as $field) {
                                         <?php if (!empty($group['options'])) : ?>
                                             <?php foreach ($group['options'] as $option_index => $option) : ?>
                                                 <tr>
-                                                    <td><input type="text" name="dropdown_groups[<?php echo $group_index; ?>][options][<?php echo $option_index; ?>][label]" value="<?php echo esc_attr($option['label']); ?>" /></td>
+                                                    <td style="vertical-align: top;"><input type="text" name="dropdown_groups[<?php echo $group_index; ?>][options][<?php echo $option_index; ?>][label]" value="<?php echo esc_attr($option['label']); ?>" /></td>
                                                     <td>
     <input 
         type="text" 
@@ -219,14 +273,16 @@ foreach ($_POST['true_false_fields'] as $field) {
                             </td>
                             <td><button type="button" class="button remove-group">Remove Group</button></td>
                         </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
             </tbody>
         </table>
+                    <?php endforeach; ?>
+                <?php endif; ?>
         <p><button type="button" class="button add-group">Add New Group</button></p>
 
        <!-- Adding True/False Fields Section -->
 <h2>True/False Fields</h2>
+    <?php if (!empty($true_false_fields)) : ?>
+        <?php foreach ($true_false_fields as $field_index => $field) : ?>
 <table class="form-table" id="true-false-fields-table">
     <thead>
         <tr>
@@ -237,19 +293,17 @@ foreach ($_POST['true_false_fields'] as $field) {
         </tr>
     </thead>
     <tbody>
-    <?php if (!empty($true_false_fields)) : ?>
-        <?php foreach ($true_false_fields as $field_index => $field) : ?>
             <tr>
                 <td><input type="text" name="true_false_fields[<?php echo $field_index; ?>][name]" value="<?php echo esc_attr($field['name']); ?>" /></td>
                 <td><input type="text" name="true_false_fields[<?php echo $field_index; ?>][true_label]" value="<?php echo esc_attr($field['true_label']); ?>" placeholder="True Label" /></td>
                 <td><input type="text" name="true_false_fields[<?php echo $field_index; ?>][false_label]" value="<?php echo esc_attr($field['false_label']); ?>" placeholder="False Label" /></td>
                 <td><button type="button" class="button remove-field">Remove</button></td>
             </tr>
-        <?php endforeach; ?>
-    <?php endif; ?>
 </tbody>
 
 </table>
+        <?php endforeach; ?>
+    <?php endif; ?>
 <p><button type="button" class="button add-field">Add True/False Field</button></p>
 <?php submit_button('Save Settings', 'primary', 'save_groups'); ?>
 
@@ -350,17 +404,17 @@ function ace_field_options_enqueue_editor_assets() {
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
         'ace-field-options-block-editor',
-        plugins_url( '/build/index.js', __FILE__ ),
+        plugins_url( '/assets/options.js', __FILE__ ),
         array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
-        filemtime( plugin_dir_path( __FILE__ ) . 'build/index.js' )
+        filemtime( plugin_dir_path( __FILE__ ) . 'assets/index.js' )
     );
 
     // Editor (backend) script for true/false block (truefalse.js)
     wp_enqueue_script(
         'ace-field-options-truefalse-editor',
-        plugins_url( '/build/truefalse.js', __FILE__ ),
+        plugins_url( '/assets/truefalse.js', __FILE__ ),
         array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
-        filemtime( plugin_dir_path( __FILE__ ) . 'build/truefalse.js' )
+        filemtime( plugin_dir_path( __FILE__ ) . 'assets/truefalse.js' )
     );
 
     // Pass dropdown groups to editor
