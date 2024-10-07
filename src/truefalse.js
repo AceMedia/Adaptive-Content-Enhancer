@@ -2,7 +2,8 @@ import { useEffect, useState } from '@wordpress/element';
 import { useEntityProp } from '@wordpress/core-data';
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps } from '@wordpress/block-editor';
-import { PanelBody, SelectControl } from '@wordpress/components';
+import { PanelBody, ToggleControl, SelectControl } from '@wordpress/components'; // Add SelectControl here
+
 
 function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
@@ -15,7 +16,7 @@ registerBlockType('ace-field-options/true-false-block', {
     category: 'widgets',
     attributes: {
         selectedField: { type: 'string', default: '' },
-        trueFalseValue: { type: 'string', default: '' },
+        trueFalseValue: { type: 'boolean', default: false }, // Change type to boolean
         trueFalseLabel: { type: 'string', default: '' },
     },
     supports: {
@@ -37,47 +38,44 @@ registerBlockType('ace-field-options/true-false-block', {
         // Fetch available true/false fields from the backend
         useEffect(() => {
             if (Array.isArray(window.trueFalseFields)) {
-                setAvailableFields(window.trueFalseFields); // Assuming this still contains all true/false fields as an array
+                setAvailableFields(window.trueFalseFields);
             }
         }, []);
 
         // Sync true/false value with post meta and block attributes
-useEffect(() => {
-    const selectedFieldData = availableFields.find(field => field.name === selectedField);
-    if (selectedFieldData) {
-        const storedValue = trueFalseValue; // Use the value directly
-        const label = storedValue === '1' ? selectedFieldData.true_label : selectedFieldData.false_label;
-        setAttributes({
-            trueFalseValue: storedValue,
-            trueFalseLabel: label || '',
-        });
-    }
-}, [trueFalseValue, selectedField, availableFields, setAttributes]);
+        useEffect(() => {
+            const selectedFieldData = availableFields.find(field => field.name === selectedField);
+            if (selectedFieldData) {
+                const storedValue = trueFalseValue; // Use the value directly
+                setAttributes({
+                    trueFalseValue: storedValue,
+                    trueFalseLabel: storedValue ? selectedFieldData.true_label : selectedFieldData.false_label,
+                });
+            }
+        }, [trueFalseValue, selectedField, availableFields, setAttributes]);
 
-
-        const handleTrueFalseChange = (newValue) => {
+        const handleToggleChange = (newValue) => {
             const selectedFieldData = availableFields.find(field => field.name === selectedField);
             if (!selectedFieldData) {
                 console.error("Selected field data is missing for:", selectedField);
                 return;
             }
-            const label = newValue === '1' ? selectedFieldData.true_label : selectedFieldData.false_label;
-        
-            // Save the value (1 or 0) in post meta
+            const label = newValue ? selectedFieldData.true_label : selectedFieldData.false_label;
+
+            // Save the value (true or false) in post meta
             setMetaValue({
                 ...metaValue,
-                [metaKey]: String(newValue), // Store as a string
+                [metaKey]: newValue ? '1' : '0', // Store as a string
             });
-        
+
             // Update block attributes for immediate rendering
             setAttributes({
                 trueFalseValue: newValue,
                 trueFalseLabel: label,
             });
         };
-        
 
-        const blockProps = useBlockProps(); // Get the block props to manage class names
+        const blockProps = useBlockProps();
 
         return (
             <div {...blockProps}>
@@ -96,34 +94,28 @@ useEffect(() => {
                                     })),
                                 ]}
                                 onChange={(newField) => {
-                                    setAttributes({ selectedField: newField, trueFalseValue: '', trueFalseLabel: '' });
+                                    setAttributes({ selectedField: newField, trueFalseValue: false, trueFalseLabel: '' });
                                 }}
                             />
                         )}
 
-                        {/* Show the true/false dropdown only when a field is selected */}
+                        {/* Show the toggle control only when a field is selected */}
                         {selectedField && (
-                            <SelectControl
-                                label="Select True or False"
-                                value={trueFalseValue}
-                                options={[
-                                    { label: availableFields.find(field => field.name === selectedField)?.true_label || 'True', value: '1' },
-                                    { label: availableFields.find(field => field.name === selectedField)?.false_label || 'False', value: '0' },
-                                ]}
-                                onChange={handleTrueFalseChange}
+                            <ToggleControl
+                                label={trueFalseLabel}
+                                checked={trueFalseValue}
+                                onChange={handleToggleChange}
                             />
                         )}
                     </div>
                 ) : (
-                    // When the block is not selected, display only the label (e.g., Yes/No)
                     <p className="wp-block-ace-field-options-true-false-block wp-block-paragraph" style={{ margin: '0px', padding: '0px' }}>
-                        {attributes.trueFalseLabel || 'Click to edit'}
+                        {trueFalseLabel || 'Click to edit'}
                     </p>
                 )}
 
                 <InspectorControls>
                     <PanelBody title="True/False Field Settings">
-                        {/* Always display the field dropdown in the sidebar */}
                         <SelectControl
                             label="Select a True/False Field"
                             value={selectedField}
@@ -135,22 +127,9 @@ useEffect(() => {
                                 })),
                             ]}
                             onChange={(newField) => {
-                                setAttributes({ selectedField: newField, trueFalseValue: '', trueFalseLabel: '' });
+                                setAttributes({ selectedField: newField, trueFalseValue: false, trueFalseLabel: '' });
                             }}
                         />
-
-                        {/* Sync the Inspector Control for the true/false selection */}
-                        {selectedField && (
-                            <SelectControl
-                                label="Select True or False"
-                                value={trueFalseValue}
-                                options={[
-                                    { label: availableFields.find(field => field.name === selectedField)?.true_label || 'True', value: '1' },
-                                    { label: availableFields.find(field => field.name === selectedField)?.false_label || 'False', value: '0' },
-                                ]}
-                                onChange={handleTrueFalseChange}
-                            />
-                        )}
                     </PanelBody>
                 </InspectorControls>
             </div>
