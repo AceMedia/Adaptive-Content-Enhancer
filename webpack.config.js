@@ -5,9 +5,10 @@ module.exports = {
     entry: {
         index: './src/index.js', // Dropdown block entry point
         truefalse: './src/truefalse.js', // True/False block entry point
+        feature: './src/sync-fields.js', // New feature entry point
     },
     output: {
-        filename: '[name].js', // This ensures both index.js and truefalse.js are built
+        filename: '[name].js', // This ensures all entry points are built
         path: __dirname + '/build',
     },
 };

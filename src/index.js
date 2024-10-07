@@ -69,14 +69,11 @@ registerBlockType('ace-field-options/dropdown-block', {
       // Handle dropdown change, updating meta and syncing across all instances
       const handleDropdownChange = (newValue) => {
         const selectedOption = groupOptions.find(option => option.value === newValue);
-    
-        // Ensure that the meta value to save is a string
-        const metaValueToSave = `ace_custom_group_${createLowercaseUnderscored(selectedGroup)}_${String(newValue)}`;
-    
-        // Save this string in post meta
+        
+        // Save the selected option value in post meta
         setMetaValue({
             ...metaValue,
-            [metaKey]: metaValueToSave, // Store as a plain string
+            [metaKey]: newValue, // Directly store the selected value
         });
     
         // Update block attributes for immediate rendering
@@ -85,18 +82,20 @@ registerBlockType('ace-field-options/dropdown-block', {
             dropdownLabel: selectedOption ? selectedOption.label : '',
         });
     };
-
-// Dynamically update the content in the editor based on dropdownValue
-useEffect(() => {
-    if (selectedGroup && dropdownValue) {
-        const group = availableGroups.find(group => group?.name === selectedGroup);
-        const selectedOption = group?.options?.find(option => option.value === dropdownValue);
-
-        if (selectedOption) {
-            setAttributes({ dropdownLabel: selectedOption.label });
+    
+    // Sync dropdown value with post meta and block attributes
+    useEffect(() => {
+        // Get the stored value from meta
+        const storedValue = metaValue[metaKey];
+    
+        if (storedValue) {
+            const selectedOption = groupOptions.find(option => option.value === storedValue);
+            setAttributes({
+                dropdownValue: storedValue,
+                dropdownLabel: selectedOption ? selectedOption.label : '',
+            });
         }
-    }
-}, [selectedGroup, dropdownValue, availableGroups]);
+    }, [metaValue[metaKey], metaKey, groupOptions, setAttributes]);
 
         // Auto-click the SelectControl when block is selected
         useEffect(() => {

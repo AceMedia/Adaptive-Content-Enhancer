@@ -500,12 +500,11 @@ register_block_type('ace-field-options/dropdown-block', array(
 ));
 
 
-
 // Render function for the true/false block
 function ace_field_options_render_true_false_block($attributes) {
     $post_id = get_the_ID();
     $selected_field = $attributes['selectedField'] ?? ''; // Field name to fetch
-    $true_false_value = get_post_meta($post_id, create_underscored_value($selected_field), true); // Get stored value for the true/false field
+    $true_false_value = $attributes['trueFalseValue'] ?? ''; // Get the value directly from attributes
 
     // Fetch true/false fields from the database
     $true_false_fields = get_option('ace_custom_true_false_fields', array());
@@ -532,6 +531,10 @@ register_block_type('ace-field-options/true-false-block', array(
     'render_callback' => 'ace_field_options_render_true_false_block',
     'attributes' => array(
         'selectedField' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'trueFalseValue' => array( // Ensure this attribute is defined
             'type' => 'string',
             'default' => ''
         ),

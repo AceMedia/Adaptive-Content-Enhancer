@@ -42,21 +42,18 @@ registerBlockType('ace-field-options/true-false-block', {
         }, []);
 
         // Sync true/false value with post meta and block attributes
-        useEffect(() => {
-            if (metaValue[metaKey]) {
-                const storedValue = String(metaValue[metaKey]); // Ensure value is string
-                const selectedFieldData = availableFields.find(field => field.name === selectedField);
-                const label = storedValue === '1' ? selectedFieldData?.true_label : selectedFieldData?.false_label;
+useEffect(() => {
+    const selectedFieldData = availableFields.find(field => field.name === selectedField);
+    if (selectedFieldData) {
+        const storedValue = trueFalseValue; // Use the value directly
+        const label = storedValue === '1' ? selectedFieldData.true_label : selectedFieldData.false_label;
+        setAttributes({
+            trueFalseValue: storedValue,
+            trueFalseLabel: label || '',
+        });
+    }
+}, [trueFalseValue, selectedField, availableFields, setAttributes]);
 
-                // Debugging state to check meta and label syncing
-                console.log("Meta Key:", metaKey, "Stored Value:", storedValue, "Label:", label);
-
-                setAttributes({
-                    trueFalseValue: storedValue,
-                    trueFalseLabel: label || '',
-                });
-            }
-        }, [metaValue, metaKey, setAttributes, availableFields, selectedField]);
 
         const handleTrueFalseChange = (newValue) => {
             const selectedFieldData = availableFields.find(field => field.name === selectedField);
@@ -120,7 +117,7 @@ registerBlockType('ace-field-options/true-false-block', {
                 ) : (
                     // When the block is not selected, display only the label (e.g., Yes/No)
                     <p className="wp-block-ace-field-options-true-false-block wp-block-paragraph" style={{ margin: '0px', padding: '0px' }}>
-                        {trueFalseLabel || 'Click to edit'}
+                        {attributes.trueFalseLabel || 'Click to edit'}
                     </p>
                 )}
 
