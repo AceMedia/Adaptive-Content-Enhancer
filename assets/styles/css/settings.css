@@ -1,4 +1,8 @@
-body {
-  color: blue !important;
-  background: blue !important;
+table input {
+  width: 100%;
+  display: block;
+}
+
+.column-action {
+  text-align: right;
 }

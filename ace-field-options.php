@@ -198,113 +198,19 @@ foreach ($_POST['true_false_fields'] as $field) {
 
     ?>
     <div class="wrap">
-    <style>
-        table {
-            margin: 0px 0px 4rem;
-            border-radius: .5rem;
-            overflow: hidden;
-            display: block;
-        }
-        table table {
-            display: table;
-            width: 100%;
-        }
-        thead {
-            background: lightgrey;
-            width: 100%;
-        }
-table, th, td {
-  border: 1px solid black;
-  border-collapse: collapse;
-}
-th, td {
-  padding: 15px;
-}
-</style>
+
     <h1>Manage Dropdown Groups and True/False Fields</h1>
     <form method="POST">
-        <?php wp_nonce_field('save_dropdown_groups'); ?>
-                <?php if (!empty($dropdown_groups)) : ?>
-                    <?php foreach ($dropdown_groups as $group_index => $group) : ?>
-                        <?php $meta_key = create_underscored_value($group['name']); ?>
-        <table class="form-table" id="dropdown-groups-table">
-            <thead>
-                <tr>
-                    <th>Group Name</th>
-                    <th>Options</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                        <tr class="dropdown-group-row">
-                            <td style="vertical-align: top;">
-                                <input type="text" name="dropdown_groups[<?php echo $group_index; ?>][name]" value="<?php echo esc_attr($group['name']); ?>" />
-                                <p><strong>Meta Key:</strong> <?php echo esc_html($meta_key); ?></p>
-                            </td>
-                            <td>
-                                <table class="group-options-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Option Label</th>
-                                            <th>Option Value</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php if (!empty($group['options'])) : ?>
-                                            <?php foreach ($group['options'] as $option_index => $option) : ?>
-                                                <tr>
-                                                    <td style="vertical-align: top;"><input type="text" name="dropdown_groups[<?php echo $group_index; ?>][options][<?php echo $option_index; ?>][label]" value="<?php echo esc_attr($option['label']); ?>" /></td>
-                                                    <td>
-    <input 
-        type="text" 
-        name="dropdown_groups[<?php echo $group_index; ?>][options][<?php echo $option_index; ?>][value]" 
-        value="<?php echo esc_attr($option['value']); ?>" 
-        <?php echo !empty($option['value']) ? 'readonly' : ''; ?> 
-    />
-</td>
-                                                    <td><button type="button" class="button remove-option">Remove</button></td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </tbody>
-                                </table>
-                                <button type="button" class="button add-option">Add Option</button>
-                            </td>
-                            <td><button type="button" class="button remove-group">Remove Group</button></td>
-                        </tr>
-            </tbody>
-        </table>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+        <?php wp_nonce_field('save_dropdown_groups'); 
+                        include 'templates/settings-options.php'; ?>
         <p><button type="button" class="button add-group">Add New Group</button></p>
 
        <!-- Adding True/False Fields Section -->
-<h2>True/False Fields</h2>
     <?php if (!empty($true_false_fields)) : ?>
-        <?php foreach ($true_false_fields as $field_index => $field) : ?>
-<table class="form-table" id="true-false-fields-table">
-    <thead>
-        <tr>
-            <th>Field Name</th>
-            <th>Label for True</th>
-            <th>Label for False</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-            <tr>
-                <td><input type="text" name="true_false_fields[<?php echo $field_index; ?>][name]" value="<?php echo esc_attr($field['name']); ?>" /></td>
-                <td><input type="text" name="true_false_fields[<?php echo $field_index; ?>][true_label]" value="<?php echo esc_attr($field['true_label']); ?>" placeholder="True Label" /></td>
-                <td><input type="text" name="true_false_fields[<?php echo $field_index; ?>][false_label]" value="<?php echo esc_attr($field['false_label']); ?>" placeholder="False Label" /></td>
-                <td><button type="button" class="button remove-field">Remove</button></td>
-            </tr>
-</tbody>
-
-</table>
-        <?php endforeach; ?>
+        <?php foreach ($true_false_fields as $field_index => $field) :
+            include_once 'templates/settings-truefalse.php';
+         endforeach; ?>
     <?php endif; ?>
-<p><button type="button" class="button add-field">Add True/False Field</button></p>
 <?php submit_button('Save Settings', 'primary', 'save_groups'); ?>
 
     </form>
@@ -340,17 +246,34 @@ th, td {
         });
 
         document.querySelector('.add-field').addEventListener('click', function() {
-    const tableBody = document.querySelector('#true-false-fields-table tbody');
+    const tableBody = document.querySelector('#truefalse');
     const fieldIndex = tableBody.children.length;
     const newRow = document.createElement('tr');
+    newRow.classList.add('level-0');
+    newRow.id = `field-${fieldIndex}`;
     newRow.innerHTML = `
-        <td><input type="text" name="true_false_fields[${fieldIndex}][name]" value="" placeholder="Field Name" /></td>
-        <td><input type="text" name="true_false_fields[${fieldIndex}][true_label]" value="" placeholder="Label for True" /></td>
-        <td><input type="text" name="true_false_fields[${fieldIndex}][false_label]" value="" placeholder="Label for False" /></td>
-        <td><button type="button" class="button remove-field">Remove</button></td>
+        <td class="name column-name has-row-actions column-primary">
+            <input type="text" name="true_false_fields[${fieldIndex}][name]" value="" placeholder="Field Name" />
+        </td>
+        <td class="true-label column-true-label">
+            <input type="text" name="true_false_fields[${fieldIndex}][true_label]" value="" placeholder="Label for True" />
+        </td>
+        <td class="false-label column-false-label">
+            <input type="text" name="true_false_fields[${fieldIndex}][false_label]" value="" placeholder="Label for False" />
+        </td>
+        <td class="action column-action">
+            <button type="button" class="button remove-field">Remove</button>
+        </td>
     `;
+
     tableBody.appendChild(newRow);
+
+    // Add event listener for the newly created 'Remove' button
+    newRow.querySelector('.remove-field').addEventListener('click', function() {
+        newRow.remove();
+    });
 });
+
 
     // Remove true/false field
     document.addEventListener('click', function(e) {
