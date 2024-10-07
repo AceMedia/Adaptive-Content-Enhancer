@@ -50,58 +50,70 @@ function ace_field_options_groups_page_html() {
         }
     }
 
-    // Handle form submission to save groups and options.
-    if (isset($_POST['save_groups'])) {
-        check_admin_referer('save_dropdown_groups');
+// Handle form submission to save groups and options.
+// Handle form submission to save groups and options.
+if (isset($_POST['save_groups'])) {
+    check_admin_referer('save_dropdown_groups');
 
-        // Process and sanitize the form data.
-        if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
-            $dropdown_groups = array_map(function($group) {
-                if (isset($group['name'], $group['options']) && is_array($group['options'])) {
-                    return array(
-                        'name' => sanitize_text_field($group['name']),
-                        'options' => array_map(function($option) {
-                            $label = sanitize_text_field($option['label']);
-                            $value = isset($option['value']) && !empty($option['value'])
-                                ? sanitize_text_field($option['value'])
-                                : create_underscored_value($label); // Use underscored label as fallback
-                            return array(
-                                'label' => $label,
-                                'value' => $value,
-                            );
-                        }, $group['options']),
-                    );
-                }
-                return null;
-            }, $_POST['dropdown_groups']);
+    // Process and sanitize the form data.
+    if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
+        $dropdown_groups = array_map(function($group) {
+            if (isset($group['name'], $group['options']) && is_array($group['options'])) {
+                return array(
+                    'name' => sanitize_text_field($group['name']),
+                    'options' => array_map(function($option) {
+                        $label = sanitize_text_field($option['label']);
+                        $value = sanitize_text_field($option['value']);
 
-            // Remove null (invalid) groups.
-            $dropdown_groups = array_filter($dropdown_groups);
-        } else {
-            $dropdown_groups = array(); // Reset to empty array if no groups are provided.
-        }
+                        if (!empty($option['value'])) {
+                            $value = sanitize_text_field($option['value']); // Use the existing value if not empty
+                        } else {
+                            // Define a new value if it's empty
+                            $value = !empty($label) ? create_underscored_value($label) : '';
+                        }
 
-        // First, delete all old group options to remove any deleted or renamed groups.
-        foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
-            delete_option($option_name); // Clean old options
-        }
-
-        // Save each group as its own wp_option.
-        $new_group_names = array();
-        if (!empty($dropdown_groups)) {
-            foreach ($dropdown_groups as $group) {
-                $option_name = 'ace_custom_group_' . create_underscored_value($group['name']);
-                update_option($option_name, $group); // Save each group individually
-                $new_group_names[] = $group['name'];
+                        return array(
+                            'label' => $label,
+                            'value' => $value ,
+                        );
+                    }, $group['options']),
+                );
             }
-        }
+            return null;
+        }, $_POST['dropdown_groups']);
 
-        // Save the list of group names to a central option for easy retrieval later.
-        update_option('ace_custom_dropdown_groups', $new_group_names);
-
-        echo '<div class="updated"><p>Dropdown groups saved.</p></div>';
+        // Remove null (invalid) groups.
+        $dropdown_groups = array_filter($dropdown_groups);
+    } else {
+        $dropdown_groups = array(); // Reset to empty array if no groups are provided.
     }
+
+    // Delete old options before saving updated ones.
+    $group_names = get_option('ace_custom_dropdown_groups', array());
+    foreach ($group_names as $group_name) {
+        $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
+        delete_option($option_name); // Clean old options.
+    }
+
+    // Save each group as its own wp_option with the new structure.
+    $new_group_names = array();
+    if (!empty($dropdown_groups)) {
+        foreach ($dropdown_groups as $group) {
+            $option_name = 'ace_custom_group_' . create_underscored_value($group['name']);
+            update_option($option_name, $group); // Save each group individually.
+            $new_group_names[] = $group['name'];
+        }
+    }
+
+    // Save the list of group names to a central option for easy retrieval later.
+    update_option('ace_custom_dropdown_groups', $new_group_names);
+
+    echo '<div class="updated"><p>Dropdown groups saved.</p></div>';
+}
+
+
+
+
 
     ?>
     <div class="wrap">
@@ -139,7 +151,14 @@ function ace_field_options_groups_page_html() {
                                             <?php foreach ($group['options'] as $option_index => $option) : ?>
                                                 <tr>
                                                     <td><input type="text" name="dropdown_groups[<?php echo $group_index; ?>][options][<?php echo $option_index; ?>][label]" value="<?php echo esc_attr($option['label']); ?>" /></td>
-                                                    <td><input type="text" name="dropdown_groups[<?php echo $group_index; ?>][options][<?php echo $option_index; ?>][value]" value="<?php echo esc_attr($option['value']); ?>" /></td>
+                                                    <td>
+    <input 
+        type="text" 
+        name="dropdown_groups[<?php echo $group_index; ?>][options][<?php echo $option_index; ?>][value]" 
+        value="<?php echo esc_attr($option['value']); ?>" 
+        <?php echo !empty($option['value']) ? 'readonly' : ''; ?> 
+    />
+</td>
                                                     <td><button type="button" class="button remove-option">Remove</button></td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -228,13 +247,6 @@ function ace_field_options_enqueue_editor_assets() {
         filemtime( plugin_dir_path( __FILE__ ) . 'build/index.js' )
     );
 
-    // Editor styles (admin side)
-    wp_enqueue_style(
-        'ace-field-options-editor-style',
-        plugins_url( '/build/style-index.css', __FILE__ ),
-        array(),
-        filemtime( plugin_dir_path( __FILE__ ) . 'build/style-index.css' )
-    );
 
     // Pass dropdown groups to editor
     $group_names = get_option('ace_custom_dropdown_groups', array());
@@ -264,6 +276,7 @@ function acefields_register_dynamic_meta() {
         foreach ($group_names as $group_name) {
             // Create the sanitized meta key from the group name
             $group_name_key = create_underscored_value($group_name);
+
             // Register meta field for each valid group
             register_post_meta(
                 'post',
@@ -271,21 +284,35 @@ function acefields_register_dynamic_meta() {
                 array(
                     'show_in_rest'      => true,
                     'single'            => true,
-                    'type'              => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
+                    'type'              => 'string', // Type should be string, even though we will store serialized arrays
+                    'sanitize_callback' => 'acefields_sanitize_serialized_meta', // Custom sanitize function
                 )
             );
         }
     }
 }
 
+function acefields_sanitize_serialized_meta($meta_value) {
+    // Ensure that the meta value is stored as a string, without serialization
+    if (!is_string($meta_value)) {
+        return sanitize_text_field($meta_value); // Ensure it's a plain string
+    }
+
+    return $meta_value; // No extra processing
+}
+
+
+// Function to retrieve unserialized meta
+function acefields_get_unserialized_meta($meta_value) {
+    return maybe_unserialize($meta_value);
+}
+
+
 // Server-side rendering of the block (this ensures block data is rendered correctly)
 function ace_field_options_render_block($attributes) {
-    $site_url = get_site_url();
     $post_id = get_the_ID();
-
-    $attributes['siteUrl'] = $site_url;
-    $attributes['postId'] = $post_id;
+    $selected_group = $attributes['selectedGroup'] ?? '';
+    $dropdown_value_ref = $attributes['dropdownValue'] ?? ''; // Store the saved reference string
 
     // Fetch dropdown groups from the database
     $dropdown_groups = array();
@@ -301,30 +328,35 @@ function ace_field_options_render_block($attributes) {
         }
     }
 
-    // Determine the label based on the selected group and value
-    $selected_group = $attributes['selectedGroup'] ?? '';
-    $dropdown_value = $attributes['dropdownValue'] ?? '';
+    // Initialize the variables to store the label and value
     $dropdown_label = '';
+    $dropdown_value = '';
 
-    if ($selected_group && $dropdown_value) {
+    // Check the reference string to match it with dropdown group and options
+    if ($selected_group && $dropdown_value_ref) {
         foreach ($dropdown_groups as $group) {
+            // Make sure the group matches
             if ($group['name'] === $selected_group) {
                 foreach ($group['options'] as $option) {
-                    if ($option['value'] === $dropdown_value) {
+                    // Check if the reference string contains the option value
+                    if (strpos($dropdown_value_ref, $option['value']) !== false) {
                         $dropdown_label = $option['label'];
-                        break 2;
+                        $dropdown_value = $option['value'];
+                        break 2; // Exit both loops once a match is found
                     }
                 }
             }
         }
     }
 
-    // Return the block with the label for display
+    // Output the block with the selected label
     return sprintf(
         '<p class="wp-block-ace-field-options-dropdown-block wp-block-paragraph">%s</p>',
-        esc_html($dropdown_label)
+        esc_html($dropdown_label) // Display the dynamically retrieved label
     );
 }
+
+
 
 register_block_type('ace-field-options/dropdown-block', array(
     'render_callback' => 'ace_field_options_render_block',
@@ -334,6 +366,10 @@ register_block_type('ace-field-options/dropdown-block', array(
             'default' => ''
         ),
         'dropdownValue' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'dropdownLabel' => array( // Add dropdownLabel to attributes
             'type' => 'string',
             'default' => ''
         )
@@ -356,11 +392,97 @@ function get_post_meta_fields($data) {
         return new WP_Error('rest_post_invalid_id', __('Invalid post ID.'), array('status' => 404));
     }
 
+    // Get all post meta
     $meta = get_post_meta($post_id);
-    $filtered_meta = array_filter($meta, function($key) {
-        return strpos($key, '_') !== 0;
-    }, ARRAY_FILTER_USE_KEY);
+    
+    // Initialize an empty array for filtered meta
+    $filtered_meta = array();
 
-    return $filtered_meta;
+    // Get all dropdown groups from the settings
+    $group_names = get_option('ace_custom_dropdown_groups', array());
+    $dropdown_groups = array();
+    
+    if (!empty($group_names)) {
+        foreach ($group_names as $group_name) {
+            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
+            $group_data = get_option($option_name, array());
+            if (!empty($group_data)) {
+                $dropdown_groups[] = $group_data;
+            }
+        }
+    }
+
+    // Loop through post meta and process each field
+    foreach ($meta as $meta_key => $meta_value) {
+        // Only include keys that don't start with '_'
+        if (strpos($meta_key, '_') !== 0) {
+            $stored_value = maybe_unserialize($meta_value[0]); // Unserialize if needed
+
+            // Match the stored value (e.g., "ace_custom_group_spot_condition_dirty")
+            foreach ($dropdown_groups as $group) {
+                foreach ($group['options'] as $option) {
+                    // Match the stored value by checking if it contains the option value
+                    if (strpos($stored_value, $option['value']) !== false) {
+                        // Store the label and value in the filtered meta
+                        $filtered_meta[$meta_key] = array(
+                            'label' => $option['label'],
+                            'value' => $option['value']
+                        );
+                        break 2; // Exit both loops once a match is found
+                    }
+                }
+            }
+        }
+    }
+
+    return $filtered_meta; // Return the filtered meta array with label and value
 }
+
+
+// Hook into the rest_prepare_post filter to modify the response for posts
+add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
+
+function modify_post_meta_for_rest($response, $post, $request) {
+    $meta = $response->data['meta'];
+
+    // Get all dropdown groups from the settings
+    $group_names = get_option('ace_custom_dropdown_groups', array());
+    $dropdown_groups = array();
+
+    if (!empty($group_names)) {
+        foreach ($group_names as $group_name) {
+            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
+            $group_data = get_option($option_name, array());
+            if (!empty($group_data)) {
+                $dropdown_groups[] = $group_data;
+            }
+        }
+    }
+
+    // Modify the meta fields to include the dynamic labels
+    foreach ($meta as $meta_key => $meta_value) {
+        if (strpos($meta_key, '_') !== 0) {
+            // Extract the group and option value from the meta key
+            foreach ($dropdown_groups as $group) {
+                foreach ($group['options'] as $option) {
+                    // Check if the stored value matches the format: ace_custom_group_groupname_optionvalue
+                    if (strpos($meta_value, $option['value']) !== false) {
+                        // Replace the meta field with the correct label and value
+                        $response->data['meta'][$meta_key] = array(
+                            'label' => $option['label'],
+                            'value' => $option['value']
+                        );
+                        break 2; // Exit both loops once a match is found
+                    }
+                }
+            }
+        }
+    }
+
+    return $response;
+}
+
+
+
+
 ?>

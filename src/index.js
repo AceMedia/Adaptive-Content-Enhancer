@@ -57,22 +57,35 @@ registerBlockType('ace-field-options/dropdown-block', {
 
         // Sync dropdown value with post meta and block attributes
         useEffect(() => {
-            if (metaValue[metaKey]) {
-                setAttributes({ dropdownValue: metaValue[metaKey] });
-                const selectedOption = groupOptions.find(option => option.value === metaValue[metaKey]);
+            if (Array.isArray(metaValue[metaKey])) {
+                const [storedLabel, storedValue] = metaValue[metaKey];
                 setAttributes({
-                    dropdownLabel: selectedOption ? selectedOption.label : '',
+                    dropdownValue: storedValue,
+                    dropdownLabel: storedLabel,
                 });
             }
         }, [metaValue[metaKey], metaKey, groupOptions, setAttributes]);
 
-        // Handle dropdown change, updating meta and syncing across all instances
-        const handleDropdownChange = (newValue) => {
-            setMetaValue({
-                ...metaValue,
-                [metaKey]: newValue
-            });
-        };
+      // Handle dropdown change, updating meta and syncing across all instances
+const handleDropdownChange = (newValue) => {
+    const selectedOption = groupOptions.find(option => option.value === newValue);
+
+    // Create the string for meta saving, formatted with the selected group and new value
+    const metaValueToSave = `ace_custom_group_${createLowercaseUnderscored(selectedGroup)}_${newValue}`;
+
+    // Save this string in post meta as a raw string without extra quotes
+    setMetaValue({
+        ...metaValue,
+        [metaKey]: metaValueToSave, // Store the formatted string without additional double quotes
+    });
+
+    // Also update block attributes for immediate rendering in the editor
+    setAttributes({
+        dropdownValue: newValue,
+        dropdownLabel: selectedOption ? selectedOption.label : '',
+    });
+};
+
 
         // Auto-click the SelectControl when block is selected
         useEffect(() => {
@@ -81,15 +94,14 @@ registerBlockType('ace-field-options/dropdown-block', {
                 const selectEl = selectRef.current;
                 console.log('Select element:', selectEl);
         
-                    // Focus the select element
-                    selectEl.parentElement.click();
+                // Focus the select element
+                selectEl.parentElement.click();
         
-                    // This needs extra work to make it work properly.
-                        const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
-                        selectEl.dispatchEvent(event);
+                // This needs extra work to make it work properly.
+                const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+                selectEl.dispatchEvent(event);
             }
         }, [isSelected]);
-        
 
         const blockProps = useBlockProps(); // Get the block props to manage class names
 

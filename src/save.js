@@ -1,8 +1,8 @@
 const Save = ({ attributes }) => {
-    const { dropdownValue } = attributes;
+    const { dropdownLabel, dropdownValue } = attributes;
 
     return (
-        <p>Selected option: {dropdownValue}</p>
+        <p>Selected option: {dropdownLabel || dropdownValue}</p>
     );
 };
 

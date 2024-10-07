@@ -3,16 +3,14 @@ import { useState, useEffect } from '@wordpress/element';
 import { InspectorControls } from '@wordpress/block-editor';
 
 const Edit = ({ attributes, setAttributes }) => {
-    const { selectedGroup, dropdownValue } = attributes;
+    const { selectedGroup, dropdownValue, dropdownLabel } = attributes;
     const [groupOptions, setGroupOptions] = useState([]);
     const [availableGroups, setAvailableGroups] = useState([]);
 
-    // Fetch the available dropdown groups from the localized script (passed from PHP).
     useEffect(() => {
         setAvailableGroups(window.dropdownGroups || []);
     }, []);
 
-    // Update the options when the selected group changes.
     useEffect(() => {
         if (selectedGroup) {
             const group = availableGroups.find(group => group.name === selectedGroup);
@@ -24,10 +22,17 @@ const Edit = ({ attributes, setAttributes }) => {
         }
     }, [selectedGroup, availableGroups]);
 
+    const handleDropdownChange = (newValue) => {
+        const selectedOption = groupOptions.find(option => option.value === newValue);
+        setAttributes({
+            dropdownValue: newValue,
+            dropdownLabel: selectedOption ? selectedOption.label : '', // Save the label correctly
+        });
+    };
+
     return (
         <>
             <InspectorControls>
-                {/* Dropdown to select which group to use */}
                 <SelectControl
                     label="Select a Dropdown Group"
                     value={selectedGroup}
@@ -38,7 +43,6 @@ const Edit = ({ attributes, setAttributes }) => {
                     onChange={(newGroup) => setAttributes({ selectedGroup: newGroup })}
                 />
 
-                {/* Dropdown to select a value from the selected group */}
                 {groupOptions.length > 0 && (
                     <SelectControl
                         label="Select an Option"
@@ -47,14 +51,13 @@ const Edit = ({ attributes, setAttributes }) => {
                             label: option.label,
                             value: option.value
                         }))}
-                        onChange={(newValue) => setAttributes({ dropdownValue: newValue })}
+                        onChange={handleDropdownChange}
                     />
                 )}
             </InspectorControls>
 
-            {/* Display the selected dropdown option in the block editor */}
             {dropdownValue && (
-                <p>Selected option: {dropdownValue}</p>
+                <p>Selected option: {dropdownLabel || dropdownValue}</p>
             )}
         </>
     );
