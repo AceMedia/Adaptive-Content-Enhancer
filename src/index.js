@@ -67,24 +67,24 @@ registerBlockType('ace-field-options/dropdown-block', {
         }, [metaValue[metaKey], metaKey, groupOptions, setAttributes]);
 
       // Handle dropdown change, updating meta and syncing across all instances
-const handleDropdownChange = (newValue) => {
-    const selectedOption = groupOptions.find(option => option.value === newValue);
-
-    // Create the string for meta saving, formatted with the selected group and new value
-    const metaValueToSave = `ace_custom_group_${createLowercaseUnderscored(selectedGroup)}_${newValue}`;
-
-    // Save this string in post meta as a raw string without extra quotes
-    setMetaValue({
-        ...metaValue,
-        [metaKey]: metaValueToSave, // Store the formatted string without additional double quotes
-    });
-
-    // Also update block attributes for immediate rendering in the editor
-    setAttributes({
-        dropdownValue: newValue,
-        dropdownLabel: selectedOption ? selectedOption.label : '',
-    });
-};
+      const handleDropdownChange = (newValue) => {
+        const selectedOption = groupOptions.find(option => option.value === newValue);
+    
+        // Ensure that the meta value to save is a string
+        const metaValueToSave = `ace_custom_group_${createLowercaseUnderscored(selectedGroup)}_${String(newValue)}`;
+    
+        // Save this string in post meta
+        setMetaValue({
+            ...metaValue,
+            [metaKey]: metaValueToSave, // Store as a plain string
+        });
+    
+        // Update block attributes for immediate rendering
+        setAttributes({
+            dropdownValue: newValue,
+            dropdownLabel: selectedOption ? selectedOption.label : '',
+        });
+    };
 
 // Dynamically update the content in the editor based on dropdownValue
 useEffect(() => {
