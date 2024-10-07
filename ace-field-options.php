@@ -500,11 +500,12 @@ register_block_type('ace-field-options/dropdown-block', array(
 ));
 
 
+
 // Render function for the true/false block
 function ace_field_options_render_true_false_block($attributes) {
     $post_id = get_the_ID();
     $selected_field = $attributes['selectedField'] ?? ''; // Field name to fetch
-    $true_false_value = $attributes['trueFalseValue'] ?? ''; // Get the value directly from attributes
+    $true_false_value = get_post_meta($post_id, create_underscored_value($selected_field), true); // Get stored value for the true/false field
 
     // Fetch true/false fields from the database
     $true_false_fields = get_option('ace_custom_true_false_fields', array());
@@ -519,6 +520,7 @@ function ace_field_options_render_true_false_block($attributes) {
         }
     }
 
+
     // Output the block with the selected label
     return sprintf(
         '<p class="wp-block-ace-field-options-true-false-block wp-block-paragraph">%s</p>',
@@ -531,10 +533,6 @@ register_block_type('ace-field-options/true-false-block', array(
     'render_callback' => 'ace_field_options_render_true_false_block',
     'attributes' => array(
         'selectedField' => array(
-            'type' => 'string',
-            'default' => ''
-        ),
-        'trueFalseValue' => array( // Ensure this attribute is defined
             'type' => 'string',
             'default' => ''
         ),
@@ -623,6 +621,8 @@ function modify_post_meta_for_rest($response, $post, $request) {
 
     $meta = $response->data['meta'];
 
+
+
     // Get all dropdown groups from the settings
     $group_names = get_option('ace_custom_dropdown_groups', array());
     $dropdown_groups = array();
@@ -640,38 +640,39 @@ function modify_post_meta_for_rest($response, $post, $request) {
     // Get all true/false fields from the settings
     $true_false_fields = get_option('ace_custom_true_false_fields', array());
 
+
+
     // Modify the meta fields to include the dynamic labels for dropdowns and true/false fields
-    foreach ($meta as $meta_key => $meta_value) {
-        // Handle dropdown group fields
-        foreach ($dropdown_groups as $group) {
-            foreach ($group['options'] as $option) {
-                // Check if the stored value matches the format: ace_custom_group_groupname_optionvalue
-                if (strpos($meta_value, $option['value']) !== false) {
-                    // Replace the meta field with the correct label and value for dropdowns
-                    $response->data['meta'][$meta_key] = array(
-                        'label' => $option['label'],
-                        'value' => $option['value']
-                    );
-                    break 2; // Exit both loops once a match is found
-                }
-            }
-        }
-
-        // Handle true/false fields
-        foreach ($true_false_fields as $field) {
-            if ($meta_key === create_underscored_value($field['name'])) {
-                // Ensure you are checking against the correct stored value
+foreach ($meta as $meta_key => $meta_value) {
+    // Handle dropdown group fields
+    foreach ($dropdown_groups as $group) {
+        foreach ($group['options'] as $option) {
+            // Check if the stored value matches the format: ace_custom_group_groupname_optionvalue
+            if (strpos($meta_value, $option['value']) !== false) {
+                // Replace the meta field with the correct label and value for dropdowns
                 $response->data['meta'][$meta_key] = array(
-                    'label' => $meta_value === '1' ? $field['true_label'] : $field['false_label'],
-                    'value' => $meta_value // This should be '0' or '1'
+                    'label' => $option['label'],
+                    'value' => $option['value']
                 );
+                break 2; // Exit both loops once a match is found
             }
         }
-        
-
-
-        
     }
+
+    // Handle true/false fields
+    foreach ($true_false_fields as $field) {
+        if ($meta_key === create_underscored_value($field['name'])) {
+            // Adjust the check based on how the meta_value is stored
+            $label = ($meta_value === '1' || $meta_value === true) ? $field['true_label'] : $field['false_label'];
+            $response->data['meta'][$meta_key] = array(
+                'label' => $label,
+                'value' => $meta_value // Ensure this is returned correctly
+            );
+            break; // Exit once the field is found
+        }
+    }
+}
+
 
     return $response;
 }
