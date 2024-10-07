@@ -86,6 +86,17 @@ const handleDropdownChange = (newValue) => {
     });
 };
 
+// Dynamically update the content in the editor based on dropdownValue
+useEffect(() => {
+    if (selectedGroup && dropdownValue) {
+        const group = availableGroups.find(group => group?.name === selectedGroup);
+        const selectedOption = group?.options?.find(option => option.value === dropdownValue);
+
+        if (selectedOption) {
+            setAttributes({ dropdownLabel: selectedOption.label });
+        }
+    }
+}, [selectedGroup, dropdownValue, availableGroups]);
 
         // Auto-click the SelectControl when block is selected
         useEffect(() => {
