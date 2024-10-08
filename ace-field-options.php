@@ -75,68 +75,75 @@ function ace_field_options_groups_page_html() {
 
 
     // Load each group's options dynamically from its own wp_option.
-    if (!empty($group_names)) {
-        foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
-            $group_data = get_option($option_name, array());
-            if (!empty($group_data)) {
-                $dropdown_groups[] = $group_data;
-            }
+if (!empty($group_names)) {
+    foreach ($group_names as $group_name) {
+        $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
+        $group_data = get_option($option_name, array());
+        if (!empty($group_data)) {
+            // Ensure show_in_rest is included
+            $group_data['show_in_rest'] = isset($group_data['show_in_rest']) ? $group_data['show_in_rest'] : 0;
+            $dropdown_groups[] = $group_data;
         }
     }
+}
+
 
 // Handle form submission to save both dropdown groups and true/false fields.
 // Handle form submission to save groups, options, and true/false fields.
 if (isset($_POST['save_groups'])) {
     check_admin_referer('save_dropdown_groups');
 
-    // Process and sanitize group options data.
-    if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
-        $dropdown_groups = array_map(function($group) {
-            if (isset($group['name'], $group['options']) && is_array($group['options'])) {
-                return array(
-                    'name' => sanitize_text_field($group['name']),
-                    'options' => array_map(function($option) {
-                        $label = sanitize_text_field($option['label']);
-                        $value = sanitize_text_field($option['value']);
+   // Process and sanitize group options data.
+if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
+    $dropdown_groups = array_map(function($group) {
+        if (isset($group['name'], $group['options']) && is_array($group['options'])) {
+            return array(
+                'name' => sanitize_text_field($group['name']),
+                'options' => array_map(function($option) {
+                    $label = sanitize_text_field($option['label']);
+                    $value = sanitize_text_field($option['value']);
 
-                        if (!empty($option['value'])) {
-                            $value = sanitize_text_field($option['value']); // Use the existing value if not empty
-                        } else {
-                            // Define a new value if it's empty
-                            $value = !empty($label) ? create_underscored_value($label) : '';
-                        }
+                    if (!empty($option['value'])) {
+                        $value = sanitize_text_field($option['value']); // Use the existing value if not empty
+                    } else {
+                        // Define a new value if it's empty
+                        $value = !empty($label) ? create_underscored_value($label) : '';
+                    }
 
-                        return array(
-                            'label' => $label,
-                            'value' => $value,
-                        );
-                    }, $group['options']),
-                );
-            }
-            return null;
-        }, $_POST['dropdown_groups']);
-        $dropdown_groups = array_filter($dropdown_groups); // Remove invalid groups.
-    } else {
-        $dropdown_groups = array();
-    }
+                    return array(
+                        'label' => $label,
+                        'value' => $value,
+                    );
+                }, $group['options']),
+                // Save show_in_rest for the group
+                'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
+            );
+        }
+        return null;
+    }, $_POST['dropdown_groups']);
+    $dropdown_groups = array_filter($dropdown_groups); // Remove invalid groups.
+} else {
+    $dropdown_groups = array();
+}
+
 
     // Process and sanitize true/false fields data.
     // Save true/false fields as a single option.
 // Process and sanitize true/false fields data.
+// Process submitted true/false fields
 if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields'])) {
     // Load current true/false fields from the database
     $current_true_false_fields = get_option('ace_custom_true_false_fields', array());
 
-
-    // Process submitted true/false fields
-    foreach ($_POST['true_false_fields'] as $field) {
+    foreach ($_POST['true_false_fields'] as $field_index => $field) {
         if (isset($field['name'], $field['true_label'], $field['false_label'])) {
             // Create a unique option name for each field
             $field_name = create_underscored_value($field['name']);
             $data = array(
                 'true_label' => sanitize_text_field($field['true_label']),
                 'false_label' => sanitize_text_field($field['false_label']),
+                // Capture the checkbox state and store it as 1 (checked) or 0 (unchecked)
+                'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0, // Check if the checkbox was checked
             );
 
             // Save each field as its own option
@@ -144,6 +151,7 @@ if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields']))
         }
     }
 }
+
 
 // Load all true/false fields into an array for display
 $true_false_fields = []; // Initialize empty array
@@ -154,6 +162,7 @@ foreach ($_POST['true_false_fields'] as $field) {
             'name' => $field['name'],
             'true_label' => get_option("ace_custom_true_false_field_{$field_name}")['true_label'] ?? '',
             'false_label' => get_option("ace_custom_true_false_field_{$field_name}")['false_label'] ?? '',
+            'show_in_rest' => get_option("ace_custom_true_false_field_{$field_name}")['show_in_rest'] ?? 0, // Load the checkbox state
         ];
     }
 }
@@ -518,10 +527,8 @@ register_block_type('ace-field-options/true-false-block', array(
 ));
 
 
-
-
 add_action('rest_api_init', function() {
-    register_rest_route('ace/v1', '/meta/(?P<id>\d+)', array(
+    register_rest_route('ace/v1', '/meta/(?P<id>\d+)(/(?P<field>[a-zA-Z_]+))?', array(
         'methods' => 'GET',
         'callback' => 'get_post_meta_fields',
         'permission_callback' => '__return_true',
@@ -550,36 +557,65 @@ function get_post_meta_fields($data) {
         foreach ($group_names as $group_name) {
             $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
             $group_data = get_option($option_name, array());
-            if (!empty($group_data)) {
-                $dropdown_groups[] = $group_data;
+
+            // Check if the group should be shown in REST
+            if (empty($group_data['show_in_rest'])) { // Treat empty or missing as false
+                continue; // Skip this group if it shouldn't be shown
             }
-        }
-    }
 
-    // Loop through post meta and process each field
-    foreach ($meta as $meta_key => $meta_value) {
-        // Only include keys that don't start with '_'
-        if (strpos($meta_key, '_') !== 0) {
-            $stored_value = maybe_unserialize($meta_value[0]); // Unserialize if needed
-
-            // Match the stored value (e.g., "ace_custom_group_spot_condition_dirty")
-            foreach ($dropdown_groups as $group) {
-                foreach ($group['options'] as $option) {
-                    // Match the stored value by checking if it contains the option value
-                    if (strpos($stored_value, $option['value']) !== false) {
+            $meta_key = create_underscored_value($group_name); // Get the key for the field
+            
+            // Match the stored value for dropdown groups
+            if (isset($meta[$meta_key])) {
+                $stored_value = maybe_unserialize($meta[$meta_key][0]); // Unserialize if needed
+                
+                foreach ($group_data['options'] as $option) {
+                    if ($stored_value === $option['value']) { // Compare the stored value with option value
                         // Store the label and value in the filtered meta
                         $filtered_meta[$meta_key] = array(
                             'label' => $option['label'],
                             'value' => $option['value']
                         );
-                        break 2; // Exit both loops once a match is found
+                        break; // Exit loop once a match is found
                     }
                 }
             }
         }
     }
 
-    return $filtered_meta; // Return the filtered meta array with label and value
+    // Handle true/false fields
+    $true_false_fields = get_option('ace_custom_true_false_fields', array());
+
+    foreach ($true_false_fields as $field) {
+        $meta_key = create_underscored_value($field['name']); // Get the key for the field
+
+        if (isset($meta[$meta_key])) { // Check if the meta exists
+            // Check if this field should be shown in REST API
+            if (empty($field['show_in_rest'])) { // Treat empty or missing as false
+                continue; // Skip this field if it shouldn't be shown
+            }
+
+            $meta_value = $meta[$meta_key]; // Get the meta value
+            $label = ($meta_value[0] == 1) ? $field['true_label'] : $field['false_label'];
+
+            $filtered_meta[$meta_key] = array(
+                'label' => $label,
+                'value' => $meta_value // Ensure this is returned correctly
+            );
+        }
+    }
+
+    // Check if a specific field is requested
+    if (isset($data['field'])) {
+        $field_key = create_underscored_value($data['field']);
+        if (array_key_exists($field_key, $filtered_meta)) {
+            return new WP_REST_Response($filtered_meta[$field_key]); // Return the specific field data
+        } else {
+            return new WP_Error('rest_field_invalid', __('Invalid field specified.'), array('status' => 404));
+        }
+    }
+
+    return new WP_REST_Response($filtered_meta); // Return the filtered meta array with label and value
 }
 
 
@@ -592,13 +628,10 @@ add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
 function modify_post_meta_for_rest($response, $post, $request) {
     // Check if the request is for the frontend (view context)
     if ($request->get_param('context') !== 'view') {
-        // If it's not a view (e.g., it's edit), return the response unmodified
-        return $response;
+        return $response; // Return unmodified response for non-view contexts
     }
 
     $meta = $response->data['meta'];
-
-
 
     // Get all dropdown groups from the settings
     $group_names = get_option('ace_custom_dropdown_groups', array());
@@ -608,51 +641,78 @@ function modify_post_meta_for_rest($response, $post, $request) {
         foreach ($group_names as $group_name) {
             $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
             $group_data = get_option($option_name, array());
-            if (!empty($group_data)) {
-                $dropdown_groups[] = $group_data;
+            $meta_key = create_underscored_value($group_name); // Get the key for the field
+    
+            // Check if the group should be shown in REST
+            if (empty($group_data['show_in_rest'])) { // Treat empty or missing as false
+                unset($response->data['meta'][$meta_key]); // Remove if not allowed in REST
+            } else {
+                // Initialize variables for the label and value
+
+
+                $label = '';
+                $value = '';
+    
+                // Match the stored value for dropdown groups
+                if (isset($meta[$meta_key])) {
+                    $stored_value = $meta[$meta_key]; // Get the stored value from the meta
+                    
+                    foreach ($group_data['options'] as $option) {
+                        if ($stored_value === $option['value']) { // Compare the stored value with option value
+                            // Store the label and value in the filtered meta
+                            $label = $option['label'];
+                            $value = $option['value'];
+                         //   print_r($value);
+
+                            break; // Exit loop once a match is found
+                        }
+                    }
+                }
+    
+                // Only add to the response if a matching option was found
+                if ($label !== '' && $value !== '') {
+                    // Structure the response correctly
+                    $response->data['meta'][$meta_key] = array(
+                        'label' => $label,
+                        'value' => $value // Return the matched label and value
+                    );
+                }
             }
         }
     }
+    
 
-    // Get all true/false fields from the settings
-    $true_false_fields = get_option('ace_custom_true_false_fields', array());
-
-
-
-    // Modify the meta fields to include the dynamic labels for dropdowns and true/false fields
-foreach ($meta as $meta_key => $meta_value) {
-    // Handle dropdown group fields
-    foreach ($dropdown_groups as $group) {
-        foreach ($group['options'] as $option) {
-            // Check if the stored value matches the format: ace_custom_group_groupname_optionvalue
-            if (strpos($meta_value, $option['value']) !== false) {
-                // Replace the meta field with the correct label and value for dropdowns
-                $response->data['meta'][$meta_key] = array(
-                    'label' => $option['label'],
-                    'value' => $option['value']
-                );
-                break 2; // Exit both loops once a match is found
-            }
-        }
-    }
 
     // Handle true/false fields
+    $true_false_fields = get_option('ace_custom_true_false_fields', array());
+
     foreach ($true_false_fields as $field) {
-        if ($meta_key === create_underscored_value($field['name'])) {
-            // Adjust the check based on how the meta_value is stored
-            $label = ($meta_value === '1' || $meta_value === true) ? $field['true_label'] : $field['false_label'];
-            $response->data['meta'][$meta_key] = array(
-                'label' => $label,
-                'value' => $meta_value // Ensure this is returned correctly
-            );
-            break; // Exit once the field is found
+        $meta_key = create_underscored_value($field['name']); // Get the key for the field
+
+        if (isset($meta[$meta_key])) { // Check if the meta exists
+            // Check if this field should be shown in REST API
+            if (empty($field['show_in_rest'])) { // Treat empty or missing as false
+                unset($response->data['meta'][$meta_key]); // Optionally remove the field from response if show_in_rest is false
+            } else {
+                $meta_value = $meta[$meta_key];
+                // Adjust the check based on how the meta_value is stored
+                $label = ($meta_value === '1' || $meta_value === true) ? $field['true_label'] : $field['false_label'];
+                $response->data['meta'][$meta_key] = array(
+                    'label' => $label,
+                    'value' => $meta_value // Return the meta value
+                );
+            }
         }
     }
+
+
+    return new WP_REST_Response($response);  // Return the filtered meta array with label and value
+
 }
 
 
-    return $response;
-}
+
+
 
 
 

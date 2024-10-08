@@ -39,11 +39,17 @@
                             />
                         </td>
                         <td class="action column-action">
-                    <label for="show_in_rest_<?php echo esc_attr($group_index); ?>_<?php echo esc_attr($option_index); ?>">Show in Rest API</label>
-                    <input type="checkbox" id="show_in_rest_<?php echo esc_attr($group_index); ?>_<?php echo esc_attr($option_index); ?>" name="dropdown_groups[<?php echo esc_attr($group_index); ?>][options][<?php echo esc_attr($option_index); ?>][show_in_rest]" value="1" <?php checked(!empty($option['show_in_rest'])); ?> />
-                   
-                            <button type="button" class="button remove-field">Remove</button>
-                        </td>
+    <label for="show_in_rest_<?php echo esc_attr($field_index); ?>">Show in Rest API</label>
+    <input 
+        type="checkbox" 
+        id="show_in_rest_<?php echo esc_attr($field_index); ?>" 
+        name="true_false_fields[<?php echo esc_attr($field_index); ?>][show_in_rest]" 
+        value="1" 
+        <?php checked(!empty($field['show_in_rest'])); ?> 
+    />
+    <button type="button" class="button remove-field">Remove</button>
+</td>
+
                     </tr>
                 <?php endforeach; ?>
             <?php else : ?>
