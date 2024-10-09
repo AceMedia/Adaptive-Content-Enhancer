@@ -48,7 +48,7 @@
                                     <?php checked(!empty($field['show_in_rest'])); ?> 
                                 />
                                 <a href="<?php echo admin_url('admin.php?page=ace-dropdown-groups&edit=' . esc_attr(create_underscored_value($field['name']))); ?>" class="button">Edit Field</a>
-                                <button type="button" class="button remove-field">Remove</button>
+                                <button type="button" class="button remove-this" data-group-name="<?php echo create_underscored_value($field['name']); ?>">Remove Group</button>
                             </td>
                         </tr>
                     <?php endif; ?>

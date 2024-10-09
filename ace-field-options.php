@@ -89,6 +89,8 @@ function ace_field_options_groups_page_html() {
 
     $true_false_fields = get_option('ace_custom_true_false_fields', array());
 
+    print_r($true_false_fields);
+
 
   // Check if we're editing a specific group or field
   $edit_key = isset($_GET['edit']) ? sanitize_text_field($_GET['edit']) : '';
@@ -784,34 +786,36 @@ function acefields_register_true_false_meta() {
 }
 
 
-// Handle the AJAX request to delete a dropdown group
-add_action('wp_ajax_delete_dropdown_group', 'ace_delete_dropdown_group');
+// Handle the AJAX request to delete any WP option
+add_action('wp_ajax_delete_wp_option', 'ace_delete_wp_option');
 
-function ace_delete_dropdown_group() {
+function ace_delete_wp_option() {
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Unauthorized', 403);
     }
 
-    // Check if the group name is set
+    // Check if the option name is set
     if (isset($_POST['group_name'])) {
         $group_name = sanitize_text_field($_POST['group_name']);
-        $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
+        $option_name = 'ace_custom_group_' . create_underscored_value($group_name); // Use 'group_name' from the request
 
-        // Delete the group option
+        // Delete the option
         if (delete_option($option_name)) {
-            // Update the existing group names
-            $existing_group_names = get_option('ace_custom_dropdown_groups', array());
-            $existing_group_names = array_diff($existing_group_names, array($group_name));
-            update_option('ace_custom_dropdown_groups', $existing_group_names);
-
-            wp_send_json_success('Group deleted successfully');
+            // Remove the group name from the list of group names
+            $group_names = get_option('ace_custom_dropdown_groups', array());
+            if (($key = array_search($group_name, $group_names)) !== false) {
+                unset($group_names[$key]);
+                update_option('ace_custom_dropdown_groups', array_values($group_names)); // Reindex the array
+            }
+            wp_send_json_success('Option deleted successfully');
         } else {
-            wp_send_json_error('Group not found');
+            wp_send_json_error('Option not found');
         }
     } else {
-        wp_send_json_error('Invalid group name');
+        wp_send_json_error('Invalid option name');
     }
 }
+
 
 
 ?>

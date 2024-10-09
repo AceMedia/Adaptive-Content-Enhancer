@@ -59,7 +59,7 @@
                                 <?php checked(!empty($group['show_in_rest'])); ?> 
                             />
                             <a href="<?php echo admin_url('admin.php?page=ace-dropdown-groups&edit=' . esc_attr($meta_key)); ?>" class="button">Edit Group</a>
-                            <button type="button" class="button remove-group">Remove Group</button>
+                            <button type="button" class="button remove-this" data-group-name="<?php echo esc_attr($meta_key); ?>">Remove Group</button>
                         </td>
                     </tr>
                 <?php endif; ?>
