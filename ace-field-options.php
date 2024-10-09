@@ -406,8 +406,12 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
             const optionIndex = optionsTable.children.length;
             const newRow = document.createElement('tr');
             
+            // Determine if we are in single edit view based on the URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const editKey = urlParams.has('edit');
+
             // Handle the input name differently based on the view (single view vs main view)
-            if (groupIndex !== null) {
+            if (!editKey) {
                 // Main view (multiple groups): Include groupIndex in the input names
                 newRow.innerHTML = `
                     <td><input type="text" name="dropdown_groups[${groupIndex}][options][${optionIndex}][label]" value="" /></td>
@@ -417,8 +421,8 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
             } else {
                 // Single view (one group): Don't include groupIndex in the input names
                 newRow.innerHTML = `
-                    <td><input type="text" name="group[options][${optionIndex}][label]" value="" /></td>
-                    <td><input type="text" name="group[options][${optionIndex}][value]" value="" /></td>
+                    <td><input type="text" name="dropdown_groups[0][options][${optionIndex}][label]" value="" /></td>
+                    <td><input type="text" name="dropdown_groups[0][options][${optionIndex}][value]" value="" /></td>
                     <td><button type="button" class="button remove-option">Remove</button></td>
                 `;
             }
