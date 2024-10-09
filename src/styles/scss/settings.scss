@@ -8,3 +8,10 @@ table {
 .column-action {
     text-align: right;
 }
+
+.wp-core-ui {
+    button.are-you-sure:focus {
+        background: red;
+        color: white;
+    }
+}

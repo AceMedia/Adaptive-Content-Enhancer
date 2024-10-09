@@ -5,6 +5,7 @@ module.exports = {
     entry: {
         options: './src/blocks/options.js', // Dropdown block entry point
         truefalse: './src/blocks/truefalse.js', // True/False block entry point
+        ajax: './src/ajax.js', // True/False block entry point
     },
     output: {
         filename: '[name].js', // This ensures all entry points are built
