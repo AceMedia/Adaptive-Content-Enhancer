@@ -651,12 +651,13 @@ register_block_type('ace-field-options/true-false-block', array(
 
 
 add_action('rest_api_init', function() {
-    register_rest_route('ace/v1', '/meta/(?P<id>\d+)(/(?P<field>[a-zA-Z_]+))?', array(
+    register_rest_route('ace/v1', '/meta/(?P<id>\d+)(/(?P<field>[\w\d_]+))?(:(?P<part>label|value))?', array(
         'methods' => 'GET',
         'callback' => 'get_post_meta_fields',
         'permission_callback' => '__return_true',
     ));
 });
+
 
 function get_post_meta_fields($data) {
     $post_id = $data['id'];
@@ -672,9 +673,13 @@ function get_post_meta_fields($data) {
     // Initialize an empty array for filtered meta
     $filtered_meta = array();
 
-    // Fetch all dropdown option groups dynamically by filtering options by field_type: dropdown
+    // Fetch dropdown groups
     $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
+    // Fetch true/false fields
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+
+    // Handle dropdown groups (missing logic)
     if (!empty($dropdown_groups)) {
         foreach ($dropdown_groups as $group_data) {
             // Check if the group should be shown in REST
@@ -687,7 +692,7 @@ function get_post_meta_fields($data) {
             // Match the stored value for Option Groups
             if (isset($meta[$meta_key])) {
                 $stored_value = maybe_unserialize($meta[$meta_key][0]); // Unserialize if needed
-                
+
                 foreach ($group_data['options'] as $option) {
                     if ($stored_value === $option['value']) { // Compare the stored value with option value
                         // Store the label and value in the filtered meta
@@ -702,9 +707,7 @@ function get_post_meta_fields($data) {
         }
     }
 
-    // Fetch all true/false fields dynamically by filtering options by field_type: truefalse
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
-
+    // Process true/false fields (existing logic)
     foreach ($true_false_fields as $field) {
         $meta_key = create_underscored_value($field['name']); // Get the key for the true/false field
 
@@ -727,8 +730,17 @@ function get_post_meta_fields($data) {
     // Check if a specific field is requested
     if (isset($data['field'])) {
         $field_key = create_underscored_value($data['field']);
+
+        // Check if the field exists in the filtered_meta
         if (array_key_exists($field_key, $filtered_meta)) {
-            return new WP_REST_Response($filtered_meta[$field_key]); // Return the specific field data
+            $field_data = $filtered_meta[$field_key]; // Get the specific field data
+
+            // Check if a specific part (label or value) is requested
+            if (isset($data['part']) && in_array($data['part'], ['label', 'value'])) {
+                return new WP_REST_Response($field_data[$data['part']]); // Return the requested part
+            }
+
+            return new WP_REST_Response($field_data); // Return the full field data if no specific part is requested
         } else {
             return new WP_Error('rest_field_invalid', __('Invalid field specified.'), array('status' => 404));
         }
@@ -736,6 +748,9 @@ function get_post_meta_fields($data) {
 
     return new WP_REST_Response($filtered_meta); // Return the filtered meta array with label and value
 }
+
+
+
 
 add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
 
