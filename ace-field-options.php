@@ -74,6 +74,38 @@ function create_underscored_value($string) {
     return strtolower(str_replace(' ', '_', $string));
 }
 
+// Load all options and filter based on custom logic
+$all_options = wp_load_alloptions();
+
+// Fetch true/false fields after saving dynamically from updated options
+$true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+
+// If you need to load fresh options, do it within the filter function
+add_filter('filter_wp_options_by_field_type', 'filter_options_by_field_type', 10, 2);
+function filter_options_by_field_type($all_options, $type) {
+    if ($all_options === null) {
+        // Load fresh options if $all_options is null
+        $all_options = wp_load_alloptions();
+    }
+
+    $filtered_options = array();
+
+    foreach ($all_options as $option_name => $value) {
+        if (strpos($option_name, 'ace_custom_') === 0) {
+            $field_data = get_option($option_name, array());
+
+            if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === $type) {
+                $filtered_options[] = $field_data;
+            }
+        }
+    }
+
+    return $filtered_options;
+}
+
+
+// Fetch dropdown groups after saving dynamically from updated options
+$dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
 
 
@@ -83,37 +115,72 @@ function ace_field_options_groups_page_html() {
         return;
     }
 
-    // Retrieve the list of group names from the database.
-    $group_names = get_option('ace_custom_dropdown_groups', array());
-    $dropdown_groups = array();
-
-    $true_false_fields = get_option('ace_custom_true_false_fields', array());
-
-    print_r($true_false_fields);
-
 
   // Check if we're editing a specific group or field
   $edit_key = isset($_GET['edit']) ? sanitize_text_field($_GET['edit']) : '';
   $field_type = ''; // New variable to determine the field type
 
-  // Retrieve the list of group names from the database.
-  $group_names = get_option('ace_custom_dropdown_groups', array());
-  $dropdown_groups = array();
+// Retrieve all Option Groups again to display the newly added ones
+$dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
-  if (!empty($group_names)) {
-    foreach ($group_names as $group_name) {
-        $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
-        $group_data = get_option($option_name, array());
-        
-        // Always load the group data
-        $group_data['show_in_rest'] = isset($group_data['show_in_rest']) ? $group_data['show_in_rest'] : 0;
-        $dropdown_groups[] = $group_data; // Add all groups to the dropdowns
+
+
+
+// Loop through all true/false fields stored individually
+$true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
+print_r($true_false_fields, true);
+
+foreach ($all_options as $option_name => $value) {
+    if (strpos($option_name, 'ace_custom_') === 0) {
+        // Retrieve only the true/false fields
+        $field_data = get_option($option_name, array());
+
+        if (!empty($field_data)) {
+            $true_false_fields[] = $field_data;
+        }
     }
 }
 
-// Now, we can handle true/false fields regardless of Option Groups
-$true_false_fields = get_option('ace_custom_true_false_fields', array());
 
+// Handle saving/updating a specific group in single edit mode.
+if (isset($_GET['edit'])) {
+    $edit_group_name = sanitize_text_field($_GET['edit']);
+    $edit_option_name = 'ace_custom_' . create_underscored_value($edit_group_name);
+
+    // Process form data for the edited group.
+    if (isset($_POST['group']) && is_array($_POST['group'])) {
+
+        $group = $_POST['group'];
+
+        // Ensure both name and options are present
+        if (isset($group['name'], $group['options']) && is_array($group['options'])) {
+            $group_data = array(
+                'name' => sanitize_text_field($group['name']),
+                'options' => array_map(function ($option) {
+                    $value = !empty($option['value']) ? create_underscored_value($option['value']) : sanitize_text_field($option['label']);
+                    return array(
+                        'label' => sanitize_text_field($option['label']),
+                        'value' => $value,
+                    );
+                }, $group['options']),
+                'field_type' => 'dropdown',
+                'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
+            );
+
+            // Save or update the group data with the new option(s)
+            $updated = update_option($edit_option_name, $group_data);
+
+            if ($updated) {
+                echo '<div class="updated"><p>Group updated successfully.</p></div>';
+                
+                // Reload the updated group data to ensure it's correctly repopulated in the form
+                $group_data = get_option($edit_option_name, array());
+            } else {
+                echo '<div class="error"><p>Failed to update the group. Please try again.</p></div>';
+            }
+        }
+    }
+}
 
 
 // Handle form submission to save both Option Groups and true/false fields.
@@ -121,56 +188,57 @@ if (isset($_POST['save_groups'])) {
     check_admin_referer('save_dropdown_groups');
 
     // Retrieve the existing group names
-    $existing_group_names = get_option('ace_custom_dropdown_groups', array());
+    $existing_group_names = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
     // Initialize array for new group names
     $new_group_names = array();
+    
 
-    // Process and sanitize group options data.
-    if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
-        foreach ($_POST['dropdown_groups'] as $group) {
-            if (isset($group['name'], $group['options']) && is_array($group['options'])) {
-                // Create the sanitized name for the group
-                $sanitized_name = sanitize_text_field($group['name']);
-                $option_name = 'ace_custom_group_' . create_underscored_value($sanitized_name);
+// Save or update group names
+if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
+    // Retrieve the existing group names
+    $existing_group_names = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
-                // Prepare the group data to be saved
-                $group_data = array(
-                    'name' => $sanitized_name,
-                    'options' => array_map(function($option) {
-                        $value = !empty($option['value']) ? create_underscored_value($option['value']) : sanitize_text_field($option['label']);
-                        return array(
-                            'label' => sanitize_text_field($option['label']),
-                            'value' => $value,
-                        );
-                    }, $group['options']),
-                    // Save show_in_rest for the group
-                    'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
-                );
+    foreach ($_POST['dropdown_groups'] as $group) {
+        if (isset($group['name'], $group['options']) && is_array($group['options'])) {
+            // Create the sanitized name for the group
+            $sanitized_name = sanitize_text_field($group['name']);
+            $option_name = 'ace_custom_' . create_underscored_value($sanitized_name);
 
-                // Check if this group already exists
-                if (in_array($sanitized_name, $existing_group_names)) {
-                    // Update the existing group
-                    update_option($option_name, $group_data);
-                } else {
-                    // Add the new group
-                    update_option($option_name, $group_data);
-                    $new_group_names[] = $sanitized_name; // Collect new group names
-                }
+            // Prepare the group data to be saved
+            $group_data = array(
+                'name' => $sanitized_name,
+                'options' => array_map(function ($option) {
+                    $value = !empty($option['value']) ? create_underscored_value($option['value']) : sanitize_text_field($option['label']);
+                    return array(
+                        'label' => sanitize_text_field($option['label']),
+                        'value' => $value,
+                    );
+                }, $group['options']),
+                'field_type' => 'dropdown',
+                'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
+            );
+
+            // Save or update the group as its own option
+            update_option($option_name, $group_data);
+
+            // Add the group name to the existing group list if it's not already there
+            if (!in_array($sanitized_name, $existing_group_names)) {
+                $existing_group_names[] = $sanitized_name;
             }
         }
     }
 
-    // Save the updated list of group names
-    update_option('ace_custom_dropdown_groups', array_unique(array_merge($existing_group_names, $new_group_names)));
+    // Update the list of group names in the database to reflect any new groups
+}
 
-    // Retrieve all Option Groups again to display the newly added ones
-    $dropdown_groups = array();
-    $group_names = get_option('ace_custom_dropdown_groups', array());
+
+
+$dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
     if (!empty($group_names)) {
         foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
+            $option_name = 'ace_custom_' . create_underscored_value($group_name);
             $group_data = get_option($option_name, array());
 
             // If editing a specific group, only include that one; otherwise, include all
@@ -182,64 +250,39 @@ if (isset($_POST['save_groups'])) {
         }
     }
 
-    // Process and sanitize true/false fields data.
-if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields'])) {
-    // Load current true/false fields from the database
-    $current_true_false_fields = get_option('ace_custom_true_false_fields', array());
+ // Reset the true_false_fields array to avoid duplication
+ $true_false_fields = array(); // Reset the array before repopulating
 
-    // Initialize an array to hold updated true/false fields
-    $updated_true_false_fields = $current_true_false_fields; // Start with the current fields
+ // Handle saving true/false fields
+ if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields'])) {
+     foreach ($_POST['true_false_fields'] as $field) {
+         // Ensure the field has a valid name, true label, and false label before proceeding
+         if (!empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label'])) {
+             $field_name = create_underscored_value($field['name']);
+     
+             // Proceed with saving the true/false field
+             $data = array(
+                 'name' => sanitize_text_field($field['name']),
+                 'true_label' => sanitize_text_field($field['true_label']),
+                 'false_label' => sanitize_text_field($field['false_label']),
+                 'field_type' => 'truefalse',
+                 'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
+             );
+             
+             // Save or update the option
+             update_option("ace_custom_{$field_name}", $data);
+         }
+     }
+ }
 
-    foreach ($_POST['true_false_fields'] as $field_index => $field) {
-        if (isset($field['name'], $field['true_label'], $field['false_label'])) {
-            // Create a unique option name for each field
-            $field_name = create_underscored_value($field['name']);
-            $data = array(
-                'true_label' => sanitize_text_field($field['true_label']),
-                'false_label' => sanitize_text_field($field['false_label']),
-                'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
-            );
+ // Repopulate true_false_fields after saving
+ $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+ 
+ // Filter fields to ensure only valid ones are shown
+ $true_false_fields = array_filter($true_false_fields, function($field) {
+     return !empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label']);
+ });
 
-            // Check if this field is already in the updated array
-            $field_exists = false;
-
-            foreach ($updated_true_false_fields as $key => $existing_field) {
-                if (create_underscored_value($existing_field['name']) === $field_name) {
-                    // Update the existing field
-                    $updated_true_false_fields[$key] = array_merge($existing_field, $data);
-                    $field_exists = true;
-                    break;
-                }
-            }
-
-            // If it doesn't exist, it's a new field
-            if (!$field_exists) {
-                $updated_true_false_fields[] = array_merge(['name' => $field['name']], $data);
-            }
-
-            // Save or update each field as its own option
-            update_option("ace_custom_true_false_field_{$field_name}", $data);
-        }
-    }
-
-    // Save the updated true/false fields in a single option for easy retrieval
-    update_option('ace_custom_true_false_fields', $updated_true_false_fields);
-}
-
-
-    // Load all true/false fields into an array for display
-    $true_false_fields = []; // Initialize empty array
-    foreach ($_POST['true_false_fields'] as $field) {
-        if (isset($field['name'])) {
-            $field_name = create_underscored_value($field['name']);
-            $true_false_fields[] = [
-                'name' => $field['name'],
-                'true_label' => get_option("ace_custom_true_false_field_{$field_name}")['true_label'] ?? '',
-                'false_label' => get_option("ace_custom_true_false_field_{$field_name}")['false_label'] ?? '',
-                'show_in_rest' => get_option("ace_custom_true_false_field_{$field_name}")['show_in_rest'] ?? 0, // Load the checkbox state
-            ];
-        }
-    }
     
     echo '<div class="updated"><p>Settings saved.</p></div>';
 }
@@ -253,7 +296,6 @@ if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields']))
     <h1>Manage Option Groups and True/False Fields</h1>
     <form method="POST">
         <?php wp_nonce_field('save_dropdown_groups'); 
-        print_R($field_type); 
 
 
                         include 'templates/settings-options.php';
@@ -262,11 +304,9 @@ if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields']))
         <p><button type="button" class="button add-group">Add New Group</button></p>
 
        <!-- Adding True/False Fields Section -->
-    <?php if (!empty($true_false_fields)) : ?>
-        <?php foreach ($true_false_fields as $field_index => $field) :
+        <?php 
             include_once 'templates/settings-truefalse.php';
-         endforeach; ?>
-    <?php endif; ?>
+         ?>
 <?php submit_button('Save Settings', 'primary', 'save_groups'); ?>
 
     </form>
@@ -312,10 +352,10 @@ if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields']))
             <input type="text" name="true_false_fields[${fieldIndex}][name]" value="" placeholder="Field Name" />
         </td>
         <td class="true-label column-true-label">
-            <input type="text" name="true_false_fields[${fieldIndex}][true_label]" value="" placeholder="Label for True" />
+            <input type="text" name="true_false_fields[${fieldIndex}][true_label]" value="True" placeholder="Label for True" />
         </td>
         <td class="false-label column-false-label">
-            <input type="text" name="true_false_fields[${fieldIndex}][false_label]" value="" placeholder="Label for False" />
+            <input type="text" name="true_false_fields[${fieldIndex}][false_label]" value="False" placeholder="Label for False" />
         </td>
         <td class="action column-action">
             <button type="button" class="button remove-field">Remove</button>
@@ -346,28 +386,52 @@ if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields']))
         });
 
 
-         // Add new option to a group
-         document.addEventListener('click', function(e) {
-                if (e.target && e.target.classList.contains('add-option')) {
-                    const groupRow = e.target.closest('.dropdown-group-row');
-                    const groupIndex = [...groupRow.parentElement.children].indexOf(groupRow);
-                    const optionsTable = groupRow.querySelector('.group-options-table tbody');
-                    const optionIndex = optionsTable.children.length;
-                    const newRow = document.createElement('tr');
-                    newRow.innerHTML = `
-                        <td><input type="text" name="dropdown_groups[${groupIndex}][options][${optionIndex}][label]" value="" /></td>
-                        <td><input type="text" name="dropdown_groups[${groupIndex}][options][${optionIndex}][value]" value="" /></td>
-                        <td><button type="button" class="button remove-option">Remove</button></td>
-                        `;
-                    optionsTable.appendChild(newRow);
-                }
+        document.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('add-option')) {
+            // Check if we're in single edit view or main view
+            const groupRow = e.target.closest('.dropdown-group-row');
+            let groupIndex, optionsTable;
 
-                // Remove option
-                if (e.target && e.target.classList.contains('remove-option')) {
-                    e.target.closest('tr').remove();
-                }
+            // Single Edit View: No groupRow, so target the single group's table directly
+            if (!groupRow) {
+                optionsTable = document.querySelector('.group-options-table tbody'); // Single group view
+                groupIndex = null; // No group index needed for single view
+            } else {
+                // Main View: Handle multiple groups by calculating groupIndex
+                groupIndex = [...groupRow.parentElement.children].indexOf(groupRow);
+                optionsTable = groupRow.querySelector('.group-options-table tbody'); // Target the options table in the current group row
+            }
 
-            });
+            // Get the current number of options to append the new one
+            const optionIndex = optionsTable.children.length;
+            const newRow = document.createElement('tr');
+            
+            // Handle the input name differently based on the view (single view vs main view)
+            if (groupIndex !== null) {
+                // Main view (multiple groups): Include groupIndex in the input names
+                newRow.innerHTML = `
+                    <td><input type="text" name="dropdown_groups[${groupIndex}][options][${optionIndex}][label]" value="" /></td>
+                    <td><input type="text" name="dropdown_groups[${groupIndex}][options][${optionIndex}][value]" value="" /></td>
+                    <td><button type="button" class="button remove-option">Remove</button></td>
+                `;
+            } else {
+                // Single view (one group): Don't include groupIndex in the input names
+                newRow.innerHTML = `
+                    <td><input type="text" name="group[options][${optionIndex}][label]" value="" /></td>
+                    <td><input type="text" name="group[options][${optionIndex}][value]" value="" /></td>
+                    <td><button type="button" class="button remove-option">Remove</button></td>
+                `;
+            }
+
+            // Append the new row to the options table
+            optionsTable.appendChild(newRow);
+        }
+
+        // Remove option
+        if (e.target && e.target.classList.contains('remove-option')) {
+            e.target.closest('tr').remove(); // Remove the option row
+        }
+    });
     });
 </script>
 
@@ -393,65 +457,81 @@ function ace_field_options_enqueue_editor_assets() {
         filemtime( plugin_dir_path( __FILE__ ) . 'assets/truefalse.js' )
     );
 
-    // Pass Option Groups to editor
-    $group_names = get_option('ace_custom_dropdown_groups', array());
-    $dropdown_groups = array();
+    // Fetch dropdown groups dynamically by field_type: dropdown
+    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
-    if (!empty($group_names)) {
-        foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
-            $group_data = get_option($option_name, array());
-            if (!empty($group_data)) {
-                $dropdown_groups[] = $group_data;
-            }
-        }
-    }
+    // Fetch true/false fields dynamically by field_type: truefalse
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
-    // Localize Option Groups and true/false fields
+    // Localize the dropdown groups for the dropdown block editor script
     wp_localize_script('ace-field-options-block-editor', 'dropdownGroups', $dropdown_groups);
 
-    // Fetch true/false fields
-    $true_false_fields = get_option('ace_custom_true_false_fields', array());
+    // Localize the true/false fields for the true/false block editor script
     wp_localize_script('ace-field-options-truefalse-editor', 'trueFalseFields', $true_false_fields);
 }
 add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_assets');
 
 
-// Register post meta fields dynamically based on Option Groups
+
+// Register post meta fields dynamically based on Option Groups and True/False fields
 add_action('init', 'acefields_register_dynamic_meta');
 
 function acefields_register_dynamic_meta() {
-    $group_names = get_option('ace_custom_dropdown_groups', array());
+    // Fetch Option Groups (Dropdowns) using the filter
+    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
-    if (!empty($group_names)) {
-        foreach ($group_names as $group_name) {
+    // Register post meta fields for Dropdown groups
+    if (!empty($dropdown_groups)) {
+        foreach ($dropdown_groups as $group_data) {
             // Create the sanitized meta key from the group name
-            $group_name_key = create_underscored_value($group_name);
+            $group_name_key = create_underscored_value($group_data['name']);
 
-            // Register meta field for each valid group
+            // Register meta field for each valid dropdown group
             register_post_meta(
                 'post',
                 $group_name_key,
                 array(
                     'show_in_rest'      => true,
                     'single'            => true,
-                    'type'              => 'string', // Type should be string, even though we will store serialized arrays
+                    'type'              => 'string', // Type should be string, even though we might store serialized arrays
                     'sanitize_callback' => 'acefields_sanitize_serialized_meta', // Custom sanitize function
                 )
             );
         }
     }
+
+    // Fetch True/False fields using the filter
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+
+    // Register post meta fields for True/False fields
+    if (!empty($true_false_fields)) {
+        foreach ($true_false_fields as $field_data) {
+            $field_name_key = create_underscored_value($field_data['name']);
+    
+            // Register each true/false field as a post meta field
+            register_post_meta(
+                'post',
+                $field_name_key,
+                array(
+                    'show_in_rest'      => true,
+                    'single'            => true,
+                    'type'              => 'boolean',
+                    'sanitize_callback' => 'rest_sanitize_boolean', // Sanitize boolean values
+                )
+            );
+        }
+    }
+    
 }
 
+// Custom sanitize function for serialized meta data
 function acefields_sanitize_serialized_meta($meta_value) {
     if (is_array($meta_value) || is_object($meta_value)) {
-        // Convert arrays/objects to JSON string
+        // Convert arrays/objects to JSON string for storage
         $meta_value = wp_json_encode($meta_value);
     }
-
     return sanitize_text_field((string) $meta_value);
 }
-
 
 
 
@@ -467,13 +547,11 @@ function ace_field_options_render_block($attributes) {
     $selected_group = $attributes['selectedGroup'] ?? '';
     $dropdown_value_ref = $attributes['dropdownValue'] ?? ''; // Store the saved reference string
 
-    // Fetch Option Groups from the database
-    $dropdown_groups = array();
-    $group_names = get_option('ace_custom_dropdown_groups', array());
+    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
     if (!empty($group_names)) {
         foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
+            $option_name = 'ace_custom_' . create_underscored_value($group_name);
             $group_data = get_option($option_name, array());
             if (!empty($group_data)) {
                 $dropdown_groups[] = $group_data;
@@ -531,32 +609,33 @@ register_block_type('ace-field-options/dropdown-block', array(
 
 
 
-// Render function for the true/false block
 function ace_field_options_render_true_false_block($attributes) {
     $post_id = get_the_ID();
     $selected_field = $attributes['selectedField'] ?? ''; // Field name to fetch
-    $true_false_value = get_post_meta($post_id, create_underscored_value($selected_field), true); // Get stored value for the true/false field
 
-    // Fetch true/false fields from the database
-    $true_false_fields = get_option('ace_custom_true_false_fields', array());
+    // Fetch the stored value for the true/false field
+    $true_false_value = get_post_meta($post_id, create_underscored_value($selected_field), true);
+
+    // Fetch the specific true/false field from the database
+    $field_option_name = 'ace_custom_' . create_underscored_value($selected_field);
+    $true_false_field = get_option($field_option_name, array());
+
+    // Initialize the label
     $label = '';
 
-    // Find the corresponding true/false field
-    foreach ($true_false_fields as $field) {
-        if ($field['name'] === $selected_field) {
-            // Determine the label based on the stored value
-            $label = ($true_false_value === '1') ? $field['true_label'] : $field['false_label'];
-            break; // Exit loop once found
-        }
+    // Determine the label based on the stored value
+    if (!empty($true_false_field)) {
+        $label = ($true_false_value === '1') ? $true_false_field['true_label'] : $true_false_field['false_label'];
     }
-
 
     // Output the block with the selected label
     return sprintf(
         '<p class="wp-block-ace-field-options-true-false-block wp-block-paragraph">%s</p>',
-        esc_html($label) // Display the true/false label
+        esc_html($label)
     );
 }
+
+
 
 // Register the true/false block with its own render callback
 register_block_type('ace-field-options/true-false-block', array(
@@ -589,26 +668,22 @@ function get_post_meta_fields($data) {
 
     // Get all post meta
     $meta = get_post_meta($post_id);
-    
+
     // Initialize an empty array for filtered meta
     $filtered_meta = array();
 
-    // Get all Option Groups from the settings
-    $group_names = get_option('ace_custom_dropdown_groups', array());
-    $dropdown_groups = array();
-    
-    if (!empty($group_names)) {
-        foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
-            $group_data = get_option($option_name, array());
+    // Fetch all dropdown option groups dynamically by filtering options by field_type: dropdown
+    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
+    if (!empty($dropdown_groups)) {
+        foreach ($dropdown_groups as $group_data) {
             // Check if the group should be shown in REST
-            if (empty($group_data['show_in_rest'])) { // Treat empty or missing as false
+            if (empty($group_data['show_in_rest'])) {
                 continue; // Skip this group if it shouldn't be shown
             }
 
-            $meta_key = create_underscored_value($group_name); // Get the key for the field
-            
+            $meta_key = create_underscored_value($group_data['name']); // Get the key for the field
+
             // Match the stored value for Option Groups
             if (isset($meta[$meta_key])) {
                 $stored_value = maybe_unserialize($meta[$meta_key][0]); // Unserialize if needed
@@ -627,15 +702,15 @@ function get_post_meta_fields($data) {
         }
     }
 
-    // Handle true/false fields
-    $true_false_fields = get_option('ace_custom_true_false_fields', array());
+    // Fetch all true/false fields dynamically by filtering options by field_type: truefalse
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
     foreach ($true_false_fields as $field) {
-        $meta_key = create_underscored_value($field['name']); // Get the key for the field
+        $meta_key = create_underscored_value($field['name']); // Get the key for the true/false field
 
-        if (isset($meta[$meta_key])) { // Check if the meta exists
+        if (isset($meta[$meta_key])) {
             // Check if this field should be shown in REST API
-            if (empty($field['show_in_rest'])) { // Treat empty or missing as false
+            if (empty($field['show_in_rest'])) {
                 continue; // Skip this field if it shouldn't be shown
             }
 
@@ -662,11 +737,6 @@ function get_post_meta_fields($data) {
     return new WP_REST_Response($filtered_meta); // Return the filtered meta array with label and value
 }
 
-
-
-
-
-// Hook into the rest_prepare_post filter to modify the response for posts
 add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
 
 function modify_post_meta_for_rest($response, $post, $request) {
@@ -677,45 +747,37 @@ function modify_post_meta_for_rest($response, $post, $request) {
 
     $meta = $response->data['meta'];
 
-    // Get all Option Groups from the settings
-    $group_names = get_option('ace_custom_dropdown_groups', array());
-    $dropdown_groups = array();
+    // Fetch all dropdown option groups dynamically by filtering options by field_type: dropdown
+    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
 
-    if (!empty($group_names)) {
-        foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_group_' . create_underscored_value($group_name);
-            $group_data = get_option($option_name, array());
-            $meta_key = create_underscored_value($group_name); // Get the key for the field
-    
+    if (!empty($dropdown_groups)) {
+        foreach ($dropdown_groups as $group_data) {
+            $meta_key = create_underscored_value($group_data['name']); // Get the key for the field
+
             // Check if the group should be shown in REST
-            if (empty($group_data['show_in_rest'])) { // Treat empty or missing as false
+            if (empty($group_data['show_in_rest'])) {
                 unset($response->data['meta'][$meta_key]); // Remove if not allowed in REST
             } else {
                 // Initialize variables for the label and value
-
-
                 $label = '';
                 $value = '';
-    
+
                 // Match the stored value for Option Groups
                 if (isset($meta[$meta_key])) {
                     $stored_value = $meta[$meta_key]; // Get the stored value from the meta
-                    
+
                     foreach ($group_data['options'] as $option) {
                         if ($stored_value === $option['value']) { // Compare the stored value with option value
                             // Store the label and value in the filtered meta
                             $label = $option['label'];
                             $value = $option['value'];
-                         //   print_r($value);
-
                             break; // Exit loop once a match is found
                         }
                     }
                 }
-    
+
                 // Only add to the response if a matching option was found
                 if ($label !== '' && $value !== '') {
-                    // Structure the response correctly
                     $response->data['meta'][$meta_key] = array(
                         'label' => $label,
                         'value' => $value // Return the matched label and value
@@ -724,23 +786,21 @@ function modify_post_meta_for_rest($response, $post, $request) {
             }
         }
     }
-    
 
-
-    // Handle true/false fields
-    $true_false_fields = get_option('ace_custom_true_false_fields', array());
+    // Fetch all true/false fields dynamically by filtering options by field_type: truefalse
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
     foreach ($true_false_fields as $field) {
-        $meta_key = create_underscored_value($field['name']); // Get the key for the field
+        $meta_key = create_underscored_value($field['name']); // Get the key for the true/false field
 
-        if (isset($meta[$meta_key])) { // Check if the meta exists
+        if (isset($meta[$meta_key])) {
             // Check if this field should be shown in REST API
-            if (empty($field['show_in_rest'])) { // Treat empty or missing as false
+            if (empty($field['show_in_rest'])) {
                 unset($response->data['meta'][$meta_key]); // Optionally remove the field from response if show_in_rest is false
             } else {
                 $meta_value = $meta[$meta_key];
-                // Adjust the check based on how the meta_value is stored
                 $label = ($meta_value === '1' || $meta_value === true) ? $field['true_label'] : $field['false_label'];
+
                 $response->data['meta'][$meta_key] = array(
                     'label' => $label,
                     'value' => $meta_value // Return the meta value
@@ -749,12 +809,8 @@ function modify_post_meta_for_rest($response, $post, $request) {
         }
     }
 
-
     return new WP_REST_Response($response);  // Return the filtered meta array with label and value
-
 }
-
-
 
 
 
@@ -763,7 +819,17 @@ function modify_post_meta_for_rest($response, $post, $request) {
 add_action('init', 'acefields_register_true_false_meta');
 
 function acefields_register_true_false_meta() {
-    $true_false_fields = get_option('ace_custom_true_false_fields', array());
+// Get all true/false fields based on field_type
+$true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
+
+foreach ($existing_group_names as $group_name) {
+    $option_name = 'ace_custom_' . create_underscored_value($group_name);
+    $field_data = get_option($option_name, array());
+
+    if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === 'truefalse') {
+        $true_false_fields[] = $field_data;
+    }
+}
 
     if (!empty($true_false_fields)) {
         foreach ($true_false_fields as $field) {
@@ -797,22 +863,51 @@ function ace_delete_wp_option() {
     // Check if the option name is set
     if (isset($_POST['group_name'])) {
         $group_name = sanitize_text_field($_POST['group_name']);
-        $option_name = 'ace_custom_group_' . create_underscored_value($group_name); // Use 'group_name' from the request
+        $option_name = 'ace_custom_' . create_underscored_value($group_name); // Use 'group_name' from the request
 
-        // Delete the option
-        if (delete_option($option_name)) {
-            // Remove the group name from the list of group names
-            $group_names = get_option('ace_custom_dropdown_groups', array());
+        // Fetch all groups (dropdowns and true/false) using the filter
+        $all_groups = array_merge(
+            apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+            apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
+        );
+
+        // Check if the group exists in the filtered options
+        $group_exists = false;
+        foreach ($all_groups as $group) {
+            if (create_underscored_value($group['name']) === create_underscored_value($group_name)) {
+                $group_exists = true;
+                break;
+            }
+        }
+
+        if ($group_exists && delete_option($option_name)) {
+            // Fetch the appropriate list to update depending on the group type
+            $group_names = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+
+            // Remove the group name from the list if it exists
             if (($key = array_search($group_name, $group_names)) !== false) {
                 unset($group_names[$key]);
-                update_option('ace_custom_dropdown_groups', array_values($group_names)); // Reindex the array
             }
+
             wp_send_json_success('Option deleted successfully');
         } else {
             wp_send_json_error('Option not found');
         }
     } else {
         wp_send_json_error('Invalid option name');
+    }
+}
+
+
+
+function ace_cleanup_nameless_true_false_fields() {
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', wp_load_alloptions(), 'truefalse');
+    
+    foreach ($true_false_fields as $field) {
+        if (empty($field['name'])) {
+            // Delete the option if it has no valid name
+        //    delete_option("ace_custom_" . create_underscored_value($field['name']));
+        }
     }
 }
 

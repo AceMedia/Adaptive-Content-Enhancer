@@ -1,9 +1,7 @@
 import { useEffect, useState } from '@wordpress/element';
-import { useEntityProp } from '@wordpress/core-data';
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps } from '@wordpress/block-editor';
-import { PanelBody, ToggleControl, SelectControl } from '@wordpress/components'; // Add SelectControl here
-
+import { PanelBody, ToggleControl, SelectControl } from '@wordpress/components';
 
 function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
@@ -16,7 +14,7 @@ registerBlockType('ace-field-options/true-false-block', {
     category: 'widgets',
     attributes: {
         selectedField: { type: 'string', default: '' },
-        trueFalseValue: { type: 'boolean', default: false }, // Change type to boolean
+        trueFalseValue: { type: 'boolean', default: false },
         trueFalseLabel: { type: 'string', default: '' },
     },
     supports: {
@@ -29,31 +27,25 @@ registerBlockType('ace-field-options/true-false-block', {
         const { selectedField, trueFalseValue, trueFalseLabel } = attributes;
         const [availableFields, setAvailableFields] = useState([]);
 
-        // Dynamically generate meta key based on selected field
-        const metaKey = createLowercaseUnderscored(selectedField);
-
-        // Fetch the post meta and keep it in sync
-        const [metaValue, setMetaValue] = useEntityProp('postType', 'post', 'meta');
-
-        // Fetch available true/false fields from the backend
+        // Fetch available true/false fields from the localized script
         useEffect(() => {
             if (Array.isArray(window.trueFalseFields)) {
                 setAvailableFields(window.trueFalseFields);
             }
         }, []);
 
-        // Sync true/false value with post meta and block attributes
+        // Sync true/false value with block attributes when the selected field or value changes
         useEffect(() => {
             const selectedFieldData = availableFields.find(field => field.name === selectedField);
             if (selectedFieldData) {
-                const storedValue = trueFalseValue; // Use the value directly
                 setAttributes({
-                    trueFalseValue: storedValue,
-                    trueFalseLabel: storedValue ? selectedFieldData.true_label : selectedFieldData.false_label,
+                    trueFalseValue: trueFalseValue,
+                    trueFalseLabel: trueFalseValue ? selectedFieldData.true_label : selectedFieldData.false_label,
                 });
             }
         }, [trueFalseValue, selectedField, availableFields, setAttributes]);
 
+        // Handle the toggle change and update the meta value
         const handleToggleChange = (newValue) => {
             const selectedFieldData = availableFields.find(field => field.name === selectedField);
             if (!selectedFieldData) {
@@ -62,13 +54,7 @@ registerBlockType('ace-field-options/true-false-block', {
             }
             const label = newValue ? selectedFieldData.true_label : selectedFieldData.false_label;
 
-            // Save the value (true or false) in post meta
-            setMetaValue({
-                ...metaValue,
-                [metaKey]: newValue ? '1' : '0', // Store as a string
-            });
-
-            // Update block attributes for immediate rendering
+            // Update attributes for rendering
             setAttributes({
                 trueFalseValue: newValue,
                 trueFalseLabel: label,
@@ -81,25 +67,23 @@ registerBlockType('ace-field-options/true-false-block', {
             <div {...blockProps}>
                 {isSelected ? (
                     <div className="ace-true-false-block">
-                        {/* Only display the field dropdown if no field is selected yet */}
-                        {!selectedField && (
-                            <SelectControl
-                                label="Select a True/False Field"
-                                value={selectedField}
-                                options={[
-                                    { label: 'Please select a field', value: '', disabled: true },
-                                    ...availableFields.map(field => ({
-                                        label: field.name,
-                                        value: field.name,
-                                    })),
-                                ]}
-                                onChange={(newField) => {
-                                    setAttributes({ selectedField: newField, trueFalseValue: false, trueFalseLabel: '' });
-                                }}
-                            />
-                        )}
-
-                        {/* Show the toggle control only when a field is selected */}
+                        {/* Field selection dropdown */}
+                        <SelectControl
+                            label="Select a True/False Field"
+                            value={selectedField}
+                            options={[
+                                { label: 'Please select a field', value: '', disabled: true },
+                                ...availableFields.map(field => ({
+                                    label: field.name,
+                                    value: field.name,
+                                })),
+                            ]}
+                            onChange={(newField) => {
+                                // Reset value and label on field change
+                                setAttributes({ selectedField: newField, trueFalseValue: false, trueFalseLabel: '' });
+                            }}
+                        />
+                        {/* Toggle Control */}
                         {selectedField && (
                             <ToggleControl
                                 label={trueFalseLabel}
@@ -134,7 +118,7 @@ registerBlockType('ace-field-options/true-false-block', {
                 </InspectorControls>
             </div>
         );
-    },
+    },    
     save: () => {
         return null; // All data is stored in post meta, no need to save additional content
     },

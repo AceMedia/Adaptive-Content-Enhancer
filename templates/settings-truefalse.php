@@ -20,6 +20,7 @@
                                     name="true_false_fields[<?php echo esc_attr($field_index); ?>][name]" 
                                     value="<?php echo esc_attr($field['name']); ?>" 
                                     placeholder="Field Name" 
+                                    readonly
                                 />
                             </td>
                             <td class="true-label column-true-label">
