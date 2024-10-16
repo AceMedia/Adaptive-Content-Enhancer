@@ -13,6 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Register the admin menu page for managing Option Groups.
 add_action( 'admin_menu', 'ace_field_options_admin_menu' );
 
+add_action('admin_post_import_acf_fields', 'handle_acf_import_submission');
+
+
 function ace_field_options_admin_menu() {
     add_menu_page(
         'Options',
@@ -22,6 +25,15 @@ function ace_field_options_admin_menu() {
         'ace_field_options_groups_page_html',
         'dashicons-list-view',
         20
+    );
+
+    add_submenu_page(
+        'ace-dropdown-groups',
+        'ACF Import',
+        'ACF Import',
+        'manage_options',
+        'ace-acf-import',
+        'ace_field_options_acf_settings_page_html'
     );
 }
 
@@ -128,7 +140,6 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
 
 // Loop through all true/false fields stored individually
 $true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
-print_r($true_false_fields, true);
 
 foreach ($all_options as $option_name => $value) {
     if (strpos($option_name, 'ace_custom_') === 0) {
@@ -928,6 +939,278 @@ function ace_cleanup_nameless_true_false_fields() {
         //    delete_option("ace_custom_" . create_underscored_value($field['name']));
         }
     }
+}
+
+
+function get_all_acf_fields_and_types() {
+    global $wpdb;
+
+    // Query to fetch all ACF-related meta keys (global, without post_id constraint)
+    $acf_field_keys = $wpdb->get_results("
+        SELECT DISTINCT meta_key, meta_value 
+        FROM {$wpdb->postmeta}
+        WHERE meta_key LIKE '\\_%'
+        AND meta_value LIKE 'field_%'
+    ");
+
+    $acf_fields = array();
+    
+    foreach ($acf_field_keys as $field_key) {
+        $actual_field_key = substr($field_key->meta_key, 1); // Remove leading underscore
+        $acf_field_data = get_acf_field_data_by_key($field_key->meta_value); // Fetch the field data from wp_options
+    
+
+        // Check if the type exists
+        if ($acf_field_data && isset($acf_field_data['type'])) {
+            // If the type exists, assign it to the array
+            $acf_fields[$actual_field_key] = $acf_field_data['type'];
+        } else {
+            // If not, assign 'unknown'
+            $acf_fields[$actual_field_key] = 'unknown';
+        }
+    }
+    
+    return $acf_fields;
+}
+
+function get_post_meta_by_key($field_key) {
+    global $wpdb;
+
+    // Look for the field type by fetching the ACF field definition
+    $acf_field = $wpdb->get_var($wpdb->prepare("
+        SELECT meta_value 
+        FROM {$wpdb->postmeta}
+        WHERE meta_key = %s
+    ", $field_key));
+
+    if ($acf_field) {
+        // ACF stores field definitions as serialized data, so we need to unserialize
+        $acf_field_data = maybe_unserialize($acf_field);
+        return $acf_field_data['type'] ?? 'unknown'; // Return 'type' if present, or 'unknown'
+    }
+
+    return 'unknown'; // Fallback if not found
+}
+
+function ace_field_options_acf_settings_page_html() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    // Fetch ACF fields and their types
+    $acf_fields = get_all_acf_fields_and_types();
+
+    ?>
+    <div class="wrap">
+        <h1>Import ACF Fields</h1>
+        <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+        <input type="hidden" name="action" value="import_acf_fields">
+    <?php wp_nonce_field('save_acf_imports'); ?>
+
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th>Field Name</th>
+                        <th>Field Type</th>
+                        <th>Sample Data</th> <!-- New column for sample data -->
+                        <th>Import</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (!empty($acf_fields)) : ?>
+                        <?php foreach ($acf_fields as $field_key => $field_type) : ?>
+                            <tr>
+                            <td>
+    <?php
+    // Example field key from your ACF
+    $acf_field_data = get_acf_field_content_by_excerpt($field_key);
+
+    if ($acf_field_data) {
+        // Print or process the matched data
+        echo 'Field Type: ' . esc_html($acf_field_data['post_excerpt']) . '<br>';
+
+        // Extract the choices array from the field data and display as preview (not checkboxes)
+        if (!empty($acf_field_data['post_content']['choices'])) {
+            $choices = $acf_field_data['post_content']['choices'];
+            echo 'Choices: <ul>';
+
+            // Loop through choices to display them as a list (for information, not selection)
+            foreach ($choices as $value => $label) {
+                echo '<li>' . esc_html($label) . ' (' . esc_html($value) . ')</li>';
+            }
+
+            echo '</ul>';
+        } else {
+            echo 'No choices available.';
+        }
+
+    } else {
+        echo 'No matching ACF field found.';
+    }
+    ?>
+</td>
+<td><?php echo esc_html($field_type); ?></td>
+<td><?php echo esc_html(get_acf_sample_data($field_key)); ?></td> <!-- Display sample data -->
+<td>
+    <!-- Single checkbox for the whole field option -->
+    <input type="checkbox" name="acf_import_fields[]" value="<?php echo esc_attr(serialize($choices)); ?>" />
+</td>
+
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else : ?>
+                        <tr><td colspan="4">No ACF fields found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <p>
+            <input type="submit" value="Import Selected Fields" class="button-primary" />
+            </p>
+        </form>
+    </div>
+    <?php
+}
+
+
+function get_acf_field_data_by_key($acf_field_key) {
+    global $wpdb;
+    error_log('Fetching ACF field data for key: ' . $acf_field_key);  
+
+    // Query to fetch ACF field post content and post excerpt by post_name (field_xxxxx)
+    $acf_field_post = $wpdb->get_row($wpdb->prepare("
+        SELECT post_content, post_excerpt
+        FROM {$wpdb->posts}
+        WHERE post_name = %s
+        AND post_type = 'acf-field'
+    ", $acf_field_key));
+
+    if ($acf_field_post) {
+        // Unserialize the field data stored in post_content
+        $acf_field_data = maybe_unserialize($acf_field_post->post_content);
+
+        // Add post_excerpt to the field data for type comparison
+        $acf_field_data['post_excerpt'] = $acf_field_post->post_excerpt;
+
+        return $acf_field_data;
+    }
+
+    error_log('ACF field data not found for key: ' . $acf_field_key);
+    return null; // Return null if not found
+}
+
+function get_acf_field_content_by_excerpt($field_key) {
+    global $wpdb;
+
+    // Query to fetch the post_content where post_excerpt matches the field_key
+    $acf_field_post = $wpdb->get_row($wpdb->prepare("
+        SELECT post_content, post_excerpt
+        FROM {$wpdb->posts}
+        WHERE post_excerpt = %s
+        AND post_type = 'acf-field'
+    ", $field_key));
+
+    // Check if we got a result
+    if ($acf_field_post) {
+        // Unserialize the post_content since ACF stores serialized data
+        $acf_field_data = maybe_unserialize($acf_field_post->post_content);
+
+        // Return both the post_content (which holds field data) and the post_excerpt (field type)
+        return array(
+            'post_excerpt' => $acf_field_post->post_excerpt,  // Field type (like 'select', 'checkbox')
+            'post_content' => $acf_field_data                 // Actual field data
+        );
+    }
+
+    // If no result found, return null
+    return null;
+}
+
+
+function handle_acf_import_submission() {
+    // Validate user capabilities
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized user');
+    }
+
+    // Validate the nonce
+    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'save_acf_imports')) {
+        wp_die('Invalid nonce');
+    }
+
+    // Process the form if there are fields to import
+    if (isset($_POST['acf_import_fields']) && is_array($_POST['acf_import_fields'])) {
+        foreach ($_POST['acf_import_fields'] as $serialized_choices) {
+            // Deserialize the choices array
+            $choices = unserialize($serialized_choices);
+
+            if ($choices && is_array($choices)) {
+                // Generate a group name (this can be customized as needed)
+                $group_name = "Spot Condition"; // Set the appropriate group name or derive dynamically
+                
+                // Prepare the group data in the required format
+                $group_data = array(
+                    'name' => sanitize_text_field($group_name),
+                    'options' => array_map(function ($value, $label) {
+                        return array(
+                            'label' => sanitize_text_field($label),
+                            'value' => sanitize_text_field($value),
+                        );
+                    }, array_keys($choices), $choices),
+                    'field_type' => 'dropdown',
+                    'show_in_rest' => 1,
+                );
+
+                // Create the option key name (e.g., ace_custom_spot_condition)
+                $option_name = 'ace_custom_' . create_underscored_value($group_name);
+
+                // Save the group data as an option in the required serialized format
+                update_option($option_name, $group_data);
+
+                // Log success for each imported group
+                error_log("Imported ACF group: " . $group_name);
+            } else {
+                error_log("Invalid choices data");
+            }
+        }
+    }
+
+    // Redirect back to the import page
+    $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url('admin.php?page=ace-acf-import');
+    wp_redirect(add_query_arg('acf_imported', '1', $redirect_url));
+    exit;
+}
+
+
+
+
+
+
+function get_acf_sample_data($field_key) {
+    global $wpdb;
+
+    // Fetch the most recent value for this ACF field from any post that has it, sorted by meta_id (assuming higher meta_id is more recent)
+    $sample_value = $wpdb->get_var($wpdb->prepare("
+        SELECT meta_value 
+        FROM {$wpdb->postmeta}
+        WHERE meta_key = %s
+        ORDER BY meta_id DESC
+        LIMIT 1
+    ", $field_key));
+
+    // Unserialize if necessary (ACF fields are sometimes serialized)
+    if ($sample_value) {
+        $sample_value = maybe_unserialize($sample_value);
+
+        // Handle arrays or objects
+        if (is_array($sample_value) || is_object($sample_value)) {
+            $sample_value = json_encode($sample_value); // Convert to JSON for display
+        }
+    } else {
+        $sample_value = 'No data found'; // Fallback message if no sample data is found
+    }
+
+    return $sample_value;
 }
 
 
