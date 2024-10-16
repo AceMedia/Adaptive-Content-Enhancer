@@ -103,13 +103,11 @@ function filter_options_by_field_type($all_options, $type) {
     $filtered_options = array();
 
     foreach ($all_options as $option_name => $value) {
-        if (strpos($option_name, 'ace_custom_') === 0) {
-            $field_data = get_option($option_name, array());
+        $field_data = (array) get_option($option_name, array());
 
             if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === $type) {
                 $filtered_options[] = $field_data;
             }
-        }
     }
 
     return $filtered_options;
@@ -142,21 +140,19 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
 $true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
 
 foreach ($all_options as $option_name => $value) {
-    if (strpos($option_name, 'ace_custom_') === 0) {
         // Retrieve only the true/false fields
-        $field_data = get_option($option_name, array());
+        $field_data = (array) get_option($option_name, array());
 
         if (!empty($field_data)) {
             $true_false_fields[] = $field_data;
         }
-    }
 }
 
 
 // Handle saving/updating a specific group in single edit mode.
 if (isset($_GET['edit'])) {
     $edit_group_name = sanitize_text_field($_GET['edit']);
-    $edit_option_name = 'ace_custom_' . create_underscored_value($edit_group_name);
+    $edit_option_name = create_underscored_value($edit_group_name);
 
     // Process form data for the edited group.
     if (isset($_POST['group']) && is_array($_POST['group'])) {
@@ -214,7 +210,7 @@ if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
         if (isset($group['name'], $group['options']) && is_array($group['options'])) {
             // Create the sanitized name for the group
             $sanitized_name = sanitize_text_field($group['name']);
-            $option_name = 'ace_custom_' . create_underscored_value($sanitized_name);
+            $option_name = create_underscored_value($sanitized_name);
 
             // Prepare the group data to be saved
             $group_data = array(
@@ -249,7 +245,7 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
 
     if (!empty($group_names)) {
         foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_' . create_underscored_value($group_name);
+            $option_name = create_underscored_value($group_name);
             $group_data = get_option($option_name, array());
 
             // If editing a specific group, only include that one; otherwise, include all
@@ -281,7 +277,7 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
              );
              
              // Save or update the option
-             update_option("ace_custom_{$field_name}", $data);
+             update_option("{$field_name}", $data);
          }
      }
  }
@@ -566,7 +562,7 @@ function ace_field_options_render_block($attributes) {
 
     if (!empty($group_names)) {
         foreach ($group_names as $group_name) {
-            $option_name = 'ace_custom_' . create_underscored_value($group_name);
+            $option_name = create_underscored_value($group_name);
             $group_data = get_option($option_name, array());
             if (!empty($group_data)) {
                 $dropdown_groups[] = $group_data;
@@ -632,7 +628,7 @@ function ace_field_options_render_true_false_block($attributes) {
     $true_false_value = get_post_meta($post_id, create_underscored_value($selected_field), true);
 
     // Fetch the specific true/false field from the database
-    $field_option_name = 'ace_custom_' . create_underscored_value($selected_field);
+    $field_option_name = create_underscored_value($selected_field);
     $true_false_field = get_option($field_option_name, array());
 
     // Initialize the label
@@ -853,8 +849,8 @@ function acefields_register_true_false_meta() {
 $true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
 
 foreach ($existing_group_names as $group_name) {
-    $option_name = 'ace_custom_' . create_underscored_value($group_name);
-    $field_data = get_option($option_name, array());
+    $option_name = create_underscored_value($group_name);
+    $field_data = (array) get_option($option_name, array());
 
     if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === 'truefalse') {
         $true_false_fields[] = $field_data;
@@ -893,7 +889,7 @@ function ace_delete_wp_option() {
     // Check if the option name is set
     if (isset($_POST['group_name'])) {
         $group_name = sanitize_text_field($_POST['group_name']);
-        $option_name = 'ace_custom_' . create_underscored_value($group_name); // Use 'group_name' from the request
+        $option_name = create_underscored_value($group_name); // Use 'group_name' from the request
 
         // Fetch all groups (dropdowns and true/false) using the filter
         $all_groups = array_merge(
@@ -1004,70 +1000,63 @@ function ace_field_options_acf_settings_page_html() {
     <div class="wrap">
         <h1>Import ACF Fields</h1>
         <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-        <input type="hidden" name="action" value="import_acf_fields">
+    <input type="hidden" name="action" value="import_acf_fields">
     <?php wp_nonce_field('save_acf_imports'); ?>
 
-            <table class="wp-list-table widefat fixed striped">
-                <thead>
+    <table class="wp-list-table widefat fixed striped">
+        <thead>
+            <tr>
+                <th>Field Name</th>
+                <th>Field Type</th>
+                <th>Sample Data</th>
+                <th>Import</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (!empty($acf_fields)) : ?>
+                <?php foreach ($acf_fields as $field_key => $field_type) : ?>
                     <tr>
-                        <th>Field Name</th>
-                        <th>Field Type</th>
-                        <th>Sample Data</th> <!-- New column for sample data -->
-                        <th>Import</th>
+                        <td>
+                            <?php
+                            $acf_field_data = get_acf_field_content_by_excerpt($field_key);
+                            if ($acf_field_data) {
+                                echo 'Field Type: ' . esc_html($acf_field_data['post_excerpt']) . '<br>';
+
+                                if (!empty($acf_field_data['post_content']['choices'])) {
+                                    $choices = $acf_field_data['post_content']['choices'];
+                                    echo 'Choices: <ul>';
+                                    foreach ($choices as $value => $label) {
+                                        echo '<li>' . esc_html($label) . ' (' . esc_html($value) . ')</li>';
+                                    }
+                                    echo '</ul>';
+                                } else {
+                                    echo 'No choices available.';
+                                }
+                            } else {
+                                echo 'No matching ACF field found.';
+                            }
+                            ?>
+                        </td>
+                        <td><?php echo esc_html($field_type); ?></td>
+                        <td><?php echo esc_html(get_acf_sample_data($field_key)); ?></td>
+                        <td>
+                            <!-- Checkbox to import the field -->
+                            <input type="checkbox" name="acf_import_fields[]" value="<?php echo esc_attr(serialize($choices)); ?>" />
+
+                            <!-- Hidden field for post_excerpt (group name) -->
+                            <input type="hidden" name="acf_group_names[]" value="<?php echo esc_attr($acf_field_data['post_excerpt']); ?>" />
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    <?php if (!empty($acf_fields)) : ?>
-                        <?php foreach ($acf_fields as $field_key => $field_type) : ?>
-                            <tr>
-                            <td>
-    <?php
-    // Example field key from your ACF
-    $acf_field_data = get_acf_field_content_by_excerpt($field_key);
+                <?php endforeach; ?>
+            <?php else : ?>
+                <tr><td colspan="4">No ACF fields found.</td></tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
 
-    if ($acf_field_data) {
-        // Print or process the matched data
-        echo 'Field Type: ' . esc_html($acf_field_data['post_excerpt']) . '<br>';
+    <p><input type="submit" value="Import Selected Fields" class="button-primary" /></p>
+</form>
 
-        // Extract the choices array from the field data and display as preview (not checkboxes)
-        if (!empty($acf_field_data['post_content']['choices'])) {
-            $choices = $acf_field_data['post_content']['choices'];
-            echo 'Choices: <ul>';
-
-            // Loop through choices to display them as a list (for information, not selection)
-            foreach ($choices as $value => $label) {
-                echo '<li>' . esc_html($label) . ' (' . esc_html($value) . ')</li>';
-            }
-
-            echo '</ul>';
-        } else {
-            echo 'No choices available.';
-        }
-
-    } else {
-        echo 'No matching ACF field found.';
-    }
-    ?>
-</td>
-<td><?php echo esc_html($field_type); ?></td>
-<td><?php echo esc_html(get_acf_sample_data($field_key)); ?></td> <!-- Display sample data -->
-<td>
-    <!-- Single checkbox for the whole field option -->
-    <input type="checkbox" name="acf_import_fields[]" value="<?php echo esc_attr(serialize($choices)); ?>" />
-</td>
-
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else : ?>
-                        <tr><td colspan="4">No ACF fields found.</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-
-            <p>
-            <input type="submit" value="Import Selected Fields" class="button-primary" />
-            </p>
-        </form>
     </div>
     <?php
 }
@@ -1075,7 +1064,6 @@ function ace_field_options_acf_settings_page_html() {
 
 function get_acf_field_data_by_key($acf_field_key) {
     global $wpdb;
-    error_log('Fetching ACF field data for key: ' . $acf_field_key);  
 
     // Query to fetch ACF field post content and post excerpt by post_name (field_xxxxx)
     $acf_field_post = $wpdb->get_row($wpdb->prepare("
@@ -1139,18 +1127,24 @@ function handle_acf_import_submission() {
     }
 
     // Process the form if there are fields to import
-    if (isset($_POST['acf_import_fields']) && is_array($_POST['acf_import_fields'])) {
-        foreach ($_POST['acf_import_fields'] as $serialized_choices) {
-            // Deserialize the choices array
-            $choices = unserialize($serialized_choices);
+    if (isset($_POST['acf_import_fields']) && is_array($_POST['acf_import_fields']) && isset($_POST['acf_group_names']) && is_array($_POST['acf_group_names'])) {
+        foreach ($_POST['acf_import_fields'] as $index => $serialized_choices) {
+            // Remove any escaping before unserializing
+            $cleaned_choices = stripslashes($serialized_choices);
 
-            if ($choices && is_array($choices)) {
-                // Generate a group name (this can be customized as needed)
-                $group_name = "Spot Condition"; // Set the appropriate group name or derive dynamically
-                
+            // Deserialize the cleaned choices array
+            $choices = unserialize($cleaned_choices);
+
+            // Fetch the corresponding group name (post_excerpt)
+            $group_name = isset($_POST['acf_group_names'][$index]) ? sanitize_text_field($_POST['acf_group_names'][$index]) : '';
+
+            error_log('Deserialized Choices: ' . print_r($choices, true));
+            error_log('Group Name (post_excerpt): ' . $group_name);
+
+            if ($choices && is_array($choices) && !empty($group_name)) {
                 // Prepare the group data in the required format
                 $group_data = array(
-                    'name' => sanitize_text_field($group_name),
+                    'name' => $group_name,
                     'options' => array_map(function ($value, $label) {
                         return array(
                             'label' => sanitize_text_field($label),
@@ -1161,16 +1155,52 @@ function handle_acf_import_submission() {
                     'show_in_rest' => 1,
                 );
 
-                // Create the option key name (e.g., ace_custom_spot_condition)
-                $option_name = 'ace_custom_' . create_underscored_value($group_name);
+                // Create the option key name based on the post_excerpt
+                $option_name = create_underscored_value($group_name);
+                error_log('Importing ACF group: ' . $group_name);
 
                 // Save the group data as an option in the required serialized format
-                update_option($option_name, $group_data);
-
+                $updated = update_option($option_name, $group_data);
+                $updated = true; // Simulate successful update
                 // Log success for each imported group
-                error_log("Imported ACF group: " . $group_name);
+                if ($updated) {
+                    error_log("Successfully imported ACF group: " . $group_name);
+
+                    // Step 2: Scan for posts and match ACF data to update as post meta
+                    $posts = get_posts(array('numberposts' => -1)); // Get all posts
+
+                    foreach ($posts as $post) {
+                        // Fetch all meta for this post
+                        $post_meta = get_post_meta($post->ID);
+                    
+                        error_log('Post Meta Data for Post #' . $post->ID . ': ' . print_r($post_meta, true)); // Log all post meta for the post
+                    
+                        // Loop through each meta to find ACF fields that match the group choices
+                        foreach ($post_meta as $meta_key => $meta_value) {
+                            // Check if the meta key is related to ACF (ACF fields typically start with an underscore)
+                            if (strpos($meta_key, '_') === 0) {
+                                $acf_meta_key = substr($meta_key, 1); // Remove the leading underscore
+                                $acf_meta_value = maybe_unserialize($meta_value[0]); // Unserialize if needed
+                                
+                                // Check if we have the regular version of this meta key in the post's metadata
+                                if (isset($post_meta[$acf_meta_key])) {
+                                    $regular_meta_value = maybe_unserialize($post_meta[$acf_meta_key][0]); // Unserialize the corresponding regular meta value if needed
+                                    error_log('ACF Meta Key: ' . $acf_meta_key . ' | Value: ' . print_r($regular_meta_value, true));
+                                } else {
+                                    error_log('No matching non-prefixed meta value found for ACF key: ' . $acf_meta_key);
+                                }
+                            }
+                        }
+                    }
+                    
+                    
+                    
+
+                                    } else {
+                    error_log("Failed to import ACF group: " . $group_name);
+                }
             } else {
-                error_log("Invalid choices data");
+                error_log("Invalid choices or group name");
             }
         }
     }
@@ -1180,6 +1210,8 @@ function handle_acf_import_submission() {
     wp_redirect(add_query_arg('acf_imported', '1', $redirect_url));
     exit;
 }
+
+
 
 
 
@@ -1215,4 +1247,11 @@ function get_acf_sample_data($field_key) {
 
 
 
+
+register_post_meta('post', 'location', array(
+    'type'              => 'array', 
+    'single'            => true,
+    'show_in_rest'      => true,
+    'sanitize_callback' => 'sanitize_text_field', 
+));
 ?>
