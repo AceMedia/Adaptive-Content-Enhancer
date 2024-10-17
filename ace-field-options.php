@@ -1248,10 +1248,187 @@ function get_acf_sample_data($field_key) {
 
 
 
-register_post_meta('post', 'location', array(
-    'type'              => 'array', 
-    'single'            => true,
-    'show_in_rest'      => true,
-    'sanitize_callback' => 'sanitize_text_field', 
-));
+function ace_determine_field_type($meta_value) {
+    if (is_array($meta_value)) {
+        error_log('Array Value: ' . print_r($meta_value, true));
+        return 'array';
+    } elseif (is_bool($meta_value)) {
+        return 'boolean';
+    } elseif (is_numeric($meta_value)) {
+        return is_float($meta_value + 0) ? 'number' : 'integer';
+    } else {
+        return 'string';
+    }
+}
+
+function ace_dynamically_register_acf_fields($post_id) {
+    global $wpdb;
+
+    $acf_field_keys = $wpdb->get_results($wpdb->prepare("
+        SELECT meta_key, meta_value FROM $wpdb->postmeta 
+        WHERE post_id = %d 
+        AND meta_key LIKE '\\_%'
+        AND meta_value LIKE 'field_%%'
+    ", $post_id));
+
+    $fields_to_register = [];
+
+    foreach ($acf_field_keys as $field_key) {
+        $actual_field_key = substr($field_key->meta_key, 1); // Remove leading underscore
+        $meta_value = get_post_meta($post_id, $actual_field_key, true); // Get the stored value
+
+        // Determine the field type based on the stored meta value
+        $field_type = ace_determine_field_type($meta_value);
+
+        // Handle arrays: dynamically create the schema for array types
+        if ($field_type === 'array') {
+            $items_schema = ace_determine_array_items_schema($meta_value);
+
+            $fields_to_register[] = [
+                'meta_key' => $actual_field_key,
+                'type' => 'array',
+                'schema' => [
+                    'items' => $items_schema, // Define the schema for each array item dynamically
+                ]
+            ];
+
+        } else {
+            // Register other non-array field types
+            $fields_to_register[] = [
+                'meta_key' => $actual_field_key,
+                'type' => $field_type
+            ];
+        }
+
+        // Log for debugging purposes
+        error_log("Determined field type: $field_type for field: $actual_field_key");
+    }
+
+    return $fields_to_register;
+}
+
+function ace_determine_array_items_schema($meta_value) {
+    if (!empty($meta_value) && is_array($meta_value)) {
+        $first_item = reset($meta_value); // Get the first item to inspect its structure
+
+        if (is_array($first_item)) {
+            // If each item is an array/object, return a schema for an object
+            return [
+                'type' => 'object',
+                'properties' => ace_determine_object_properties_schema($first_item) // Schema for object properties
+            ];
+        } elseif (is_string($first_item)) {
+            return ['type' => 'string']; // Simple array of strings
+        } elseif (is_numeric($first_item)) {
+            return ['type' => 'number']; // Array of numbers
+        } elseif (is_bool($first_item)) {
+            return ['type' => 'boolean']; // Array of booleans
+        }
+    }
+
+    // Default to string array if no specific type is detected
+    return ['type' => 'string'];
+}
+
+function ace_determine_object_properties_schema($object) {
+    $properties_schema = [];
+
+    foreach ($object as $key => $value) {
+        if (is_string($value)) {
+            $properties_schema[$key] = ['type' => 'string'];
+        } elseif (is_numeric($value)) {
+            $properties_schema[$key] = ['type' => 'number'];
+        } elseif (is_bool($value)) {
+            $properties_schema[$key] = ['type' => 'boolean'];
+        } elseif (is_array($value)) {
+            $properties_schema[$key] = ['type' => 'array', 'items' => ace_determine_array_items_schema($value)];
+        }
+    }
+
+    return $properties_schema;
+}
+
+function ace_map_acf_to_rest_type($acf_type) {
+    $mapping = array(
+        'text' => 'string',
+        'textarea' => 'string',
+        'number' => 'number',
+        'true_false' => 'boolean',
+        'select' => 'string',
+        'google_map' => 'array', // Handle Google Map as an array
+        'repeater' => 'array',   // Handle repeaters as arrays
+        // Add more mappings for other ACF types as needed
+    );
+
+    return $mapping[$acf_type] ?? 'string'; // Default to 'string' if no mapping found
+}
+
+add_action('rest_api_init', 'conditionally_register_acf_fields_for_current_post');
+
+function conditionally_register_acf_fields_for_current_post() {
+    // Only run this inside the WordPress admin and the post editor screen.
+    if (is_admin() && isset($_GET['post'])) {
+        $post_id = intval($_GET['post']); // Get the current post ID from the URL
+
+        if ($post_id) {
+            error_log('Post ID inside if block: ' . $post_id);
+
+            // Dynamically register ACF fields only for the current post being edited
+            $fields = ace_dynamically_register_acf_fields($post_id);
+
+            // Loop through the fields and register them
+            foreach ($fields as $field) {
+                if ($field['type'] === 'array') {
+                    // For array types, ensure schema for items is provided
+                    $schema = [
+                        'type'  => 'array',
+                        'items' => $field['schema']['items']
+                    ];
+                } else {
+                    // For non-array fields, standard schema
+                    $schema = [
+                        'type' => $field['type']
+                    ];
+                }
+                error_log('Schema for field: ' . $field['meta_key'] . ' | ' . print_r($schema, true));
+
+                if (function_exists('register_post_meta')) {
+                    try {
+                        register_post_meta(
+                            'post',
+                            $field['meta_key'],
+                            array(
+                                'show_in_rest'      => [
+                                    'schema' => $schema // Dynamically assign schema based on the field type
+                                ],
+                                'single'            => true,
+                                'type'              => $field['type'],
+                            )
+                        );
+                        error_log('Successfully registered field: ' . $field['meta_key']);
+                    } catch (Exception $e) {
+                        error_log('Failed to register field: ' . $field['meta_key'] . ' | Error: ' . $e->getMessage());
+                    }
+                } else {
+                    error_log('register_post_meta function not available.');
+                }
+            }
+        } else {
+            error_log('Post ID is not valid');
+        }
+    }
+
+    // Register the test field
+    register_post_meta(
+        'post',
+        'test',
+        array(
+            'show_in_rest'      => true,
+            'single'            => true,
+            'type'              => 'string', // Type should be string, even though we might store serialized arrays
+        )
+    );
+}
+
+
 ?>
