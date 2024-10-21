@@ -115,7 +115,13 @@ function filter_options_by_field_type($all_options, $type) {
 
 
 // Fetch dropdown groups after saving dynamically from updated options
-$dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+$dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
 
 
@@ -131,7 +137,13 @@ function ace_field_options_groups_page_html() {
   $field_type = ''; // New variable to determine the field type
 
 // Retrieve all Option Groups again to display the newly added ones
-$dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+$dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
 
 
@@ -170,7 +182,7 @@ if (isset($_GET['edit'])) {
                         'value' => $value,
                     );
                 }, $group['options']),
-                'field_type' => 'dropdown',
+                'field_type' => sanitize_text_field($group['field_type']),
                 'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
             );
 
@@ -195,7 +207,13 @@ if (isset($_POST['save_groups'])) {
     check_admin_referer('save_dropdown_groups');
 
     // Retrieve the existing group names
-    $existing_group_names = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+    $existing_group_names = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
     // Initialize array for new group names
     $new_group_names = array();
@@ -203,9 +221,6 @@ if (isset($_POST['save_groups'])) {
 
 // Save or update group names
 if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
-    // Retrieve the existing group names
-    $existing_group_names = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
-
     foreach ($_POST['dropdown_groups'] as $group) {
         if (isset($group['name'], $group['options']) && is_array($group['options'])) {
             // Create the sanitized name for the group
@@ -222,26 +237,25 @@ if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
                         'value' => $value,
                     );
                 }, $group['options']),
-                'field_type' => 'dropdown',
+                'field_type' => sanitize_text_field($group['field_type']), // Save the field type
                 'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
             );
 
             // Save or update the group as its own option
             update_option($option_name, $group_data);
-
-            // Add the group name to the existing group list if it's not already there
-            if (!in_array($sanitized_name, $existing_group_names)) {
-                $existing_group_names[] = $sanitized_name;
-            }
         }
     }
-
-    // Update the list of group names in the database to reflect any new groups
 }
 
 
 
-$dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+$dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
     if (!empty($group_names)) {
         foreach ($group_names as $group_name) {
@@ -251,7 +265,7 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
             // If editing a specific group, only include that one; otherwise, include all
             if (empty($edit_key) || create_underscored_value($group_data['name']) === $edit_key) {
                 if (!empty($group_data)) {
-                    $dropdown_groups[] = $group_data; // Add the retrieved group data
+                    $field_groups[] = $group_data; // Add the retrieved group data
                 }
             }
         }
@@ -272,7 +286,7 @@ $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropd
                  'name' => sanitize_text_field($field['name']),
                  'true_label' => sanitize_text_field($field['true_label']),
                  'false_label' => sanitize_text_field($field['false_label']),
-                 'field_type' => 'truefalse',
+                 'field_type' => sanitize_text_field($field['field_type']),
                  'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
              );
              
@@ -469,7 +483,13 @@ function ace_field_options_enqueue_editor_assets() {
     );
 
     // Fetch dropdown groups dynamically by field_type: dropdown
-    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+    $dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
     // Fetch true/false fields dynamically by field_type: truefalse
     $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
@@ -489,7 +509,13 @@ add_action('init', 'acefields_register_dynamic_meta');
 
 function acefields_register_dynamic_meta() {
     // Fetch Option Groups (Dropdowns) using the filter
-    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+    $dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
     // Register post meta fields for Dropdown groups
     if (!empty($dropdown_groups)) {
@@ -558,14 +584,20 @@ function ace_field_options_render_block($attributes) {
     $selected_group = $attributes['selectedGroup'] ?? '';
     $dropdown_value_ref = $attributes['dropdownValue'] ?? ''; // Store the saved reference string
 
-    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+    $dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
     if (!empty($group_names)) {
         foreach ($group_names as $group_name) {
             $option_name = create_underscored_value($group_name);
             $group_data = get_option($option_name, array());
             if (!empty($group_data)) {
-                $dropdown_groups[] = $group_data;
+                $field_groups[] = $group_data;
             }
         }
     }
@@ -685,7 +717,13 @@ function get_post_meta_fields($data) {
     $filtered_meta = array();
 
     // Fetch dropdown groups
-    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+    $dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
     // Fetch true/false fields
     $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
@@ -774,7 +812,13 @@ function modify_post_meta_for_rest($response, $post, $request) {
     $meta = $response->data['meta'];
 
     // Fetch all dropdown option groups dynamically by filtering options by field_type: dropdown
-    $dropdown_groups = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+    $dropdown_groups = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
     if (!empty($dropdown_groups)) {
         foreach ($dropdown_groups as $group_data) {
@@ -908,7 +952,13 @@ function ace_delete_wp_option() {
 
         if ($group_exists && delete_option($option_name)) {
             // Fetch the appropriate list to update depending on the group type
-            $group_names = apply_filters('filter_wp_options_by_field_type', null, 'dropdown');
+            $group_names = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+);
 
             // Remove the group name from the list if it exists
             if (($key = array_search($group_name, $group_names)) !== false) {
@@ -1151,7 +1201,7 @@ function handle_acf_import_submission() {
                             'value' => sanitize_text_field($value),
                         );
                     }, array_keys($choices), $choices),
-                    'field_type' => 'dropdown',
+                    'field_type' => sanitize_text_field($group['field_type']),
                     'show_in_rest' => 1,
                 );
 

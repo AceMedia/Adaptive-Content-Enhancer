@@ -4,6 +4,7 @@
         <thead>
             <tr>
                 <th scope="col" class="manage-column column-name">Group Name</th>
+                <th scope="col" class="manage-column column-field-type">Field Type</th> <!-- New column for Field Type -->
                 <th scope="col" class="manage-column column-options">Options</th>
                 <th scope="col" class="manage-column column-action">Action</th>
             </tr>
@@ -19,6 +20,14 @@
                         <td class="name column-name has-row-actions column-primary" style="vertical-align: top;">
                             <input type="text" name="dropdown_groups[<?php echo esc_attr($group_index); ?>][name]" value="<?php echo esc_attr($group['name']); ?>" <?php echo !empty($group['name']) ? 'readonly' : ''; ?> />
                             <p><strong>Meta Key:</strong> <?php echo esc_html($meta_key); ?></p>
+                        </td>
+                        <td class="field-type column-field-type" style="vertical-align: top;">
+                            <select name="dropdown_groups[<?php echo esc_attr($group_index); ?>][field_type]">
+                                <option value="dropdown" <?php selected($group['field_type'], 'dropdown'); ?>>Dropdown</option>
+                                <option value="checkbox" <?php selected($group['field_type'], 'checkbox'); ?>>Checkbox</option>
+                                <option value="radio" <?php selected($group['field_type'], 'radio'); ?>>Radio</option>
+                                <option value="buttons" <?php selected($group['field_type'], 'buttons'); ?>>Buttons</option>
+                            </select>
                         </td>
                         <td class="options column-options" style="vertical-align: top;">
                             <table class="group-options-table">
@@ -68,7 +77,7 @@
         </tbody>
         <tfoot>
             <tr>
-                <th scope="col" class="manage-column column-name" colspan="3">
+                <th scope="col" class="manage-column column-name" colspan="4">
                     <p><button type="button" class="button add-group">Add Dropdown Group</button></p>
                 </th>
             </tr>
