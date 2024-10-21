@@ -65,6 +65,25 @@ registerBlockType('ace-field-options/dropdown-block', {
             }
         }, [selectedGroup, availableGroups, setAttributes]);
 
+        useEffect(() => {
+            if (selectedGroup && metaKey && metaValue && metaValue[metaKey]) {
+                const existingValue = metaValue[metaKey];
+                const selectedOption = groupOptions.find(option => option.value === existingValue);
+                if (selectedOption) {
+                    setAttributes({
+                        dropdownValue: existingValue,
+                        dropdownLabel: selectedOption.label,
+                    });
+                } else {
+                    // In case the existing meta doesn't match the current options
+                    setAttributes({
+                        dropdownValue: existingValue,
+                        dropdownLabel: existingValue,
+                    });
+                }
+            }
+        }, [metaKey, metaValue, groupOptions, selectedGroup, setAttributes]);
+
         // Sync dropdown or true/false value with post meta and block attributes
         useEffect(() => {
             if (selectedFieldType === 'truefalse') {
@@ -114,7 +133,6 @@ allBlocks.forEach(block => {
                 return;
             }
 
-            setTimeout(() => {
                 setMetaValue({
                     ...metaValue,
                     [metaKey]: selectedOption.value // Ensure saving just a string
@@ -125,7 +143,6 @@ allBlocks.forEach(block => {
                     dropdownLabel: selectedOption.label,
                 });
                 console.log("Dropdown value updated to:", newValue);
-            }, 10); // Introduce a 10ms delay
         };
 
         // Handle true/false toggle change, updating meta and syncing across all instances
