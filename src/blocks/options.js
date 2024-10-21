@@ -132,145 +132,149 @@ registerBlockType('ace-field-options/dropdown-block', {
         const blockProps = useBlockProps();
 
         // Render controls based on field type
-        // Modify the `renderFieldControls` to only use `CustomSelectControl` in the editor:
-// Modify the `renderFieldControls` to only use `CustomSelectControl` in the editor:
-const renderFieldControls = () => {
-    switch (selectedFieldType) {
-        case 'truefalse':
-            return (
-                <ToggleControl
-                    label={trueFalseLabel}
-                    checked={trueFalseValue}
-                    onChange={(newValue) => handleToggleChange(newValue)}
-                />
-            );
-        case 'checkbox':
-            return groupOptions.map((option, index) => (
-                <CheckboxControl
-                    key={index}
-                    label={option.label}
-                    checked={dropdownValue === option.value}
-                    onChange={(isChecked) => handleDropdownChange(isChecked ? option.value : '')}
-                />
-            ));
-        case 'radio':
-        case 'buttons':
-            return (
-                <RadioControl
-                    selected={dropdownValue}
-                    options={groupOptions.map(option => ({
-                        label: option.label,
-                        value: option.value
-                    }))}
-                    onChange={(newValue) => handleDropdownChange(newValue)}
-                />
-            );
-        default:
-            return (
-                <CustomSelectControl
-                    label="Select an Option"
-                    value={groupOptions.find(option => option.value === dropdownValue) ? {
-                        key: dropdownValue,
-                        name: groupOptions.find(option => option.value === dropdownValue)?.label
-                    } : { key: '', name: 'Please select an option' }}
-                    options={[
-                        { name: 'Please select an option', key: '', disabled: true },
-                        ...groupOptions.map(option => ({
-                            name: option.label,
-                            key: option.value,
-                            style: { fontSize: '1rem', color: '#000' }, // Example styles
-                        }))
-                    ]}
-                    onChange={({ selectedItem }) => handleDropdownChange(selectedItem.key)}
-                    style={{ fontSize: '16px', padding: '8px' }}
-                />
-            );
-    }
-};
-
-// Modify `InspectorControls` to explicitly use `SelectControl`:
-return (
-    <div {...blockProps}>
-        {showAsTextEditor ? (
-            <p>{dropdownLabel || trueFalseLabel || 'Click to edit'}</p> // Display as text if in text mode
-        ) : (
-            <div className="ace-dropdown-block">
-                {/* Group selector */}
-                {!selectedGroup && (
-                    <SelectControl
-                        label="Select a Group"
-                        value={selectedGroup}
-                        options={[
-                            { label: 'Please select a group', value: '', disabled: true },
-                            ...availableGroups.map(group => ({
-                                label: group.name,
-                                value: group.name
-                            }))
-                        ]}
-                        onChange={(newGroup) => setAttributes({ selectedGroup: newGroup, dropdownValue: '', dropdownLabel: '', selectedFieldType: '' })}
-                    />
-                )}
-
-                {/* Render dynamic controls based on field type */}
-                {selectedGroup && selectedGroup !== '' && renderFieldControls()}
-            </div>
-        )}
-
-        {/* Inspector Controls should always show full configuration, unaffected by showAsTextEditor */}
-        <InspectorControls>
-            <PanelBody title="Dropdown Settings">
-                <SelectControl
-                    label="Select an Option"
-                    value={dropdownValue}
-                    options={[
-                        { label: 'Please select an option', value: '', disabled: true },
-                        ...groupOptions.map(option => ({
-                            label: option.label,
-                            value: option.value
-                        }))
-                    ]}
-                    onChange={(newValue) => handleDropdownChange(newValue)}
-                />
-
-                {selectedFieldType && (
-                    <p><strong>Field Type:</strong> {selectedFieldType}</p>
-                )}
-
-                {/* Always display controls here */}
-                {selectedGroup && selectedGroup !== '' && (
-                    <SelectControl
-                        label="Select an Option"
-                        value={dropdownValue}
-                        options={[
-                            { label: 'Please select an option', value: '', disabled: true },
-                            ...groupOptions.map(option => ({
+        const renderFieldControls = () => {
+            switch (selectedFieldType) {
+                case 'truefalse':
+                    return (
+                        <ToggleControl
+                            label={trueFalseLabel}
+                            checked={trueFalseValue}
+                            onChange={(newValue) => handleToggleChange(newValue)}
+                        />
+                    );
+                case 'checkbox':
+                    return groupOptions.map((option, index) => (
+                        <CheckboxControl
+                            key={index}
+                            label={option.label}
+                            checked={dropdownValue === option.value}
+                            onChange={(isChecked) => handleDropdownChange(isChecked ? option.value : '')}
+                        />
+                    ));
+                case 'radio':
+                case 'buttons':
+                    return (
+                        <RadioControl
+                            selected={dropdownValue}
+                            options={groupOptions.map(option => ({
                                 label: option.label,
                                 value: option.value
-                            }))
-                        ]}
-                        onChange={(newValue) => handleDropdownChange(newValue)}
-                    />
+                            }))}
+                            onChange={(newValue) => handleDropdownChange(newValue)}
+                        />
+                    );
+                default:
+                    return (
+                        <>
+                            <CustomSelectControl
+                            className = 'false'
+    label="Select an Option"
+    value={groupOptions.find(option => option.value === dropdownValue) ? {
+        key: dropdownValue,
+        name: groupOptions.find(option => option.value === dropdownValue)?.label
+    } : { key: '', name: 'Please select an option' }}
+    options={[
+        { name: 'Please select an option', key: '', disabled: true },
+        ...groupOptions.map(option => ({
+            name: option.label,
+            key: option.value,
+            style: { fontSize: '1rem', color: '#000' }, // Example styles
+        }))
+    ]}
+    onChange={({ selectedItem }) => handleDropdownChange(selectedItem.key)}
+/>
+
+                        </>
+                    );
+            }
+        };
+
+        return (
+            <div {...blockProps}>
+                {showAsTextEditor ? (
+                    <p>{dropdownLabel || trueFalseLabel || 'Click to edit'}</p> // Display as text if in text mode
+                ) : (
+                    <div className="ace-dropdown-block">
+                        {/* Group selector */}
+                        {!selectedGroup && (
+                            <CustomSelectControl
+                            label="Select a Group"
+                            value={availableGroups.find(group => group.name === selectedGroup) ? {
+                                key: selectedGroup,
+                                name: availableGroups.find(group => group.name === selectedGroup)?.name,
+                                description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
+                            } : { key: '', name: 'Please select a group' }}
+                            options={[
+                                ...availableGroups.map(group => ({
+                                    name: group.name,
+                                    key: group.name,
+                                    description: group.field_type // Show field type as subtext
+                                }))
+                            ]}
+                            onChange={({ selectedItem }) => setAttributes({
+                                selectedGroup: selectedItem.key,
+                                dropdownValue: '',
+                                dropdownLabel: '',
+                                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
+                            })}
+                        />
+                        
+                        )}
+
+                        {/* Render dynamic controls based on field type */}
+                        {selectedGroup && selectedGroup !== '' && renderFieldControls()}
+                    </div>
                 )}
-            </PanelBody>
 
-            {/* New Inspector Controls */}
-            <PanelBody title="Display Options">
-                <SwitchControl
-                    label="Show as Text in Editor"
-                    checked={showAsTextEditor}
-                    onChange={(newValue) => setAttributes({ showAsTextEditor: newValue })}
-                />
-                <SwitchControl
-                    label="Show as Text on Frontend"
-                    checked={showAsTextFrontend}
-                    onChange={(newValue) => setAttributes({ showAsTextFrontend: newValue })}
-                />
-            </PanelBody>
-        </InspectorControls>
-    </div>
-);
+                {/* Inspector Controls should always show full configuration, unaffected by showAsTextEditor */}
+                <InspectorControls>
+                    <PanelBody title="Dropdown Settings">
+                    <CustomSelectControl
+                            label="Select a Group"
+                            value={availableGroups.find(group => group.name === selectedGroup) ? {
+                                key: selectedGroup,
+                                name: availableGroups.find(group => group.name === selectedGroup)?.name,
+                                description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
+                            } : { key: '', name: 'Please select a group' }}
+                            options={[
+                                ...availableGroups.map(group => ({
+                                    name: group.name,
+                                    key: group.name,
+                                    description: group.field_type // Show field type as subtext
+                                }))
+                            ]}
+                            onChange={({ selectedItem }) => setAttributes({
+                                selectedGroup: selectedItem.key,
+                                dropdownValue: '',
+                                dropdownLabel: '',
+                                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
+                            })}
+                        />
 
+                        {selectedFieldType && (
+                            <p><strong>Field Type:</strong> {selectedFieldType}</p>
+                        )}
 
+                        {/* Always display controls here */}
+                        {selectedGroup && selectedGroup !== '' && renderFieldControls()}
+                    </PanelBody>
+
+                    {/* New Inspector Controls */}
+                    <PanelBody title="Display Options">
+                        <SwitchControl
+                            label="Show as Text in Editor"
+                            checked={showAsTextEditor}
+                            onChange={(newValue) => setAttributes({ showAsTextEditor: newValue })}
+                        />
+                        <SwitchControl
+                            label="Show as Text on Frontend"
+                            checked={showAsTextFrontend}
+                            onChange={(newValue) => setAttributes({ showAsTextFrontend: newValue })}
+                        />
+                    </PanelBody>
+                </InspectorControls>
+            </div>
+        );
     },
     save: () => {
         return null;
