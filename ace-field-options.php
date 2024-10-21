@@ -693,7 +693,7 @@ function get_group_options($selected_group, $attributes) {
 
 
 
-register_block_type('adaptive-content-enhancer/choices', array(
+register_block_type('adaptive-content-enhancer/option', array(
     'render_callback' => 'ace_field_options_render_block',
     'attributes' => array(
         'selectedGroup' => array(

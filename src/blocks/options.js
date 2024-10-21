@@ -12,11 +12,13 @@ function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
 }
 
+
+
 // Register the block
-registerBlockType('adaptive-content-enhancer/choices', {
-    title: 'Choices',
-    icon: 'list-view',
-    category: 'widgets',
+registerBlockType('adaptive-content-enhancer/option', {
+    title: 'Option',
+    icon: 'yes-alt',
+    category: 'text',
     attributes: {
         selectedGroup: { type: 'string', default: '' },
         choiceValue: { type: 'string', default: '' },
@@ -117,25 +119,6 @@ registerBlockType('adaptive-content-enhancer/choices', {
             }
         }, [selectedGroup, availableGroups, setAttributes]);
 
-        useEffect(() => {
-            console.log("Meta value updated:", metaValue);
-            if (selectedGroup && metaKey && metaValue && metaValue[metaKey]) {
-                const existingValue = metaValue[metaKey];
-                const selectedOption = groupOptions.find(option => option.value === existingValue);
-                if (selectedOption) {
-                    setAttributes({
-                        choiceValue: existingValue,
-                        choiceLabel: selectedOption.label,
-                    });
-                } else {
-                    // In case the existing meta doesn't match the current options
-                    setAttributes({
-                        choiceValue: existingValue,
-                        choiceLabel: existingValue,
-                    });
-                }
-            }
-        }, [metaKey, metaValue, groupOptions, selectedGroup, setAttributes]);
 
         // Sync dropdown or true/false value with post meta and block attributes
         useEffect(() => {
