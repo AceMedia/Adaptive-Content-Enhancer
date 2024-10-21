@@ -484,12 +484,12 @@ function ace_field_options_enqueue_editor_assets() {
 
     // Fetch dropdown groups dynamically by field_type: dropdown
     $dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-);
+        apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+    );
 
     // Fetch true/false fields dynamically by field_type: truefalse
     $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
@@ -508,57 +508,42 @@ add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_asse
 add_action('init', 'acefields_register_dynamic_meta');
 
 function acefields_register_dynamic_meta() {
-    // Fetch Option Groups (Dropdowns) using the filter
-    $dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-);
+    // Define a mapping of field types to how they should be treated
+    $field_types = [
+        'dropdown' => 'string',
+        'truefalse' => 'boolean',
+        'checkbox' => 'string',
+        'radio' => 'string',
+        'buttons' => 'string',
+    ];
 
-    // Register post meta fields for Dropdown groups
-    if (!empty($dropdown_groups)) {
-        foreach ($dropdown_groups as $group_data) {
-            // Create the sanitized meta key from the group name
-            $group_name_key = create_underscored_value($group_data['name']);
+    // Loop over each field type and register its meta fields
+    foreach ($field_types as $type => $meta_type) {
+        // Fetch fields using the filter based on their type
+        $fields = apply_filters('filter_wp_options_by_field_type', null, $type);
 
-            // Register meta field for each valid dropdown group
-            register_post_meta(
-                'post',
-                $group_name_key,
-                array(
-                    'show_in_rest'      => true,
-                    'single'            => true,
-                    'type'              => 'string', // Type should be string, even though we might store serialized arrays
-                    'sanitize_callback' => 'acefields_sanitize_serialized_meta', // Custom sanitize function
-                )
-            );
+        if (!empty($fields)) {
+            foreach ($fields as $field_data) {
+                // Create the sanitized meta key from the field name
+                $field_name_key = create_underscored_value($field_data['name']);
+
+                // Determine the sanitize callback based on the field type
+                $sanitize_callback = $meta_type === 'boolean' ? 'rest_sanitize_boolean' : 'acefields_sanitize_serialized_meta';
+
+                // Register each field as a post meta field
+                register_post_meta(
+                    'post',
+                    $field_name_key,
+                    array(
+                        'show_in_rest'      => true,
+                        'single'            => true,
+                        'type'              => $meta_type, // Type based on field type
+                        'sanitize_callback' => $sanitize_callback,
+                    )
+                );
+            }
         }
     }
-
-    // Fetch True/False fields using the filter
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
-
-    // Register post meta fields for True/False fields
-    if (!empty($true_false_fields)) {
-        foreach ($true_false_fields as $field_data) {
-            $field_name_key = create_underscored_value($field_data['name']);
-    
-            // Register each true/false field as a post meta field
-            register_post_meta(
-                'post',
-                $field_name_key,
-                array(
-                    'show_in_rest'      => true,
-                    'single'            => true,
-                    'type'              => 'boolean',
-                    'sanitize_callback' => 'rest_sanitize_boolean', // Sanitize boolean values
-                )
-            );
-        }
-    }
-    
 }
 
 // Custom sanitize function for serialized meta data
@@ -569,7 +554,6 @@ function acefields_sanitize_serialized_meta($meta_value) {
     }
     return sanitize_text_field((string) $meta_value);
 }
-
 
 
 // Function to retrieve unserialized meta

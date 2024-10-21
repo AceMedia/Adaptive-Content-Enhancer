@@ -57,29 +57,35 @@ registerBlockType('ace-field-options/dropdown-block', {
 
         // Sync dropdown value with post meta and block attributes
         useEffect(() => {
-            if (Array.isArray(metaValue[metaKey])) {
+            // Make sure metaValue and metaKey are properly initialized before accessing them
+            if (metaValue && metaKey && Array.isArray(metaValue[metaKey])) {
                 const [storedLabel, storedValue] = metaValue[metaKey];
                 setAttributes({
                     dropdownValue: storedValue,
                     dropdownLabel: storedLabel,
                 });
             }
-        }, [metaValue[metaKey], metaKey, groupOptions, setAttributes]);
+        }, [metaValue, metaKey, groupOptions, setAttributes]);
 
       // Handle dropdown change, updating meta and syncing across all instances
       const handleDropdownChange = (newValue) => {
         const selectedOption = groupOptions.find(option => option.value === newValue);
         
+        if (!selectedOption) {
+            console.error("Selected option not found:", newValue);
+            return;
+        }
+        
         // Save the selected option value in post meta
         setMetaValue({
             ...metaValue,
-            [metaKey]: newValue, // Directly store the selected value
+            [metaKey]: [selectedOption.label, selectedOption.value] // Store label and value as array
         });
     
         // Update block attributes for immediate rendering
         setAttributes({
             dropdownValue: newValue,
-            dropdownLabel: selectedOption ? selectedOption.label : '',
+            dropdownLabel: selectedOption.label,
         });
     };
     
@@ -140,18 +146,18 @@ registerBlockType('ace-field-options/dropdown-block', {
 
                         {/* Show the options dropdown only when a group is selected */}
                         {selectedGroup && selectedGroup !== '' && groupOptions.length > 0 && (
-                            <SelectControl
-                                value={dropdownValue}
-                                options={[
-                                    { label: 'Please select an option', value: '', disabled: true },
-                                    ...groupOptions.map(option => ({
-                                        label: option.label,
-                                        value: option.value
-                                    }))
-                                ]}
-                                onChange={(newValue) => handleDropdownChange(newValue)}
+                                        <SelectControl
+                                            value={dropdownValue}
+                                            options={[
+                                                { label: 'Please select an option', value: '', disabled: true },
+                                                ...groupOptions.map(option => ({
+                                                    label: option.label,
+                                                    value: option.value
+                                                }))
+                                            ]}
+                                            onChange={(newValue) => handleDropdownChange(newValue)}
                                 ref={selectRef} // Attach the ref for auto-focus and auto-click
-                            />
+                                        />
                         )}
                     </div>
                 ) : (
