@@ -275,29 +275,31 @@ $dropdown_groups = array_merge(
  $true_false_fields = array(); // Reset the array before repopulating
 
  // Handle saving true/false fields
- if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields'])) {
-     foreach ($_POST['true_false_fields'] as $field) {
-         // Ensure the field has a valid name, true label, and false label before proceeding
-         if (!empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label'])) {
-             $field_name = create_underscored_value($field['name']);
-     
-             // Proceed with saving the true/false field
-             $data = array(
-                 'name' => sanitize_text_field($field['name']),
-                 'true_label' => sanitize_text_field($field['true_label']),
-                 'false_label' => sanitize_text_field($field['false_label']),
-                 'field_type' => sanitize_text_field($field['field_type']),
-                 'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
-             );
-             
-             // Save or update the option
-             update_option("{$field_name}", $data);
-         }
-     }
- }
+// Save or update true/false fields when form is submitted
+if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields'])) {
+    foreach ($_POST['true_false_fields'] as $field) {
+        // Ensure the field has a valid name, true label, and false label before proceeding
+        if (!empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label'])) {
+            $field_name = create_underscored_value($field['name']);
+        
+            // Prepare data to be saved as a WordPress option
+            $data = array(
+                'name' => sanitize_text_field($field['name']),
+                'true_label' => sanitize_text_field($field['true_label']),
+                'false_label' => sanitize_text_field($field['false_label']),
+                'field_type' => 'truefalse', // Make sure to set the field type explicitly
+                'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
+            );
+            
+            // Save or update the option
+            update_option("ace_custom_" . $field_name, $data);
+        }
+    }
+}
 
- // Repopulate true_false_fields after saving
- $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+// Repopulate true_false_fields after saving
+$true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+
  
  // Filter fields to ensure only valid ones are shown
  $true_false_fields = array_filter($true_false_fields, function($field) {
@@ -469,18 +471,11 @@ function ace_field_options_enqueue_editor_assets() {
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
         'ace-field-options-block-editor',
-        plugins_url( '/assets/options.js', __FILE__ ),
+        plugins_url( '/assets/blocks/options.js', __FILE__ ),
         array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
         filemtime( plugin_dir_path( __FILE__ ) . 'assets/index.js' )
     );
 
-    // Editor (backend) script for true/false block (truefalse.js)
-    wp_enqueue_script(
-        'ace-field-options-truefalse-editor',
-        plugins_url( '/assets/truefalse.js', __FILE__ ),
-        array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
-        filemtime( plugin_dir_path( __FILE__ ) . 'assets/truefalse.js' )
-    );
 
     // Fetch dropdown groups dynamically by field_type: dropdown
     $dropdown_groups = array_merge(
@@ -628,6 +623,10 @@ register_block_type('ace-field-options/dropdown-block', array(
             'default' => ''
         ),
         'dropdownLabel' => array( // Add dropdownLabel to attributes
+            'type' => 'string',
+            'default' => ''
+        ),
+        'selectedFieldType' => array( // New attribute for field type
             'type' => 'string',
             'default' => ''
         )
@@ -873,17 +872,8 @@ function modify_post_meta_for_rest($response, $post, $request) {
 add_action('init', 'acefields_register_true_false_meta');
 
 function acefields_register_true_false_meta() {
-// Get all true/false fields based on field_type
-$true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
-
-foreach ($existing_group_names as $group_name) {
-    $option_name = create_underscored_value($group_name);
-    $field_data = (array) get_option($option_name, array());
-
-    if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === 'truefalse') {
-        $true_false_fields[] = $field_data;
-    }
-}
+    // Get all true/false fields based on field_type
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', wp_load_alloptions(), 'truefalse');
 
     if (!empty($true_false_fields)) {
         foreach ($true_false_fields as $field) {
@@ -897,13 +887,14 @@ foreach ($existing_group_names as $group_name) {
                 array(
                     'show_in_rest'      => true,
                     'single'            => true,
-                    'type'              => 'boolean', // This field should be a boolean (true/false)
+                    'type'              => 'boolean', // Ensure this is a boolean field
                     'sanitize_callback' => 'rest_sanitize_boolean', // Use the default WordPress boolean sanitizer
                 )
             );
         }
     }
 }
+
 
 
 // Handle the AJAX request to delete any WP option
