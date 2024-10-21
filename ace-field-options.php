@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Ace Field Options
+ * Plugin Name: Adaptive Content Enhancer
  * Description: A WordPress block plugin with multiple option groups for dropdowns.
  * Version: 0.420
  * Author: Shane Rounce
@@ -18,17 +18,17 @@ add_action('admin_post_import_acf_fields', 'handle_acf_import_submission');
 
 function ace_field_options_admin_menu() {
     add_menu_page(
-        'Options',
-        'Options',
+        'Choice',
+        'Choices',
         'manage_options',
-        'ace-dropdown-groups',
-        'ace_field_options_groups_page_html',
+        'adaptive-content-enhancer',
+        'adaptive_content_enhancer_choices_page_html',
         'dashicons-list-view',
         20
     );
 
     add_submenu_page(
-        'ace-dropdown-groups',
+        'adaptive-content-enhancer',
         'ACF Import',
         'ACF Import',
         'manage_options',
@@ -42,9 +42,9 @@ function ace_field_options_enqueue_styles() {
     $screen = get_current_screen();
     
     // Check if we are on the settings page
-    if ($screen->id === 'toplevel_page_ace-dropdown-groups') {
+    if ($screen->id === 'toplevel_page_adaptive-content-enhancer') {
         wp_enqueue_style(
-            'ace-field-options-settings', // Handle
+            'acemedia-settings', // Handle
             plugins_url('/assets/styles/css/settings.css', __FILE__), // Path to the CSS file
             array(), // Dependencies (if any)
             null // Version number
@@ -52,7 +52,7 @@ function ace_field_options_enqueue_styles() {
 
 
         wp_enqueue_script(
-            'ace-field-options-ajax',
+            'acemedia-ajax',
             plugins_url('/assets/blocks/ajax.js', __FILE__),
             array('jquery'), // Dependencies
             null, // Version
@@ -60,7 +60,7 @@ function ace_field_options_enqueue_styles() {
         );
     
         // Localize script to make the AJAX URL available
-        wp_localize_script('ace-field-options-ajax', 'aceAjax', array(
+        wp_localize_script('acemedia-ajax', 'aceAjax', array(
             'ajaxurl' => admin_url('admin-ajax.php')
         ));
     
@@ -73,7 +73,7 @@ add_action('admin_enqueue_scripts', 'ace_field_options_enqueue_styles');
 // Enqueue the editor CSS
 function ace_field_options_enqueue_editor_styles() {
     wp_enqueue_style(
-        'ace-field-options-editor', // Handle
+        'acemedia-editor', // Handle
         plugins_url('/assets/styles/css/editor.css', __FILE__), // Path to the CSS file
         array(), // Dependencies (if any)
         null // Version number
@@ -115,8 +115,8 @@ function filter_options_by_field_type($all_options, $type) {
 
 
 // Fetch dropdown groups after saving dynamically from updated options
-$dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+$choices = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'select'),
     apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
     apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
     apply_filters('filter_wp_options_by_field_type', null, 'radio'),
@@ -126,7 +126,7 @@ $dropdown_groups = array_merge(
 
 
 // Admin page HTML to manage Option Groups.
-function ace_field_options_groups_page_html() {
+function adaptive_content_enhancer_choices_page_html() {
     if (!current_user_can('manage_options')) {
         return;
     }
@@ -137,8 +137,8 @@ function ace_field_options_groups_page_html() {
   $field_type = ''; // New variable to determine the field type
 
 // Retrieve all Option Groups again to display the newly added ones
-$dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+$choices = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'select'),
     apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
     apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
     apply_filters('filter_wp_options_by_field_type', null, 'radio'),
@@ -164,7 +164,7 @@ foreach ($all_options as $option_name => $value) {
 // Handle saving/updating a specific group in single edit mode.
 if (isset($_GET['edit'])) {
     $edit_group_name = sanitize_text_field($_GET['edit']);
-    $edit_option_name = create_underscored_value($edit_group_name);
+    $edit_option_name = 'choices_' . create_underscored_value($edit_group_name);
 
     // Process form data for the edited group.
     if (isset($_POST['group']) && is_array($_POST['group'])) {
@@ -204,58 +204,63 @@ if (isset($_GET['edit'])) {
 
 // Handle form submission to save both Option Groups and true/false fields.
 if (isset($_POST['save_groups'])) {
-    check_admin_referer('save_dropdown_groups');
+    check_admin_referer('save_choices');
 
     // Retrieve the existing group names
     $existing_group_names = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-);
+        apply_filters('filter_wp_options_by_field_type', null, 'select'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+    );
 
     // Initialize array for new group names
     $new_group_names = array();
-    
 
-// Save or update group names
-if (isset($_POST['dropdown_groups']) && is_array($_POST['dropdown_groups'])) {
-    foreach ($_POST['dropdown_groups'] as $group) {
-        if (isset($group['name'], $group['options']) && is_array($group['options'])) {
-            // Create the sanitized name for the group
-            $sanitized_name = sanitize_text_field($group['name']);
-            $option_name = create_underscored_value($sanitized_name);
+    // Save or update group names
+    if (isset($_POST['choices']) && is_array($_POST['choices'])) {
+        foreach ($_POST['choices'] as $group) {
+            if (isset($group['name'], $group['options']) && is_array($group['options'])) {
+                // Create the sanitized name for the group
+                $sanitized_name = sanitize_text_field($group['name']);
+                $option_name = 'choices_' . create_underscored_value($sanitized_name);
 
-            // Prepare the group data to be saved
-            $group_data = array(
-                'name' => $sanitized_name,
-                'options' => array_map(function ($option) {
+                // Set default field_type to 'select' if not provided      
+              $field_type = isset($group['field_type']) ? sanitize_text_field($group['field_type']) : 'select';
+
+
+                // Prepare the group data to be saved
+                $group_data = array(
+                    'name' => $sanitized_name,
+                    'options' => array_map(function ($option) {
                     $value = !empty($option['value']) ? create_underscored_value($option['value']) : sanitize_text_field($option['label']);
-                    return array(
-                        'label' => sanitize_text_field($option['label']),
+                        return array(
+                            'label' => sanitize_text_field($option['label']),
                         'value' => $value,
-                    );
-                }, $group['options']),
-                'field_type' => sanitize_text_field($group['field_type']), // Save the field type
-                'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
-            );
+                        );
+                    }, $group['options']),
+                'field_type' => $field_type, // Save the field type
+                    'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
+                );
 
-            // Save or update the group as its own option
-            update_option($option_name, $group_data);
+                // Save or update the group as its own option
+                update_option($option_name, $group_data);
+            }
         }
     }
-}
 
 
 
-$dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+ // Repopulate choices after saving
+ $choices = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'select'),
     apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
     apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
     apply_filters('filter_wp_options_by_field_type', null, 'radio'),
     apply_filters('filter_wp_options_by_field_type', null, 'buttons')
 );
+
 
     if (!empty($group_names)) {
         foreach ($group_names as $group_name) {
@@ -292,7 +297,7 @@ if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields']))
             );
             
             // Save or update the option
-            update_option("ace_custom_" . $field_name, $data);
+            update_option("truefalse_" . $field_name, $data);
         }
     }
 }
@@ -318,7 +323,7 @@ $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'tru
 
     <h1>Manage Option Groups and True/False Fields</h1>
     <form method="POST">
-        <?php wp_nonce_field('save_dropdown_groups'); 
+        <?php wp_nonce_field('save_choices'); 
 
 
                         include 'templates/settings-options.php';
@@ -340,12 +345,12 @@ $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'tru
     document.addEventListener('DOMContentLoaded', function() {
         // Add new dropdown group (same as before)
         document.querySelector('.add-group').addEventListener('click', function() {
-            const tableBody = document.querySelector('#dropdown-groups-table tbody');
+            const tableBody = document.querySelector('#choices-table tbody');
             const groupIndex = tableBody.children.length;
             const newRow = document.createElement('tr');
-            newRow.classList.add('dropdown-group-row');
+            newRow.classList.add('choices-group-row');
             newRow.innerHTML = `
-                <td><input type="text" name="dropdown_groups[${groupIndex}][name]" value="" /></td>
+                <td><input type="text" name="choices[${groupIndex}][name]" value="" /></td>
                 <td>
                     <table class="group-options-table">
                         <thead>
@@ -412,7 +417,7 @@ $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'tru
         document.addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('add-option')) {
             // Check if we're in single edit view or main view
-            const groupRow = e.target.closest('.dropdown-group-row');
+            const groupRow = e.target.closest('.choices-group-row');
             let groupIndex, optionsTable;
 
             // Single Edit View: No groupRow, so target the single group's table directly
@@ -437,15 +442,15 @@ $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'tru
             if (!editKey) {
                 // Main view (multiple groups): Include groupIndex in the input names
                 newRow.innerHTML = `
-                    <td><input type="text" name="dropdown_groups[${groupIndex}][options][${optionIndex}][label]" value="" /></td>
-                    <td><input type="text" name="dropdown_groups[${groupIndex}][options][${optionIndex}][value]" value="" /></td>
+                    <td><input type="text" name="choices[${groupIndex}][options][${optionIndex}][label]" value="" /></td>
+                    <td><input type="text" name="choices[${groupIndex}][options][${optionIndex}][value]" value="" /></td>
                     <td><button type="button" class="button remove-option">Remove</button></td>
                 `;
             } else {
                 // Single view (one group): Don't include groupIndex in the input names
                 newRow.innerHTML = `
-                    <td><input type="text" name="dropdown_groups[0][options][${optionIndex}][label]" value="" /></td>
-                    <td><input type="text" name="dropdown_groups[0][options][${optionIndex}][value]" value="" /></td>
+                    <td><input type="text" name="choices[0][options][${optionIndex}][label]" value="" /></td>
+                    <td><input type="text" name="choices[0][options][${optionIndex}][value]" value="" /></td>
                     <td><button type="button" class="button remove-option">Remove</button></td>
                 `;
             }
@@ -470,7 +475,7 @@ function ace_field_options_enqueue_editor_assets() {
 
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
-        'ace-field-options-block-editor',
+        'acemedia-block-editor',
         plugins_url( '/assets/blocks/options.js', __FILE__ ),
         array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
         filemtime( plugin_dir_path( __FILE__ ) . 'assets/index.js' )
@@ -478,8 +483,8 @@ function ace_field_options_enqueue_editor_assets() {
 
 
     // Fetch dropdown groups dynamically by field_type: dropdown
-    $dropdown_groups = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
@@ -490,10 +495,10 @@ function ace_field_options_enqueue_editor_assets() {
     $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
     // Localize the dropdown groups for the dropdown block editor script
-    wp_localize_script('ace-field-options-block-editor', 'dropdownGroups', $dropdown_groups);
+    wp_localize_script('acemedia-block-editor', 'choiceGroups', $choices);
 
     // Localize the true/false fields for the true/false block editor script
-    wp_localize_script('ace-field-options-truefalse-editor', 'trueFalseFields', $true_false_fields);
+    wp_localize_script('acemedia-truefalse-editor', 'trueFalseFields', $true_false_fields);
 }
 add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_assets');
 
@@ -505,7 +510,7 @@ add_action('init', 'acefields_register_dynamic_meta');
 function acefields_register_dynamic_meta() {
     // Define a mapping of field types to how they should be treated
     $field_types = [
-        'dropdown' => 'string',
+        'select' => 'string',
         'truefalse' => 'boolean',
         'checkbox' => 'string',
         'radio' => 'string',
@@ -556,197 +561,218 @@ function acefields_get_unserialized_meta($meta_value) {
     return maybe_unserialize($meta_value);
 }
 
-
-// Server-side rendering of the block (this ensures block data is rendered correctly)
 function ace_field_options_render_block($attributes) {
+    $wrapper_attributes = get_block_wrapper_attributes();
     $selected_group = $attributes['selectedGroup'] ?? '';
-    $dropdown_value = $attributes['dropdownValue'] ?? ''; // Store the saved reference string
-    $selected_field_type = $attributes['selectedFieldType'] ?? ''; // Check the field type
-    $show_as_input = $attributes['showAsTextFrontend'] ?? false; // Check if it should show as an input per block
+    $selected_field_type = $attributes['selectedFieldType'] ?? '';
+    $show_as_input = $attributes['showAsTextFrontend'] ?? false;
 
-    $group_options = get_group_options($selected_group); // Fetch options based on the selected group
+    // Fetch the group options dynamically.
+    $group_options = get_group_options($selected_group, $attributes);
+    $dropdown_label = $group_options['label'];
 
-    // Render controls based on field type
-    switch ($selected_field_type) {
-        case 'truefalse':
-            $checked = $dropdown_value === '1' ? 'checked' : '';
-            if ($show_as_input) {
-                return sprintf(
-                    '<label><input type="checkbox" class="ace-field-options-checkbox" %s> %s</label>',
-                    $checked,
-                    esc_html($dropdown_value)
+    $output = '';
+
+    // Render based on whether inputs or plain text are requested.
+    if ($show_as_input) {
+        switch ($selected_field_type) {
+            case 'truefalse':
+                // Fetch true/false field labels dynamically from wp_options.
+                $true_label = $group_options['label']; // This is already dynamically fetched from wp_options
+                $is_checked = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true) ? 'checked' : '';
+
+                // Render the checkbox with the correct label.
+                $output = sprintf(
+                    '<label><input type="checkbox" class="acemedia-checkbox" %s> %s</label>',
+                    $is_checked,
+                    esc_html($true_label)
                 );
-            }
-            return sprintf(
-                '<p class="ace-field-options-text">%s</p>',
-                esc_html($dropdown_value)
-            );
+                break;
 
-        case 'checkbox':
-            $checkboxes = '';
-        
-            if ($show_as_input) {
-                // Render input elements when `show_as_input` is true
-                if (!empty($group_options)) {
-                    foreach ($group_options as $option) {
-                        $isChecked = $dropdown_value === $option['value'];
-                        $checkboxes .= sprintf(
-                            '<label><input type="checkbox" class="ace-field-options-checkbox" value="%s" %s> %s</label>',
-                            esc_attr($option['value']),
-                            $isChecked ? 'checked' : '',
-                            esc_html($option['label'])
-                        );
-                    }
+            case 'checkbox':
+            case 'radio':
+            case 'buttons':
+                // Loop and render inputs for each option in the selected group.
+                foreach ($group_options['options'] as $option) {
+                    $isSelected = $attributes['choiceValue'] === $option['value'] ? 'checked' : '';
+                    $inputType = ($selected_field_type === 'checkbox') ? 'checkbox' : 'radio';
+                    $output .= sprintf(
+                        '<label><input type="%s" name="%s" value="%s" class="acemedia-%s" %s> %s</label>',
+                        esc_attr($inputType),
+                        esc_attr($selected_group),
+                        esc_attr($option['value']),
+                        esc_attr($inputType),
+                        $isSelected,
+                        esc_html($option['label'])
+                    );
                 }
-            } else {
-                // Only display the labels of checked options when `show_as_input` is false
-                if (!empty($group_options)) {
-                    foreach ($group_options as $option) {
-                        if ($dropdown_value === $option['value']) {
-                            $checkboxes .= sprintf(
-                                '<p class="ace-field-options-text">%s</p>',
-                                esc_html($option['label'])
-                            );
+                break;
+
+            default:
+                // Default to select dropdown.
+                $select = '<select class="acemedia-input">';
+                foreach ($group_options['options'] as $option) {
+                    $isSelected = $attributes['choiceValue'] === $option['value'] ? 'selected' : '';
+                    $select .= sprintf(
+                        '<option value="%s" %s>%s</option>',
+                        esc_attr($option['value']),
+                        $isSelected,
+                        esc_html($option['label'])
+                    );
+                }
+                $select .= '</select>';
+                $output = $select;
+                break;
+        }
+        return sprintf('<div %s>%s</div>', $wrapper_attributes, $output);
+    } else {
+        // Render plain text labels for non-input fields.
+        if ($selected_field_type === 'truefalse') {
+            // Fetch true/false field label dynamically for display.
+            $dropdown_label = $group_options['label']; // Use the dynamically fetched label
+        }
+
+        return sprintf('<p %s>%s</p>', $wrapper_attributes, esc_html($dropdown_label));
+    }
+}
+
+
+function get_group_options($selected_group, $attributes) {
+    $selected_group = create_underscored_value($selected_group);
+    $dropdown_value_ref = $attributes['choiceValue'] ?? '';
+
+    $dropdown_groups = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'select'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
+    );
+
+    $dropdown_label = '';
+    $dropdown_value = '';
+    $dropdown_options = []; // Initialize an empty array for options
+
+    if ($selected_group) {
+        foreach ($dropdown_groups as $group) {
+            if (create_underscored_value($group['name']) === $selected_group) {
+                if ($group['field_type'] === 'truefalse') {
+                    $true_label = $group['true_label'] ?? 'True';
+                    $is_true = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true);
+                    $dropdown_label = $is_true ? $true_label : 'False';
+                    $dropdown_value = $is_true ? '1' : '0';
+                } else {
+                    // For other field types, populate dropdown options.
+                    foreach ($group['options'] as $option) {
+                        $dropdown_options[] = [
+                            'label' => $option['label'],
+                            'value' => $option['value']
+                        ];
+                        if ((string)$dropdown_value_ref === (string)$option['value']) {
+                            $dropdown_label = $option['label'];
+                            $dropdown_value = $option['value'];
                         }
                     }
                 }
             }
-        
-            return $checkboxes;
-
-        case 'radio':
-        case 'buttons':
-            $radios = '';
-            if (!empty($group_options)) {
-                foreach ($group_options as $option) {
-                    $isSelected = $dropdown_value === $option['value'] ? 'checked' : '';
-                    if ($show_as_input) {
-                        $radios .= sprintf(
-                            '<label><input type="radio" name="%s" value="%s" class="ace-field-options-radio" %s> %s</label>',
-                            esc_attr($selected_group),
-                            esc_attr($option['value']),
-                            $isSelected,
-                            esc_html($option['label'])
-                        );
-                    } else {
-                        $radios .= sprintf(
-                            '<p class="ace-field-options-text">%s: %s</p>',
-                            esc_html($option['label']),
-                            $isSelected ? 'Selected' : 'Not Selected'
-                        );
-                    }
-                }
-            }
-            return $radios;
-
-            default:
-            if ($show_as_input) {
-                // Render a <select> dropdown with options, selecting the current dropdown value
-                $select = '<select class="ace-field-options-input">';
-                
-                // Loop through the group options to create <option> elements
-                if (!empty($group_options)) {
-                    foreach ($group_options as $option) {
-                        $isSelected = $dropdown_value === $option['value'] ? 'selected' : '';
-                        $select .= sprintf(
-                            '<option value="%s" %s>%s</option>',
-                            esc_attr($option['value']),
-                            $isSelected,
-                            esc_html($option['label'])
-                        );
-                    }
-                }
-        
-                $select .= '</select>';
-                return $select;
-            }
-        
-            // Render as plain text when not set to input mode
-            return sprintf(
-                '<p class="ace-field-options-text">%s</p>',
-                esc_html($dropdown_value)
-            );
-    }
-}
-
-// Helper function to fetch group options
-function get_group_options($selected_group) {
-    // Fetch all dropdown groups
-    $dropdown_groups = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-    );
-
-    foreach ($dropdown_groups as $group) {
-        if ($group['name'] === $selected_group) {
-            return $group['options'];
         }
     }
 
-    return [];
+    return [
+        'label' => $dropdown_label,
+        'value' => $dropdown_value,
+        'options' => $dropdown_options // Ensure options are returned
+    ];
 }
 
 
 
 
 
-register_block_type('ace-field-options/dropdown-block', array(
+
+
+
+register_block_type('adaptive-content-enhancer/choices', array(
     'render_callback' => 'ace_field_options_render_block',
     'attributes' => array(
         'selectedGroup' => array(
             'type' => 'string',
             'default' => ''
         ),
-        'dropdownValue' => array(
+        'choiceValue' => array(
             'type' => 'string',
             'default' => ''
         ),
-        'dropdownLabel' => array( // Add dropdownLabel to attributes
+        'choiceLabel' => array(
             'type' => 'string',
             'default' => ''
         ),
-        'selectedFieldType' => array( // New attribute for field type
+        'selectedFieldType' => array(
             'type' => 'string',
             'default' => ''
+        ),
+        'style' => array(
+            'type' => 'object',
+            'default' => array(
+                'spacing' => array(
+                    'padding' => array(
+                        'top' => '0',
+                        'right' => '0',
+                        'bottom' => '0',
+                        'left' => '0'
+                    )
+                )
+            )
         )
-    )
+    ),
+    'supports' => array(
+        'align' => true,
+        'attributes' => true,
+        'color' => array(
+            'text' => true,
+            'background' => true,
+        ),
+        'spacing' => array(
+            'padding' => true,
+            'margin' => true,
+        ),
+        'typography' => array(
+            'fontSize' => true,
+            'lineHeight' => true,
+            'textAlign' => true,
+            '__experimentalFontWeights' => true,
+            '__experimentalFontFamily' => true,
+            '__experimentalFontStyle' => true,
+            '__experimentalFontVariant' => true,
+            '__experimentalLetterSpacing' => true,
+            '__experimentalTextTransform' => true,
+            '__experimentalCustomLineHeight' => true,
+            'customFontSize' => true,
+        ),
+        '__experimentalBorder' => array(
+            'color' => true,
+            'radius' => true,
+            'style' => true,
+            'width' => true,
+            '__experimentalDefaultControls' => array(
+                'color' => true,
+                'radius' => true,
+                'style' => true,
+                'width' => true,
+            )
+        ),
+        'customClassName' => true,
+    ),
 ));
 
 
 
-function ace_field_options_render_true_false_block($attributes) {
-    $post_id = get_the_ID();
-    $selected_field = $attributes['selectedField'] ?? ''; // Field name to fetch
 
-    // Fetch the stored value for the true/false field
-    $true_false_value = get_post_meta($post_id, create_underscored_value($selected_field), true);
-
-    // Fetch the specific true/false field from the database
-    $field_option_name = create_underscored_value($selected_field);
-    $true_false_field = get_option($field_option_name, array());
-
-    // Initialize the label
-    $label = '';
-
-    // Determine the label based on the stored value
-    if (!empty($true_false_field)) {
-        $label = ($true_false_value === '1') ? $true_false_field['true_label'] : $true_false_field['false_label'];
-    }
-
-    // Output the block with the selected label
-    return sprintf(
-        '<p class="wp-block-ace-field-options-true-false-block wp-block-paragraph">%s</p>',
-        esc_html($label)
-    );
-}
 
 
 
 // Register the true/false block with its own render callback
-register_block_type('ace-field-options/true-false-block', array(
+register_block_type('acemedia/true-false-block', array(
     'render_callback' => 'ace_field_options_render_true_false_block',
     'attributes' => array(
         'selectedField' => array(
@@ -782,8 +808,8 @@ function get_post_meta_fields($data) {
     $filtered_meta = array();
 
     // Fetch dropdown groups
-    $dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    $choices = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'select'),
     apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
     apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
     apply_filters('filter_wp_options_by_field_type', null, 'radio'),
@@ -794,14 +820,15 @@ function get_post_meta_fields($data) {
     $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
     // Handle dropdown groups (missing logic)
-    if (!empty($dropdown_groups)) {
-        foreach ($dropdown_groups as $group_data) {
+    if (!empty($choices)) {
+        foreach ($choices as $group_data) {
             // Check if the group should be shown in REST
             if (empty($group_data['show_in_rest'])) {
                 continue; // Skip this group if it shouldn't be shown
             }
 
             $meta_key = create_underscored_value($group_data['name']); // Get the key for the field
+
 
             // Match the stored value for Option Groups
             if (isset($meta[$meta_key])) {
@@ -877,16 +904,16 @@ function modify_post_meta_for_rest($response, $post, $request) {
     $meta = $response->data['meta'];
 
     // Fetch all dropdown option groups dynamically by filtering options by field_type: dropdown
-    $dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    $choices = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'select'),
     apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
     apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
     apply_filters('filter_wp_options_by_field_type', null, 'radio'),
     apply_filters('filter_wp_options_by_field_type', null, 'buttons')
 );
 
-    if (!empty($dropdown_groups)) {
-        foreach ($dropdown_groups as $group_data) {
+    if (!empty($choices)) {
+        foreach ($choices as $group_data) {
             $meta_key = create_underscored_value($group_data['name']); // Get the key for the field
 
             // Check if the group should be shown in REST
@@ -994,7 +1021,7 @@ function ace_delete_wp_option() {
 
         // Fetch all groups (dropdowns and true/false) using the filter
         $all_groups = array_merge(
-            apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+            apply_filters('filter_wp_options_by_field_type', null, 'select'),
             apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
         );
 
@@ -1010,7 +1037,7 @@ function ace_delete_wp_option() {
         if ($group_exists && delete_option($option_name)) {
             // Fetch the appropriate list to update depending on the group type
             $group_names = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+    apply_filters('filter_wp_options_by_field_type', null, 'select'),
     apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
     apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
     apply_filters('filter_wp_options_by_field_type', null, 'radio'),
@@ -1039,7 +1066,7 @@ function ace_cleanup_nameless_true_false_fields() {
     foreach ($true_false_fields as $field) {
         if (empty($field['name'])) {
             // Delete the option if it has no valid name
-        //    delete_option("ace_custom_" . create_underscored_value($field['name']));
+        //    delete_option("choices_" . create_underscored_value($field['name']));
         }
     }
 }

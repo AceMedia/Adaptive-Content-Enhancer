@@ -1,6 +1,6 @@
 {
     "apiVersion": 2,
-    "name": "ace-field-options/dropdown-block",
+    "name": "ace-field-options/choices-block",
     "title": "Dropdown Block",
     "category": "widgets",
     "icon": "list-view",
@@ -13,7 +13,7 @@
             "type": "string",
             "default": ""
         },
-        "dropdownValue": {
+        "choiceValue": {
             "type": "string",
             "default": ""
         }

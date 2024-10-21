@@ -1,6 +1,6 @@
 <div class="wrap">
     <h2>Options</h2>
-    <table class="wp-list-table widefat fixed striped table-view-excerpt" id="dropdown-groups-table">
+    <table class="wp-list-table widefat fixed striped table-view-excerpt" id="choices-table">
         <thead>
             <tr>
                 <th scope="col" class="manage-column column-name">Group Name</th>
@@ -9,21 +9,36 @@
                 <th scope="col" class="manage-column column-action">Action</th>
             </tr>
         </thead>
-        <tbody id="the-list" data-wp-lists="list:dropdown-groups">
+        <tbody id="the-list" data-wp-lists="list:choices">
             
-        <?php if (!empty($dropdown_groups)) : ?>
-            <?php foreach ($dropdown_groups as $group_index => $group) : ?>
-                <?php $meta_key = create_underscored_value($group['name']); ?>
+        <?php 
+// Filter out `truefalse` fields from `$choices`
+$choices = array_filter($choices, function($group) {
+    return isset($group['field_type']) && $group['field_type'] !== 'truefalse';
+});
+
+if (!empty($choices)) :  
+?>
+               
+            <?php foreach ($choices as $group_index => $group) :
+                
+                ?>
+                <?php $meta_key = create_underscored_value($group['name']); 
+                
+                
+                print_r($meta_key);
+                
+                ?>
                 
                 <?php if (empty($edit_key) || create_underscored_value($group['name']) === $edit_key) : ?>
-                    <tr class="dropdown-group-row level-0">
+                    <tr class="choices-group-row level-0">
                         <td class="name column-name has-row-actions column-primary" style="vertical-align: top;">
-                            <input type="text" name="dropdown_groups[<?php echo esc_attr($group_index); ?>][name]" value="<?php echo esc_attr($group['name']); ?>" <?php echo !empty($group['name']) ? 'readonly' : ''; ?> />
+                            <input type="text" name="choices[<?php echo esc_attr($group_index); ?>][name]" value="<?php echo esc_attr($group['name']); ?>" <?php echo !empty($group['name']) ? 'readonly' : ''; ?> />
                             <p><strong>Meta Key:</strong> <?php echo esc_html($meta_key); ?></p>
                         </td>
                         <td class="field-type column-field-type" style="vertical-align: top;">
-                            <select name="dropdown_groups[<?php echo esc_attr($group_index); ?>][field_type]">
-                                <option value="dropdown" <?php selected($group['field_type'], 'dropdown'); ?>>Dropdown</option>
+                            <select name="choices[<?php echo esc_attr($group_index); ?>][field_type]">
+                                <option value="select" <?php selected($group['field_type'], 'select'); ?>>Select</option>
                                 <option value="checkbox" <?php selected($group['field_type'], 'checkbox'); ?>>Checkbox</option>
                                 <option value="radio" <?php selected($group['field_type'], 'radio'); ?>>Radio</option>
                                 <option value="buttons" <?php selected($group['field_type'], 'buttons'); ?>>Buttons</option>
@@ -43,10 +58,10 @@
                                         <?php foreach ($group['options'] as $option_index => $option) : ?>
                                             <tr>
                                                 <td style="vertical-align: top;">
-                                                    <input type="text" name="dropdown_groups[<?php echo esc_attr($group_index); ?>][options][<?php echo esc_attr($option_index); ?>][label]" value="<?php echo esc_attr($option['label']); ?>" />
+                                                    <input type="text" name="choices[<?php echo esc_attr($group_index); ?>][options][<?php echo esc_attr($option_index); ?>][label]" value="<?php echo esc_attr($option['label']); ?>" />
                                                 </td>
                                                 <td>
-                                                    <input type="text" name="dropdown_groups[<?php echo esc_attr($group_index); ?>][options][<?php echo esc_attr($option_index); ?>][value]" value="<?php echo esc_attr($option['value']); ?>" <?php echo !empty($option['value']) ? 'readonly' : ''; ?> />
+                                                    <input type="text" name="choices[<?php echo esc_attr($group_index); ?>][options][<?php echo esc_attr($option_index); ?>][value]" value="<?php echo esc_attr($option['value']); ?>" <?php echo !empty($option['value']) ? 'readonly' : ''; ?> />
                                                 </td>
                                                 <td>
                                                     <button type="button" class="button remove-option">Remove</button>
@@ -63,11 +78,11 @@
                             <input 
                                 type="checkbox" 
                                 id="show_in_rest_<?php echo esc_attr($group_index); ?>" 
-                                name="dropdown_groups[<?php echo esc_attr($group_index); ?>][show_in_rest]" 
+                                name="choices[<?php echo esc_attr($group_index); ?>][show_in_rest]" 
                                 value="1" 
                                 <?php checked(!empty($group['show_in_rest'])); ?> 
                             />
-                            <a href="<?php echo admin_url('admin.php?page=ace-dropdown-groups&edit=' . esc_attr($meta_key)); ?>" class="button">Edit Group</a>
+                            <a href="<?php echo admin_url('admin.php?page=adaptive-content-enhancer&edit=' . esc_attr($meta_key)); ?>" class="button">Edit Group</a>
                             <button type="button" class="button remove-this" data-group-name="<?php echo esc_attr($meta_key); ?>">Remove Group</button>
                         </td>
                     </tr>

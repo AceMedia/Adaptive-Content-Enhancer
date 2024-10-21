@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Second click: proceed with deletion
                 const button = e.target;
                 const groupName = button.getAttribute('data-group-name'); // Get the group name from the data attribute
-
+                console.log(groupName);
                  // Send AJAX request to delete the group
         jQuery.ajax({
             url: aceAjax.ajaxurl,
