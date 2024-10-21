@@ -94,6 +94,20 @@ registerBlockType('ace-field-options/dropdown-block', {
         // Handle dropdown change, updating meta and syncing across all instances
         const handleDropdownChange = (newValue) => {
             const selectedOption = groupOptions.find(option => option.value === newValue);
+            console.log("Selected option:", metaKey);
+
+// Sync other blocks with the same selectedGroup
+const allBlocks = wp.data.select('core/block-editor').getBlocks();
+allBlocks.forEach(block => {
+    if (block.attributes.selectedGroup === selectedGroup) {
+        // Update attributes of other blocks to reflect the changes
+        wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
+            dropdownValue: selectedOption.value,
+            dropdownLabel: selectedOption.label,
+        });
+    }
+});
+
 
             if (!selectedOption) {
                 console.error("Selected option not found:", newValue);
