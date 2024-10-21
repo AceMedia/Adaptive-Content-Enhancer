@@ -9,27 +9,27 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Second click: proceed with deletion
                 const button = e.target;
-                const groupName = button.getAttribute('data-group-name'); // Get the group name from the data attribute
+                const groupName = 'choices_' + button.getAttribute('data-group-name'); // Get the group name from the data attribute
                 console.log(groupName);
                  // Send AJAX request to delete the group
         jQuery.ajax({
             url: aceAjax.ajaxurl,
             type: 'POST',
             data: {
-                action: 'delete_wp_option', // Match the action name
-                group_name: groupName // Pass the correct group name
+            action: 'delete_wp_option', // Match the action name
+            option_name: groupName // Pass the correct option name
             },
             success: function(response) {
-                if (response.success) {
-                    // Remove the group from the DOM
-                    e.target.closest('tr').remove();
-                    alert(response.data); // Display success message
-                } else {
-                    alert(response.data); // Display error message
-                }
+            if (response.success) {
+                // Remove the group from the DOM
+                e.target.closest('tr').remove();
+                alert(response.data); // Display success message
+            } else {
+                alert(response.data); // Display error message
+            }
             },
             error: function() {
-                alert('An error occurred. Please try again.');
+            alert('An error occurred. Please try again.');
             }
         });
             }

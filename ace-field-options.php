@@ -128,7 +128,8 @@ $choices = array_merge(
 // Admin page HTML to manage Option Groups.
 function adaptive_content_enhancer_choices_page_html() {
     if (!current_user_can('manage_options')) {
-        return;
+        error_log('Unauthorized attempt to delete group option');
+        wp_send_json_error('Unauthorized', 403);
     }
 
 
@@ -1006,54 +1007,46 @@ function acefields_register_true_false_meta() {
 
 
 
-// Handle the AJAX request to delete any WP option
 add_action('wp_ajax_delete_wp_option', 'ace_delete_wp_option');
 
 function ace_delete_wp_option() {
     if (!current_user_can('manage_options')) {
+        error_log('User does not have permissions to delete options.');
         wp_send_json_error('Unauthorized', 403);
     }
 
     // Check if the option name is set
-    if (isset($_POST['group_name'])) {
-        $group_name = sanitize_text_field($_POST['group_name']);
+    if (isset($_POST['option_name'])) {
+        $group_name = sanitize_text_field($_POST['option_name']);
         $option_name = create_underscored_value($group_name); // Use 'group_name' from the request
 
         // Fetch all groups (dropdowns and true/false) using the filter
         $all_groups = array_merge(
             apply_filters('filter_wp_options_by_field_type', null, 'select'),
-            apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
+            apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+            apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+            apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+            apply_filters('filter_wp_options_by_field_type', null, 'buttons')
         );
 
         // Check if the group exists in the filtered options
         $group_exists = false;
         foreach ($all_groups as $group) {
-            if (create_underscored_value($group['name']) === create_underscored_value($group_name)) {
+            if (create_underscored_value($group['name']) === $option_name) {
                 $group_exists = true;
                 break;
             }
         }
 
-        if ($group_exists && delete_option($option_name)) {
-            // Fetch the appropriate list to update depending on the group type
-            $group_names = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'select'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-);
-
-            // Remove the group name from the list if it exists
-            if (($key = array_search($group_name, $group_names)) !== false) {
-                unset($group_names[$key]);
-            }
-
+        if (delete_option($option_name)) {
+            error_log("Deleted group option: " . $option_name);
             wp_send_json_success('Option deleted successfully');
         } else {
-            wp_send_json_error('Option not found');
+            error_log("Failed to delete group option: " . $option_name);
+            wp_send_json_error(print_r($all_groups, false));
         }
     } else {
+        error_log('Invalid option name in delete request');
         wp_send_json_error('Invalid option name');
     }
 }
