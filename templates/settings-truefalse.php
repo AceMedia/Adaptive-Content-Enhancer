@@ -49,7 +49,7 @@
                                     <?php checked(!empty($field['show_in_rest'])); ?> 
                                 />
                                 <a href="<?php echo admin_url('admin.php?page=adaptive-content-enhancer-choice-groups&edit=' . esc_attr(create_underscored_value($field['name']))); ?>" class="button">Edit Field</a>
-                                <button type="button" class="button remove-this" data-group-name="<?php echo create_underscored_value($field['name']); ?>">Remove Group</button>
+                                <button type="button" class="button remove-this" data-group-name="<?php echo create_underscored_value($field['name']); ?>" data-field-type="truefalse">Remove Group</button>
                             </td>
                         </tr>
                     <?php endif; ?>
