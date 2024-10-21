@@ -200,7 +200,7 @@ allBlocks.forEach(block => {
                 console.log("Dropdown value updated to:", newValue);
         };
 
-        // Handle true/false toggle change, updating meta and syncing across all instances
+// Handle true/false toggle change, updating meta and syncing across all instances
 const handleToggleChange = (newValue) => {
     const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
     if (!selectedFieldData) {
@@ -221,11 +221,48 @@ const handleToggleChange = (newValue) => {
         }
     });
 
+    // Update the meta value to correctly reflect true or false
+    setMetaValue({
+        ...metaValue,
+        [metaKey]: newValue ? '1' : '0', // Ensure it's saved correctly as '1' or '0'
+    });
+
     setAttributes({
         trueFalseValue: newValue,
         trueFalseLabel: label,
     });
 };
+
+// Sync dropdown or true/false value with post meta and block attributes
+useEffect(() => {
+    if (selectedFieldType === 'truefalse') {
+        const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
+        if (selectedFieldData) {
+            // Ensure trueFalseValue is properly reflected in attributes
+            const storedValue = metaValue[metaKey] === '1' ? true : false; // Convert meta to boolean
+
+            setAttributes({
+                trueFalseValue: storedValue,
+                trueFalseLabel: storedValue ? selectedFieldData.true_label : selectedFieldData.false_label,
+            });
+
+            // Update the meta value if it's not already set correctly
+            if (storedValue !== trueFalseValue) {
+                setMetaValue({
+                    ...metaValue,
+                    [metaKey]: storedValue ? '1' : '0',
+                });
+            }
+        }
+    } else if (metaValue && metaKey && Array.isArray(metaValue[metaKey])) {
+        const [storedLabel, storedValue] = metaValue[metaKey];
+        setAttributes({
+            choiceValue: storedValue,
+            choiceLabel: storedLabel,
+        });
+    }
+}, [trueFalseValue, selectedFieldType, selectedGroup, metaValue, metaKey, groupOptions, setAttributes]);
+
 
         // Render controls based on field type
         const renderFieldControls = () => {
