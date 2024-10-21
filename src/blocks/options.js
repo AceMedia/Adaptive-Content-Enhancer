@@ -298,7 +298,7 @@ allBlocks.forEach(block => {
                             onChange={(newValue) => setAttributes({ showAsTextEditor: newValue })}
                         />
                         <SwitchControl
-                            label="Show as Text on Frontend"
+                            label="Show as Input on Frontend"
                             checked={showAsTextFrontend}
                             onChange={(newValue) => setAttributes({ showAsTextFrontend: newValue })}
                         />

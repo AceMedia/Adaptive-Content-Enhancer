@@ -559,55 +559,137 @@ function acefields_get_unserialized_meta($meta_value) {
 
 // Server-side rendering of the block (this ensures block data is rendered correctly)
 function ace_field_options_render_block($attributes) {
-    $post_id = get_the_ID();
     $selected_group = $attributes['selectedGroup'] ?? '';
-    $dropdown_value_ref = $attributes['dropdownValue'] ?? ''; // Store the saved reference string
+    $dropdown_value = $attributes['dropdownValue'] ?? ''; // Store the saved reference string
+    $selected_field_type = $attributes['selectedFieldType'] ?? ''; // Check the field type
+    $show_as_input = $attributes['showAsTextFrontend'] ?? false; // Check if it should show as an input per block
 
-    $dropdown_groups = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-);
+    $group_options = get_group_options($selected_group); // Fetch options based on the selected group
 
-    if (!empty($group_names)) {
-        foreach ($group_names as $group_name) {
-            $option_name = create_underscored_value($group_name);
-            $group_data = get_option($option_name, array());
-            if (!empty($group_data)) {
-                $field_groups[] = $group_data;
+    // Render controls based on field type
+    switch ($selected_field_type) {
+        case 'truefalse':
+            $checked = $dropdown_value === '1' ? 'checked' : '';
+            if ($show_as_input) {
+                return sprintf(
+                    '<label><input type="checkbox" class="ace-field-options-checkbox" %s> %s</label>',
+                    $checked,
+                    esc_html($dropdown_value)
+                );
             }
-        }
-    }
+            return sprintf(
+                '<p class="ace-field-options-text">%s</p>',
+                esc_html($dropdown_value)
+            );
 
-    // Initialize the variables to store the label and value
-    $dropdown_label = '';
-    $dropdown_value = '';
-
-    // Check the reference string to match it with dropdown group and options
-    if ($selected_group && $dropdown_value_ref) {
-        foreach ($dropdown_groups as $group) {
-            // Make sure the group matches
-            if ($group['name'] === $selected_group) {
-                foreach ($group['options'] as $option) {
-                    // Check if the reference string contains the option value
-                    if (strpos($dropdown_value_ref, $option['value']) !== false) {
-                        $dropdown_label = $option['label'];
-                        $dropdown_value = $option['value'];
-                        break 2; // Exit both loops once a match is found
+        case 'checkbox':
+            $checkboxes = '';
+        
+            if ($show_as_input) {
+                // Render input elements when `show_as_input` is true
+                if (!empty($group_options)) {
+                    foreach ($group_options as $option) {
+                        $isChecked = $dropdown_value === $option['value'];
+                        $checkboxes .= sprintf(
+                            '<label><input type="checkbox" class="ace-field-options-checkbox" value="%s" %s> %s</label>',
+                            esc_attr($option['value']),
+                            $isChecked ? 'checked' : '',
+                            esc_html($option['label'])
+                        );
+                    }
+                }
+            } else {
+                // Only display the labels of checked options when `show_as_input` is false
+                if (!empty($group_options)) {
+                    foreach ($group_options as $option) {
+                        if ($dropdown_value === $option['value']) {
+                            $checkboxes .= sprintf(
+                                '<p class="ace-field-options-text">%s</p>',
+                                esc_html($option['label'])
+                            );
+                        }
                     }
                 }
             }
+        
+            return $checkboxes;
+
+        case 'radio':
+        case 'buttons':
+            $radios = '';
+            if (!empty($group_options)) {
+                foreach ($group_options as $option) {
+                    $isSelected = $dropdown_value === $option['value'] ? 'checked' : '';
+                    if ($show_as_input) {
+                        $radios .= sprintf(
+                            '<label><input type="radio" name="%s" value="%s" class="ace-field-options-radio" %s> %s</label>',
+                            esc_attr($selected_group),
+                            esc_attr($option['value']),
+                            $isSelected,
+                            esc_html($option['label'])
+                        );
+                    } else {
+                        $radios .= sprintf(
+                            '<p class="ace-field-options-text">%s: %s</p>',
+                            esc_html($option['label']),
+                            $isSelected ? 'Selected' : 'Not Selected'
+                        );
+                    }
+                }
+            }
+            return $radios;
+
+            default:
+            if ($show_as_input) {
+                // Render a <select> dropdown with options, selecting the current dropdown value
+                $select = '<select class="ace-field-options-input">';
+                
+                // Loop through the group options to create <option> elements
+                if (!empty($group_options)) {
+                    foreach ($group_options as $option) {
+                        $isSelected = $dropdown_value === $option['value'] ? 'selected' : '';
+                        $select .= sprintf(
+                            '<option value="%s" %s>%s</option>',
+                            esc_attr($option['value']),
+                            $isSelected,
+                            esc_html($option['label'])
+                        );
+                    }
+                }
+        
+                $select .= '</select>';
+                return $select;
+            }
+        
+            // Render as plain text when not set to input mode
+            return sprintf(
+                '<p class="ace-field-options-text">%s</p>',
+                esc_html($dropdown_value)
+            );
+    }
+}
+
+// Helper function to fetch group options
+function get_group_options($selected_group) {
+    // Fetch all dropdown groups
+    $dropdown_groups = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'dropdown'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+    );
+
+    foreach ($dropdown_groups as $group) {
+        if ($group['name'] === $selected_group) {
+            return $group['options'];
         }
     }
 
-    // Output the block with the selected label
-    return sprintf(
-        '<p class="wp-block-ace-field-options-dropdown-block wp-block-paragraph">%s</p>',
-        esc_html($dropdown_label) // Display the dynamically retrieved label
-    );
+    return [];
 }
+
+
 
 
 
