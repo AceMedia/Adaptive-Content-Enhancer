@@ -417,7 +417,7 @@ const toolbarControls = (
                         />
 
                         {selectedFieldType && (
-                            <p><strong>Field Type:</strong> {selectedFieldType}</p>
+                            <p style={{ marginTop: '1em' }}><strong>Field Type:</strong> {selectedFieldType}</p>
                         )}
 
                         {/* Always display controls here */}

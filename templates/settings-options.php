@@ -23,12 +23,7 @@ if (!empty($choices)) :
             <?php foreach ($choices as $group_index => $group) :
                 
                 ?>
-                <?php $meta_key = create_underscored_value($group['name']); 
-                
-                
-                print_r($meta_key);
-                
-                ?>
+                <?php $meta_key = create_underscored_value($group['name']);  ?>
                 
                 <?php if (empty($edit_key) || create_underscored_value($group['name']) === $edit_key) : ?>
                     <tr class="choices-group-row level-0">

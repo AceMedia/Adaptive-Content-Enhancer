@@ -18,8 +18,8 @@ add_action('admin_post_import_acf_fields', 'handle_acf_import_submission');
 
 function ace_field_options_admin_menu() {
     add_menu_page(
-        'Choice',
-        'Choices',
+        'Options',
+        'Options',
         'manage_options',
         'adaptive-content-enhancer',
         'adaptive_content_enhancer_choices_page_html',
