@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { render } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
 
-
 function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
 }
@@ -25,26 +24,50 @@ const AdaptiveContentEnhancer = () => {
     }, []);
 
     const handleSave = () => {
-        // Create payload for saving choices and true/false fields
+        // Ensure choices and true_false_fields are properly structured before sending
         const payload = {
-            choices,
-            true_false_fields: trueFalseFields,
-            action: 'save_choices',
+            choices: choices.map(choice => ({
+                name: choice.name, // Keep original name
+                field_type: choice.field_type,
+                description: choice.description,
+                options: choice.options ? choice.options.map(option => ({
+                    label: option.label,
+                    value: option.value,
+                })) : [],
+                show_in_rest: choice.show_in_rest ? 1 : 0
+            })),
+            true_false_fields: trueFalseFields.map(field => ({
+                name: field.name, // Keep original name
+                true_label: field.true_label,
+                false_label: field.false_label,
+                show_in_rest: field.show_in_rest ? 1 : 0
+            })),
             _wpnonce: aceAjax.nonce, // Assuming nonce is localized
         };
-
-        // Save settings via AJAX
+    
+        // Save settings via the custom REST API endpoint
         apiFetch({
-            path: '/wp-admin/admin-post.php',
+            path: '/ace/v1/save-options', // Ensure correct endpoint
             method: 'POST',
-            data: payload,
+            headers: {
+                'Content-Type': 'application/json', // Ensure proper JSON content type
+            },
+            body: JSON.stringify(payload),
         }).then((response) => {
-            alert('Settings saved successfully!');
+            if (response.success) {
+                alert('Settings saved successfully!');
+            } else {
+                alert('Failed to save settings. Please try again.');
+                console.error('Error:', response.error); // Log the exact error for debugging
+            }
         }).catch((error) => {
             console.error('Error saving settings:', error);
             alert('Failed to save settings. Please try again.');
         });
     };
+    
+    
+    
 
     const handleAddChoiceGroup = () => {
         setChoices([
@@ -69,6 +92,36 @@ const AdaptiveContentEnhancer = () => {
                 show_in_rest: false,
             },
         ]);
+    };
+
+    const updateChoice = (index, field, value) => {
+        const updatedChoices = [...choices];
+        updatedChoices[index][field] = value;
+        setChoices(updatedChoices);
+    };
+
+    const updateOption = (groupIndex, optionIndex, field, value) => {
+        const updatedChoices = [...choices];
+        updatedChoices[groupIndex].options[optionIndex][field] = value;
+        setChoices(updatedChoices);
+    };
+
+    const addOption = (groupIndex) => {
+        const updatedChoices = [...choices];
+        updatedChoices[groupIndex].options.push({ label: '', value: '' });
+        setChoices(updatedChoices);
+    };
+
+    const removeOption = (groupIndex, optionIndex) => {
+        const updatedChoices = [...choices];
+        updatedChoices[groupIndex].options.splice(optionIndex, 1);
+        setChoices(updatedChoices);
+    };
+
+    const updateTrueFalseField = (index, field, value) => {
+        const updatedFields = [...trueFalseFields];
+        updatedFields[index][field] = value;
+        setTrueFalseFields(updatedFields);
     };
 
     const confirmAndRemoveGroup = (index, fieldType, groupName) => {
@@ -105,9 +158,6 @@ const AdaptiveContentEnhancer = () => {
             });
         }
     };
-    
-    
-    
 
     const renderChoicesTable = () => (
         <div>
@@ -136,8 +186,25 @@ const AdaptiveContentEnhancer = () => {
                             </td>
                             <td><textarea value={choice.description} onChange={(e) => updateChoice(index, 'description', e.target.value)} /></td>
                             <td>
-                                                                {/* Placeholder for handling options dynamically */}
-                                                                <button onClick={() => editChoiceOptions(index)}>Edit Options</button>
+                                <table className="group-options-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Option Label</th>
+                                            <th>Option Value</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {choice.options.map((option, optionIndex) => (
+                                            <tr key={optionIndex}>
+                                                <td><input type="text" value={option.label} onChange={(e) => updateOption(index, optionIndex, 'label', e.target.value)} /></td>
+                                                <td><input type="text" value={option.value} onChange={(e) => updateOption(index, optionIndex, 'value', e.target.value)} /></td>
+                                                <td><button type="button" className="button remove-option" onClick={() => removeOption(index, optionIndex)}>Remove</button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                <button type="button" className="button add-option" onClick={() => addOption(index)}>Add Option</button>
                             </td>
                             <td>
                                 <button onClick={() => confirmAndRemoveGroup(index, choice.field_type, choice.name)}>Remove</button>
@@ -169,6 +236,11 @@ const AdaptiveContentEnhancer = () => {
                             <td><input type="text" value={field.true_label} onChange={(e) => updateTrueFalseField(index, 'true_label', e.target.value)} /></td>
                             <td><input type="text" value={field.false_label} onChange={(e) => updateTrueFalseField(index, 'false_label', e.target.value)} /></td>
                             <td>
+                                <input 
+                                    type="checkbox" 
+                                    checked={field.show_in_rest} 
+                                    onChange={(e) => updateTrueFalseField(index, 'show_in_rest', e.target.checked)} 
+                                />
                                 <button onClick={() => confirmAndRemoveGroup(index, 'truefalse', field.name)}>Remove</button>
                             </td>
                         </tr>
@@ -187,18 +259,6 @@ const AdaptiveContentEnhancer = () => {
             <button className="button-primary" onClick={handleSave}>Save Settings</button>
         </div>
     );
-};
-
-const updateChoice = (index, field, value) => {
-    const updatedChoices = [...choices];
-    updatedChoices[index][field] = value;
-    setChoices(updatedChoices);
-};
-
-const updateTrueFalseField = (index, field, value) => {
-    const updatedFields = [...trueFalseFields];
-    updatedFields[index][field] = value;
-    setTrueFalseFields(updatedFields);
 };
 
 // Render the component to the admin settings page

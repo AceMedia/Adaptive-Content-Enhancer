@@ -1669,9 +1669,9 @@ add_action('rest_api_init', function() {
     ));
 
     // Add endpoint for adding/updating a choice or true/false field
-    register_rest_route('ace/v1', '/save-option', array(
+    register_rest_route('ace/v1', '/save-options', array(
         'methods' => 'POST',
-        'callback' => 'ace_save_option',
+        'callback' => 'ace_save_options',
         'permission_callback' => function () {
             return current_user_can('manage_options'); // Ensure the user has permission
         }
@@ -1700,40 +1700,65 @@ function ace_delete_option(WP_REST_Request $request) {
 
 
 
-function ace_save_option(WP_REST_Request $request) {
-    $option_data = $request->get_param('option_data');
+function ace_save_options(WP_REST_Request $request) {
+    $choices = $request->get_param('choices');
+    $true_false_fields = $request->get_param('true_false_fields');
 
-    if (!isset($option_data['name']) || !isset($option_data['field_type'])) {
-        return new WP_REST_Response(array('error' => 'Missing required data'), 400);
+    if (!is_array($choices) || !is_array($true_false_fields)) {
+        return new WP_REST_Response(array('error' => 'Missing or invalid data'), 400);
     }
 
-    $option_name = 'choices_' . create_underscored_value($option_data['name']);
+    // Save each choice option
+    foreach ($choices as $choice) {
+        if (!isset($choice['name']) || !isset($choice['field_type'])) {
+            continue; // Skip invalid entries
+        }
 
-    // Prepare the data to be saved
-    $group_data = array(
-        'name' => sanitize_text_field($option_data['name']),
-        'description' => sanitize_textarea_field($option_data['description'] ?? ''),
-        'options' => array_map(function ($option) {
-            return array(
-                'label' => sanitize_text_field($option['label']),
-                'value' => sanitize_text_field($option['value']),
-            );
-        }, $option_data['options'] ?? []),
-        'field_type' => sanitize_text_field($option_data['field_type']),
-        'show_in_rest' => isset($option_data['show_in_rest']) ? 1 : 0,
-    );
+        $option_name = 'choices_' . create_underscored_value($choice['name']);
+        $group_data = array(
+            'name' => sanitize_text_field($choice['name']),
+            'description' => sanitize_textarea_field($choice['description'] ?? ''),
+            'options' => array_map(function ($option) {
+                return array(
+                    'label' => sanitize_text_field($option['label']),
+                    'value' => sanitize_text_field($option['value']),
+                );
+            }, $choice['options'] ?? []),
+            'field_type' => sanitize_text_field($choice['field_type']),
+            'show_in_rest' => isset($choice['show_in_rest']) ? 1 : 0,
+        );
 
-    // Save or update the option in the database
-    $saved = update_option($option_name, $group_data);
-
-    if ($saved) {
-        return new WP_REST_Response(array('success' => 'Option saved successfully'), 200);
-    } else {
-        return new WP_REST_Response(array('error' => 'Failed to save option'), 500);
+        update_option($option_name, $group_data);
     }
+
+    // Save or update true/false fields
+    foreach ($true_false_fields as $field) {
+        if (!isset($field['name']) || empty($field['true_label']) || empty($field['false_label'])) {
+            continue; // Skip invalid entries
+        }
+
+        $option_name = 'truefalse_' . create_underscored_value($field['name']);
+        $field_data = array(
+            'name' => sanitize_text_field($field['name']),
+            'true_label' => sanitize_text_field($field['true_label']),
+            'false_label' => sanitize_text_field($field['false_label']),
+            'field_type' => 'truefalse', // Explicitly set field type
+            'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
+        );
+
+        update_option($option_name, $field_data);
+    }
+
+    // Fetch and return the updated choices and true/false fields
+    $updated_choices = apply_filters('filter_wp_options_by_field_type', null, 'select');
+    $updated_true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+
+    return new WP_REST_Response(array(
+        'success' => 'Options saved successfully',
+        'choices' => $updated_choices,
+        'true_false_fields' => $updated_true_false_fields,
+    ), 200);
 }
-
-
 
 
 
