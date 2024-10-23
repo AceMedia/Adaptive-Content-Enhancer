@@ -5,14 +5,11 @@ import { InspectorControls, useBlockProps, BlockControls } from '@wordpress/bloc
 import {  __experimentalText as Text, __experimentalHeading as Heading, Tip, PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton } from '@wordpress/components';
 import { edit } from '@wordpress/icons';
 
-
 const paragraphBlockSettings = wp.blocks.getBlockSupport('core/paragraph', 'supports');
 
 function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
 }
-
-
 
 // Register the block
 registerBlockType('adaptive-content-enhancer/option', {
@@ -25,7 +22,7 @@ registerBlockType('adaptive-content-enhancer/option', {
         choiceLabel: { type: 'string', default: '' },
         selectedFieldType: { type: 'string', default: '' },
         description: { type: 'string', default: '' }, // Add description attribute
-        trueFalseValue: { type: 'boolean', default: false },
+        trueFalseValue: { type: 'boolean' },
         trueFalseLabel: { type: 'string', default: '' },
         showAsTextEditor: { type: 'boolean', default: false }, 
         showLabelsInEditor: { type: 'boolean', default: true }, // New attribute to control editor display
@@ -79,7 +76,6 @@ registerBlockType('adaptive-content-enhancer/option', {
         const [availableGroups, setAvailableGroups] = useState([]);
         const [groupOptions, setGroupOptions] = useState([]);
 
-
         const blockProps = useBlockProps({
             style: {
                 textAlign: attributes.align,
@@ -113,19 +109,21 @@ registerBlockType('adaptive-content-enhancer/option', {
                         selectedFieldType: group.field_type, 
                         description: group.description || '' // Set description if available
                     });
-        
                     // If there is existing meta data, adopt it immediately
                     if (metaValue && metaKey in metaValue) {
-                        const storedValue = metaValue[metaKey];
-
-                            // Assume non-boolean meta is a string or array, handle appropriately
+                        const storedValue = metaValue[attributes.selectedGroup];
+        
+                    console.log(storedValue);
+      
+                            // Handle non-boolean types (dropdowns)
                             const storedOption = group.options.find(option => option.value === storedValue || option.label === storedValue);
                             if (storedOption) {
                                 setAttributes({
-                                    choiceValue: storedOption.value,
+                                    choiceValue: storedValue,
                                     choiceLabel: storedOption.label
                                 });
                             }
+                        
                     }
         
                     // Set options for the group
@@ -145,6 +143,26 @@ registerBlockType('adaptive-content-enhancer/option', {
         }, [selectedGroup, availableGroups, metaValue, metaKey, setAttributes]);
         
 
+        useEffect(() => {
+            if (selectedFieldType === 'truefalse' && selectedGroup) {
+                // Fetch all blocks and find the ones that match the selectedGroup
+                const allBlocks = wp.data.select('core/block-editor').getBlocks();
+                const matchingBlocks = allBlocks.filter(block => 
+                    block.attributes.selectedGroup === selectedGroup &&
+                    block.attributes.trueFalseValue !== undefined
+                );
+        
+                // If there are matching blocks, take the first one and sync its value
+                if (matchingBlocks.length > 0) {
+                    const { trueFalseValue, trueFalseLabel } = matchingBlocks[0].attributes;
+        
+                    setAttributes({
+                        trueFalseValue,
+                        trueFalseLabel,
+                    });
+                }
+            }
+        }, [selectedGroup, selectedFieldType, setAttributes]);
         
 
         useEffect(() => {
@@ -155,156 +173,132 @@ registerBlockType('adaptive-content-enhancer/option', {
         }, [choiceValue, attributes.choiceValue, setAttributes]);
 
         // Handle dropdown change, updating meta and syncing across all instances
-        const handleChoicesChange = (newValue) => {
-            const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
-            if (!selectedFieldData) {
-                console.error("Selected field data is missing for:", selectedGroup);
-                return;
-            }
-        
-            // Handle true/false logic
-            if (selectedFieldType === 'truefalse') {
-                const label = newValue === '1' 
-                    ? selectedFieldData.options?.find(option => option.value === '1')?.label 
-                    : selectedFieldData.options?.find(option => option.value === '0')?.label;
-        
-                // Update meta and block attributes
-                setMetaValue({
-                    ...metaValue,
-                    [metaKey]: newValue, // Save as '1' or '0'
-                });
-        
-                setAttributes({
+        // Handle dropdown change, updating meta and syncing across all instances
+const handleChoicesChange = (newValue) => {
+    const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
+    if (!selectedFieldData) {
+        return;
+    }
+
+    // Handle true/false logic
+    if (selectedFieldType === 'truefalse') {
+        const label = newValue === '1' 
+            ? selectedFieldData.options?.find(option => option.value === '1')?.label 
+            : selectedFieldData.options?.find(option => option.value === '0')?.label;
+
+        // Sync other blocks with the same selectedGroup
+        const allBlocks = wp.data.select('core/block-editor').getBlocks();
+        allBlocks.forEach(block => {
+            if (block.attributes.selectedGroup === selectedGroup) {
+                // Update attributes of other blocks to reflect the changes
+                wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
                     trueFalseValue: newValue === '1',
                     trueFalseLabel: label,
                 });
-        
-                console.log(`Toggle updated: ${newValue}, Label: ${label}`);
-                return;
             }
-        
-            // Handle other field types
-            const selectedOption = groupOptions.find(option => option.value === newValue);
-            if (!selectedOption) {
-                console.error("Selected option not found:", newValue);
-                return;
-            }
-        
-            // Update meta and block attributes for dropdown
-            setMetaValue({
-                ...metaValue,
-                [metaKey]: selectedOption.value, // Save as a string
-            });
-        
-            setAttributes({
-                choiceValue: newValue,
-                choiceLabel: selectedOption.label,
-            });
-        
-            console.log("Dropdown value updated to:", newValue);
-        };
-        
-        
+        });
 
-// Handle true/false toggle change, updating meta and syncing across all instances
-const handleToggleChange = (newValue) => {
-    const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
-    if (!selectedFieldData) {
-        console.error("Selected field data is missing for:", selectedGroup);
+        // Update meta and block attributes
+        setMetaValue({
+            ...metaValue,
+            [metaKey]: newValue, // Save as '1' or '0'
+        });
+
+        setAttributes({
+            trueFalseValue: newValue === '1',
+            trueFalseLabel: label,
+        });
+
         return;
     }
-    const label = newValue ? selectedFieldData.true_label : selectedFieldData.false_label;
+
+    // Handle other field types
+    const selectedOption = groupOptions.find(option => option.value === newValue);
+    if (!selectedOption) {
+        return;
+    }
 
     // Sync other blocks with the same selectedGroup
     const allBlocks = wp.data.select('core/block-editor').getBlocks();
     allBlocks.forEach(block => {
         if (block.attributes.selectedGroup === selectedGroup) {
-            // Update attributes of other blocks to reflect the changes
             wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-                trueFalseValue: newValue,
-                trueFalseLabel: label,
+                choiceValue: selectedOption.value,
+                choiceLabel: selectedOption.label,
             });
         }
     });
 
-    // Update the meta value to correctly reflect true or false
+    // Update meta and block attributes for dropdown
     setMetaValue({
         ...metaValue,
-        [metaKey]: newValue ? '1' : '0', // Ensure it's saved correctly as '1' or '0'
+        [metaKey]: selectedOption.value, // Save as a string
     });
 
     setAttributes({
-        trueFalseValue: newValue,
-        trueFalseLabel: label,
+        choiceValue: newValue,
+        choiceLabel: selectedOption.label,
     });
 };
 
-
-
-
-        // Render controls based on field type
-const renderFieldControls = (context) => {
-    switch (selectedFieldType) {
-        case 'truefalse':
-            return (
-                <SwitchControl
-    label={trueFalseLabel}
-    checked={trueFalseValue}
-    onChange={(newValue) => handleChoicesChange(newValue ? '1' : '0')}
-/>
-
-            );
-        case 'checkbox':
-            return groupOptions.map((option, index) => (
-                <CheckboxControl
-                    key={index}
-                    label={option.label}
-                    checked={choiceValue === option.value}
-                    onChange={(isChecked) => handleChoicesChange(isChecked ? option.value : '')}
-                />
-            ));
-        case 'radio':
-        case 'buttons':
-            return (
-                <RadioControl
-                    selected={choiceValue}
-                    options={groupOptions.map(option => ({
-                        label: option.label,
-                        value: option.value
-                    }))}
-                    onChange={(newValue) => handleChoicesChange(newValue)}
-                />
-            );
-        default:
-            const label = context === 'editor' ? 'Select an Option in Sidebar' : selectedGroup;
-            return (
-                <>
-                    <CustomSelectControl
-                        style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }}
-                        label={context === 'editor' ? label : (showLabelsInEditor ? label : null)}
-                        value={groupOptions.find(option => option.value === choiceValue) ? {
-                            key: choiceValue,
-                            name: groupOptions.find(option => option.value === choiceValue)?.label
-                        } : { key: '', name: 'Please select an option' }}
-                        options={[
-                            ...groupOptions.map(option => ({
-                                name: option.label,
-                                key: option.value,
-                                style: { fontSize: '1em', color: '#000' },
-                            }))
-                        ]}
-                        onChange={({ selectedItem }) => handleChoicesChange(selectedItem.key)}
-                    />
-                </>
-            );
-    }
-};
-
-
         
 
-
-
+        // Render controls based on field type
+        const renderFieldControls = (context) => {
+            switch (selectedFieldType) {
+                case 'truefalse':
+                    return (
+                        <SwitchControl
+                            label={trueFalseLabel}
+                            checked={trueFalseValue}
+                            onChange={(newValue) => handleChoicesChange(newValue ? '1' : '0')}
+                        />
+                    );
+                case 'checkbox':
+                    return groupOptions.map((option, index) => (
+                        <CheckboxControl
+                            key={index}
+                            label={option.label}
+                            checked={choiceValue === option.value}
+                            onChange={(isChecked) => handleChoicesChange(isChecked ? option.value : '')}
+                        />
+                    ));
+                case 'radio':
+                case 'buttons':
+                    return (
+                        <RadioControl
+                            selected={choiceValue}
+                            options={groupOptions.map(option => ({
+                                label: option.label,
+                                value: option.value
+                            }))}
+                            onChange={(newValue) => handleChoicesChange(newValue)}
+                        />
+                    );
+                default:
+                    const label = context === 'editor' ? 'Select an Option in Sidebar' : selectedGroup;
+                    return (
+                        <>
+                            <CustomSelectControl
+                                style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }}
+                                label={context === 'editor' ? label : (showLabelsInEditor ? label : null)}
+                                value={groupOptions.find(option => option.value === choiceValue) ? {
+                                    key: choiceValue,
+                                    name: groupOptions.find(option => option.value === choiceValue)?.label
+                                } : { key: '', name: 'Please select an option' }}
+                                options={[
+                                    ...groupOptions.map(option => ({
+                                        name: option.label,
+                                        key: option.value,
+                                        style: { fontSize: '1em', color: '#000' },
+                                    }))
+                                ]}
+                                onChange={({ selectedItem }) => handleChoicesChange(selectedItem.key)}
+                            />
+                        </>
+                    );
+            }
+        };
 
        // Add toolbar controls based on selectedFieldType
 const toolbarControls = (
@@ -315,7 +309,7 @@ const toolbarControls = (
                 label={trueFalseLabel || "Toggle Option"}
                 checked={trueFalseValue}
                 onChange={(newValue) => {
-                    handleToggleChange(newValue);
+                    handleChoicesChange(newValue ? '1' : '0')
                     setAttributes({ trueFalseValue: newValue });
                 }}
             />
@@ -360,34 +354,65 @@ const toolbarControls = (
 
         return (
             <>
-
-    <BlockControls>
-        {toolbarControls}
-    </BlockControls>
-
-    
+                <BlockControls>
+                    {toolbarControls}
+                </BlockControls>
                 {showAsTextEditor ? (
-
-
-<>
-    <>{choiceLabel || trueFalseLabel || 'Click to edit'}</> {/* Display as text if in text mode */}
-</>
+                    <>
+                        <>{choiceLabel || trueFalseLabel || 'Click to edit'}</> {/* Display as text if in text mode */}
+                    </>
                 ) : (
                     <div className="content-enhancer-choices-choices-block">
                         {/* Group selector */}
                         {!selectedGroup && (
                             <CustomSelectControl
+                                label="Select an Option"
+                                value={availableGroups.find(group => group.name === selectedGroup) ? {
+                                    key: selectedGroup,
+                                    name: availableGroups.find(group => group.name === selectedGroup)?.title,
+                                    description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
+                                } : { key: '', name: 'Please select an Option' }}
+                                options={[
+                                    ...availableGroups.map(group => ({
+                                        name: group.title,
+                                        key: group.name,
+                                        description: group.field_type // Show field type as subtext
+                                    }))
+                                ]}
+                                onChange={({ selectedItem }) => setAttributes({
+                                    selectedGroup: selectedItem.key,
+                                    choiceValue: '',
+                                    choiceLabel: '',
+                                    selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
+                                })}
+                            />
+                        )}
+                        {/* Render dynamic controls based on field type */}
+                        {selectedGroup && selectedGroup !== '' && renderFieldControls()}
+                    </div>
+                )}
+                <InspectorControls>
+                    <PanelBody title="Dropdown Settings">
+                        <CustomSelectControl
                             label="Select an Option"
                             value={availableGroups.find(group => group.name === selectedGroup) ? {
                                 key: selectedGroup,
-                                name: availableGroups.find(group => group.name === selectedGroup)?.title,
-                                description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
+                                name: (
+                                    <>
+                                        {availableGroups.find(group => group.name === selectedGroup)?.title}          
+                                    </>
+                                ),
                             } : { key: '', name: 'Please select an Option' }}
                             options={[
                                 ...availableGroups.map(group => ({
-                                    name: group.title,
+                                    name: (
+                                        <>
+                                            {group.title}
+                                        </>
+                                    ),
                                     key: group.name,
-                                    description: group.field_type // Show field type as subtext
+                                    description: group.description,
+                                    hint: group.field_type
                                 }))
                             ]}
                             onChange={({ selectedItem }) => setAttributes({
@@ -397,63 +422,18 @@ const toolbarControls = (
                                 selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
                             })}
                         />
-                        
+                        {selectedFieldType && (
+                            <Text style={{ display: 'block', margin: '1em 0px' }}>{attributes.description}</Text>
                         )}
-
-                        {/* Render dynamic controls based on field type */}
-                        {selectedGroup && selectedGroup !== '' && renderFieldControls()}
-                    </div>
-                )}
-
-                                <InspectorControls>
-                                    <PanelBody title="Dropdown Settings">
-                                    <CustomSelectControl
-                                            label="Select an Option"
-                                            value={availableGroups.find(group => group.name === selectedGroup) ? {
-                                                key: selectedGroup,
-                                                name: (
-                                                    <>
-                                                        {availableGroups.find(group => group.name === selectedGroup)?.title}          
-                                                  </>
-                                                ),
-                                            } : { key: '', name: 'Please select an Option' }}
-                                            options={[
-                                                ...availableGroups.map(group => ({
-                                                    name: (
-                                                        <>
-                                                            {group.title}
-                                                        </>
-                                                    ),
-                                                    key: group.name,
-                                                    description: group.description,
-                                                    hint: group.field_type
-                                                }))
-                                            ]}
-                                            onChange={({ selectedItem }) => setAttributes({
-                                                selectedGroup: selectedItem.key,
-                                                choiceValue: '',
-                                                choiceLabel: '',
-                                                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
-                                            })}
-                                        />
-
-                                        {selectedFieldType && (
-
-    <Text style={{ display: 'block', margin: '1em 0px' }}>{attributes.description}</Text>
-
-                                        )}
-
-                                        {/* Always display controls here */}
-                                        {selectedGroup && selectedGroup !== '' && renderFieldControls('editor')}
+                        {/* Always display controls here */}
+                        {selectedGroup && selectedGroup !== '' && renderFieldControls('editor')}
                     </PanelBody>
-
                     <PanelBody title="Editor Options">
                         <SwitchControl
                             label="Show as Text in Editor"
                             checked={showAsTextEditor}
                             onChange={(newValue) => setAttributes({ showAsTextEditor: newValue })}
                         />
-
                         {showAsTextEditor ? null : (
                             <SwitchControl
                                 label="Show Labels in Editor"
@@ -461,7 +441,6 @@ const toolbarControls = (
                                 onChange={(newValue) => setAttributes({ showLabelsInEditor: newValue })}
                             />
                         )}
-
                     </PanelBody>
                     <PanelBody title="Frontend Options">
                         <SwitchControl
@@ -469,18 +448,13 @@ const toolbarControls = (
                             checked={showAsInputOnFrontend}
                             onChange={(newValue) => setAttributes({ showAsInputOnFrontend: newValue })}
                         />
-
-
-
-{showAsInputOnFrontend ?  (
+                        {showAsInputOnFrontend ? (
                             <SwitchControl
                                 label="Show Labels on Frontend"
                                 checked={showLabelsOnFrontend}
                                 onChange={(newValue) => setAttributes({ showLabelsOnFrontend: newValue })}
-                        />
-                        )   : null}
-
-
+                            />
+                        ) : null}
                     </PanelBody>
                 </InspectorControls>
             </>
