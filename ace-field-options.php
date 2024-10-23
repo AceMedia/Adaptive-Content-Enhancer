@@ -866,7 +866,8 @@ function get_post_meta_fields($data) {
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
     );
 
     // Fetch true/false fields
