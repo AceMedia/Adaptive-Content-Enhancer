@@ -26,6 +26,16 @@ function ace_field_options_admin_menu() {
         'dashicons-list-view',
         20
     );
+    
+
+    add_submenu_page(
+        'adaptive-content-enhancer',
+        'Roptions',
+        'Roptions',
+        'manage_options',
+        'adaptive-content-enhancer-react',
+        'adaptive_content_enhancer_choices_page_react'
+    );
 
     add_submenu_page(
         'adaptive-content-enhancer',
@@ -137,78 +147,8 @@ function adaptive_content_enhancer_choices_page_html() {
   $edit_key = isset($_GET['edit']) ? sanitize_text_field($_GET['edit']) : '';
   $field_type = ''; // New variable to determine the field type
 
-// Retrieve all Option Groups again to display the newly added ones
-$choices = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'select'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-);
-
-
-
-
-// Loop through all true/false fields stored individually
-$true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
-
-foreach ($all_options as $option_name => $value) {
-        // Retrieve only the true/false fields
-        $field_data = (array) get_option($option_name, array());
-
-        if (!empty($field_data)) {
-            $true_false_fields[] = $field_data;
-        }
-}
-
-
-// Handle saving/updating a specific group in single edit mode.
-if (isset($_GET['edit'])) {
-    $edit_group_name = sanitize_text_field($_GET['edit']);
-    $edit_option_name = 'choices_' . create_underscored_value($edit_group_name);
-
-    // Process form data for the edited group.
-    if (isset($_POST['group']) && is_array($_POST['group'])) {
-
-        $group = $_POST['group'];
-
-        // Ensure both name and options are present
-        if (isset($group['name'], $group['options']) && is_array($group['options'])) {
-            $group_data = array(
-                'name' => sanitize_text_field($group['name']),
-                'options' => array_map(function ($option) {
-                    $value = !empty($option['value']) ? create_underscored_value($option['value']) : sanitize_text_field($option['label']);
-                    return array(
-                        'label' => sanitize_text_field($option['label']),
-                        'value' => $value,
-                    );
-                }, $group['options']),
-                'field_type' => sanitize_text_field($group['field_type']),
-                'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
-            );
-
-            // Save or update the group data with the new option(s)
-            $updated = update_option($edit_option_name, $group_data);
-
-            if ($updated) {
-                echo '<div class="updated"><p>Group updated successfully.</p></div>';
-                
-                // Reload the updated group data to ensure it's correctly repopulated in the form
-                $group_data = get_option($edit_option_name, array());
-            } else {
-                echo '<div class="error"><p>Failed to update the group. Please try again.</p></div>';
-            }
-        }
-    }
-}
-
-
-// Handle form submission to save both Option Groups and true/false fields.
-if (isset($_POST['save_groups'])) {
-    check_admin_referer('save_choices');
-
-    // Retrieve the existing group names
-    $existing_group_names = array_merge(
+    // Retrieve all Option Groups again to display the newly added ones
+    $choices = array_merge(
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
@@ -216,50 +156,120 @@ if (isset($_POST['save_groups'])) {
         apply_filters('filter_wp_options_by_field_type', null, 'buttons')
     );
 
-    // Initialize array for new group names
-    $new_group_names = array();
 
-      // Save or update group names
-      if (isset($_POST['choices']) && is_array($_POST['choices'])) {
-        foreach ($_POST['choices'] as $group) {
+
+
+    // Loop through all true/false fields stored individually
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
+
+    foreach ($all_options as $option_name => $value) {
+            // Retrieve only the true/false fields
+            $field_data = (array) get_option($option_name, array());
+
+            if (!empty($field_data)) {
+                $true_false_fields[] = $field_data;
+            }
+    }
+
+
+    // Handle saving/updating a specific group in single edit mode.
+    if (isset($_GET['edit'])) {
+        $edit_group_name = sanitize_text_field($_GET['edit']);
+        $edit_option_name = 'choices_' . create_underscored_value($edit_group_name);
+
+        // Process form data for the edited group.
+        if (isset($_POST['group']) && is_array($_POST['group'])) {
+
+            $group = $_POST['group'];
+
+            // Ensure both name and options are present
             if (isset($group['name'], $group['options']) && is_array($group['options'])) {
-                // Create the sanitized name for the group
-                $sanitized_name = sanitize_text_field($group['name']);
-                $option_name = 'choices_' . create_underscored_value($sanitized_name);
-
-                // Set default field_type to 'select' if not provided
-                $field_type = isset($group['field_type']) ? sanitize_text_field($group['field_type']) : 'select';
-
-                // Prepare the group data to be saved
                 $group_data = array(
-                    'name' => $sanitized_name,
-                    'description' => sanitize_textarea_field($group['description']), // Include description
+                    'name' => sanitize_text_field($group['name']),
                     'options' => array_map(function ($option) {
+                        $value = !empty($option['value']) ? create_underscored_value($option['value']) : sanitize_text_field($option['label']);
                         return array(
                             'label' => sanitize_text_field($option['label']),
-                            'value' => sanitize_text_field($option['value']),
+                            'value' => $value,
                         );
                     }, $group['options']),
-                    'field_type' => $field_type,
+                    'field_type' => sanitize_text_field($group['field_type']),
                     'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
                 );
 
-                // Save or update the group as its own option
-                update_option($option_name, $group_data);
+                // Save or update the group data with the new option(s)
+                $updated = update_option($edit_option_name, $group_data);
+
+                if ($updated) {
+                    echo '<div class="updated"><p>Group updated successfully.</p></div>';
+                    
+                    // Reload the updated group data to ensure it's correctly repopulated in the form
+                    $group_data = get_option($edit_option_name, array());
+                } else {
+                    echo '<div class="error"><p>Failed to update the group. Please try again.</p></div>';
+                }
             }
         }
     }
 
 
+    // Handle form submission to save both Option Groups and true/false fields.
+    if (isset($_POST['save_groups'])) {
+        check_admin_referer('save_choices');
 
- // Repopulate choices after saving
- $choices = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'select'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-);
+        // Retrieve the existing group names
+        $existing_group_names = array_merge(
+            apply_filters('filter_wp_options_by_field_type', null, 'select'),
+            apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+            apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+            apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+            apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+        );
+
+        // Initialize array for new group names
+        $new_group_names = array();
+
+        // Save or update group names
+        if (isset($_POST['choices']) && is_array($_POST['choices'])) {
+            foreach ($_POST['choices'] as $group) {
+                if (isset($group['name'], $group['options']) && is_array($group['options'])) {
+                    // Create the sanitized name for the group
+                    $sanitized_name = sanitize_text_field($group['name']);
+                    $option_name = 'choices_' . create_underscored_value($sanitized_name);
+
+                    // Set default field_type to 'select' if not provided
+                    $field_type = isset($group['field_type']) ? sanitize_text_field($group['field_type']) : 'select';
+
+                    // Prepare the group data to be saved
+                    $group_data = array(
+                        'name' => $sanitized_name,
+                        'description' => sanitize_textarea_field($group['description']), // Include description
+                        'options' => array_map(function ($option) {
+                            return array(
+                                'label' => sanitize_text_field($option['label']),
+                                'value' => sanitize_text_field($option['value']),
+                            );
+                        }, $group['options']),
+                        'field_type' => $field_type,
+                        'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
+                    );
+
+                    // Save or update the group as its own option
+                    update_option($option_name, $group_data);
+                }
+            }
+        }
+
+
+
+    // Repopulate choices after saving
+    $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'select'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+    );
 
 
     if (!empty($group_names)) {
@@ -279,37 +289,37 @@ if (isset($_POST['save_groups'])) {
  // Reset the true_false_fields array to avoid duplication
  $true_false_fields = array(); // Reset the array before repopulating
 
- // Handle saving true/false fields
-// Save or update true/false fields when form is submitted
-if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields'])) {
-    foreach ($_POST['true_false_fields'] as $field) {
-        // Ensure the field has a valid name, true label, and false label before proceeding
-        if (!empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label'])) {
-            $field_name = create_underscored_value($field['name']);
-        
-            // Prepare data to be saved as a WordPress option
-            $data = array(
-                'name' => sanitize_text_field($field['name']),
-                'true_label' => sanitize_text_field($field['true_label']),
-                'false_label' => sanitize_text_field($field['false_label']),
-                'field_type' => 'truefalse', // Make sure to set the field type explicitly
-                'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
-            );
+    // Handle saving true/false fields
+    // Save or update true/false fields when form is submitted
+    if (isset($_POST['true_false_fields']) && is_array($_POST['true_false_fields'])) {
+        foreach ($_POST['true_false_fields'] as $field) {
+            // Ensure the field has a valid name, true label, and false label before proceeding
+            if (!empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label'])) {
+                $field_name = create_underscored_value($field['name']);
             
-            // Save or update the option
-            update_option("truefalse_" . $field_name, $data);
+                // Prepare data to be saved as a WordPress option
+                $data = array(
+                    'name' => sanitize_text_field($field['name']),
+                    'true_label' => sanitize_text_field($field['true_label']),
+                    'false_label' => sanitize_text_field($field['false_label']),
+                    'field_type' => 'truefalse', // Make sure to set the field type explicitly
+                    'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
+                );
+                
+                // Save or update the option
+                update_option("truefalse_" . $field_name, $data);
+            }
         }
     }
-}
 
-// Repopulate true_false_fields after saving
-$true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+    // Repopulate true_false_fields after saving
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
- 
- // Filter fields to ensure only valid ones are shown
- $true_false_fields = array_filter($true_false_fields, function($field) {
-     return !empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label']);
- });
+    
+    // Filter fields to ensure only valid ones are shown
+    $true_false_fields = array_filter($true_false_fields, function($field) {
+        return !empty($field['name']) && !empty($field['true_label']) && !empty($field['false_label']);
+    });
 
     
     echo '<div class="updated"><p>Settings saved.</p></div>';
@@ -1584,6 +1594,179 @@ function conditionally_register_acf_fields_for_current_post() {
         )
     );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Enqueue React settings page
+function ace_field_options_enqueue_settings_page_scripts() {
+    $screen = get_current_screen();
+
+    if ($screen->id === 'options_page_adaptive-content-enhancer-react') {
+        wp_enqueue_script(
+            'acemedia-settings-react',
+            plugins_url('/assets/blocks/index.js', __FILE__),
+            array('wp-element', 'wp-components', 'wp-api-fetch', 'jquery'), // Ensure jQuery is included
+            filemtime(plugin_dir_path(__FILE__) . 'assets/blocks/index.js'),
+            true
+        );
+    
+        wp_localize_script('acemedia-settings-react', 'aceAjax', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('ace_nonce') // Create a nonce for security
+        ));
+    }
+}
+add_action('admin_enqueue_scripts', 'ace_field_options_enqueue_settings_page_scripts');
+
+
+function adaptive_content_enhancer_choices_page_react() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    ?>
+    <div class="wrap">
+        <h1>Adaptive Content Enhancer Settings</h1>
+        <div id="ace-settings-root"></div>
+    </div>
+    <?php
+}
+
+// Register REST API routes for fetching option groups and true/false fields.
+add_action('rest_api_init', function() {
+    register_rest_route('ace/v1', '/get-choices', array(
+        'methods' => 'GET',
+        'callback' => 'ace_get_choices',
+        'permission_callback' => '__return_true', // Allow public access
+    ));
+
+    register_rest_route('ace/v1', '/get-truefalse-fields', array(
+        'methods' => 'GET',
+        'callback' => 'ace_get_truefalse_fields',
+        'permission_callback' => '__return_true', // Allow public access
+    ));
+
+    // Add endpoint for deleting a choice or true/false field
+    register_rest_route('ace/v1', '/delete-option', array(
+        'methods' => 'POST',
+        'callback' => 'ace_delete_option',
+        'permission_callback' => function () {
+            return current_user_can('manage_options');
+        }
+    ));
+
+    // Add endpoint for adding/updating a choice or true/false field
+    register_rest_route('ace/v1', '/save-option', array(
+        'methods' => 'POST',
+        'callback' => 'ace_save_option',
+        'permission_callback' => function () {
+            return current_user_can('manage_options'); // Ensure the user has permission
+        }
+    ));
+});
+
+function ace_delete_option(WP_REST_Request $request) {
+    // Verify the nonce
+    $nonce = $request->get_param('_wpnonce');
+    if (!wp_verify_nonce($nonce, 'ace_nonce')) {
+        return new WP_REST_Response(array('error' => 'Invalid nonce'), 403);
+    }
+
+    $option_name = $request->get_param('option_name');
+
+    if (!$option_name) {
+        return new WP_REST_Response(array('error' => 'Invalid option name'), 400);
+    }
+
+    if (delete_option($option_name)) {
+        return new WP_REST_Response(array('success' => 'Option deleted successfully'), 200);
+    } else {
+        return new WP_REST_Response(array('error' => 'Failed to delete option'), 500);
+    }
+}
+
+
+
+function ace_save_option(WP_REST_Request $request) {
+    $option_data = $request->get_param('option_data');
+
+    if (!isset($option_data['name']) || !isset($option_data['field_type'])) {
+        return new WP_REST_Response(array('error' => 'Missing required data'), 400);
+    }
+
+    $option_name = 'choices_' . create_underscored_value($option_data['name']);
+
+    // Prepare the data to be saved
+    $group_data = array(
+        'name' => sanitize_text_field($option_data['name']),
+        'description' => sanitize_textarea_field($option_data['description'] ?? ''),
+        'options' => array_map(function ($option) {
+            return array(
+                'label' => sanitize_text_field($option['label']),
+                'value' => sanitize_text_field($option['value']),
+            );
+        }, $option_data['options'] ?? []),
+        'field_type' => sanitize_text_field($option_data['field_type']),
+        'show_in_rest' => isset($option_data['show_in_rest']) ? 1 : 0,
+    );
+
+    // Save or update the option in the database
+    $saved = update_option($option_name, $group_data);
+
+    if ($saved) {
+        return new WP_REST_Response(array('success' => 'Option saved successfully'), 200);
+    } else {
+        return new WP_REST_Response(array('error' => 'Failed to save option'), 500);
+    }
+}
+
+
+
+
+
+
+/**
+ * Fetches option groups (choices) from wp_options based on their field types.
+ *
+ * @return WP_REST_Response
+ */
+function ace_get_choices() {
+    // Retrieve option groups (select, checkbox, radio, buttons)
+    $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'select'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+    );
+
+    return new WP_REST_Response($choices, 200);
+}
+
+/**
+ * Fetches true/false fields from wp_options.
+ *
+ * @return WP_REST_Response
+ */
+function ace_get_truefalse_fields() {
+    // Retrieve true/false fields
+    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
+
+    return new WP_REST_Response($true_false_fields, 200);
+}
+
 
 
 ?>
