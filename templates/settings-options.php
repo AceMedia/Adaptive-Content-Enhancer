@@ -4,7 +4,8 @@
         <thead>
             <tr>
                 <th scope="col" class="manage-column column-name">Group Name</th>
-                <th scope="col" class="manage-column column-field-type">Field Type</th> <!-- New column for Field Type -->
+                <th scope="col" class="manage-column column-field-type">Field Type</th>
+                <th scope="col" class="manage-column column-description">Description</th> <!-- New column for Description -->
                 <th scope="col" class="manage-column column-options">Options</th>
                 <th scope="col" class="manage-column column-action">Action</th>
             </tr>
@@ -38,6 +39,9 @@ if (!empty($choices)) :
                                 <option value="radio" <?php selected($group['field_type'], 'radio'); ?>>Radio</option>
                                 <option value="buttons" <?php selected($group['field_type'], 'buttons'); ?>>Buttons</option>
                             </select>
+                        </td>
+                        <td class="description column-description" style="vertical-align: top;">
+                            <textarea name="choices[<?php echo esc_attr($group_index); ?>][description]"><?php echo esc_textarea($group['description']); ?></textarea>
                         </td>
                         <td class="options column-options" style="vertical-align: top;">
                             <table class="group-options-table">
@@ -87,7 +91,7 @@ if (!empty($choices)) :
         </tbody>
         <tfoot>
             <tr>
-                <th scope="col" class="manage-column column-name" colspan="4">
+                <th scope="col" class="manage-column column-name" colspan="5">
                     <p><button type="button" class="button add-group">Add Dropdown Group</button></p>
                 </th>
             </tr>
