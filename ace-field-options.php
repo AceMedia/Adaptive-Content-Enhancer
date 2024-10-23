@@ -647,6 +647,45 @@ function ace_field_options_render_block($attributes) {
     }
 }
 
+function ace_enqueue_custom_select_scripts() {
+    // Check if we should enqueue scripts based on the post content.
+    if (!is_singular('post')) {
+        return; // Only run on singular post pages.
+    }
+
+    global $post;
+    if (has_blocks($post->ID)) {
+        // Parse through the blocks and check for the condition.
+        $blocks = parse_blocks($post->post_content);
+        $should_enqueue = false;
+
+        foreach ($blocks as $block) {
+            if (
+                isset($block['attrs']['showAsInputOnFrontend']) &&
+                $block['attrs']['showAsInputOnFrontend'] === true
+            ) {
+                $should_enqueue = true;
+                break;
+            }
+        }
+
+        if ($should_enqueue) {
+            // Enqueue Select2 or any other custom library
+            wp_enqueue_script('select2', 'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js', array('jquery'), '4.0.13', true);
+            wp_enqueue_style('select2', 'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css', [], '4.0.13');
+
+            // Custom script to initialize Select2 on your custom select elements
+            wp_add_inline_script('select2', "
+                jQuery(document).ready(function($) {
+                    $('select').select2();
+                });
+            ");
+        }
+    }
+}
+add_action('wp_enqueue_scripts', 'ace_enqueue_custom_select_scripts');
+
+
 
 function get_group_options($selected_group, $attributes) {
     $selected_group = create_underscored_value($selected_group);
