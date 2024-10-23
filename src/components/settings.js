@@ -37,12 +37,21 @@ const AdaptiveContentEnhancer = () => {
                             ...choice,
                             true_label: choice.options?.find(option => option.value === '1')?.label || 'True',
                             false_label: choice.options?.find(option => option.value === '0')?.label || 'False'
-
-                            
                         };
                     }
-                    return choice;
+    
+                    // Ensure existing options are marked as disabled
+                    const updatedOptions = (choice.options || []).map(option => ({
+                        ...option,
+                        disabled: !!option.value // Disable existing options that have a value
+                    }));
+    
+                    return {
+                        ...choice,
+                        options: updatedOptions
+                    };
                 });
+    
                 setChoices(updatedChoices);
             })
             .catch((error) => console.error('Error fetching choices:', error));
@@ -110,9 +119,10 @@ const AdaptiveContentEnhancer = () => {
         // Automatically add default options when the field type is set to 'truefalse'
         if (field === 'field_type' && value === 'truefalse') {
             updatedChoices[index].options = [
-                { label: 'Trudddde', value: '1' },
+                { label: 'True', value: '1' },
                 { label: 'False', value: '0' }
             ];
+            updatedChoices[index].options.forEach(option => option.disabled = true);
         } else if (field === 'field_type' && value !== 'truefalse') {
             // Clear options if it's not truefalse
             updatedChoices[index].options = [];
@@ -135,13 +145,25 @@ const AdaptiveContentEnhancer = () => {
 
     const updateOption = (groupIndex, optionIndex, field, value) => {
         const updatedChoices = [...choices];
+        
+        // Update the specific field for the given option
         updatedChoices[groupIndex].options[optionIndex][field] = value;
+        
+        // If the label is being updated and the option is new (not disabled), sync the value
+        if (field === 'label' && !updatedChoices[groupIndex].options[optionIndex].disabled) {
+            updatedChoices[groupIndex].options[optionIndex].value = createLowercaseUnderscored(value);
+        }
+        
         setChoices(updatedChoices);
     };
 
     const addOption = (groupIndex) => {
         const updatedChoices = [...choices];
-        updatedChoices[groupIndex].options.push({ label: '', value: '' });
+        updatedChoices[groupIndex].options.push({
+            label: '', 
+            value: '', // Sync with title
+            disabled: false // New options are not disabled
+        });
         setChoices(updatedChoices);
     };
 
@@ -243,25 +265,51 @@ const AdaptiveContentEnhancer = () => {
                                         <strong>Options:</strong>
                                         {choice.options.map((option, optionIndex) => (
                                             <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <TextControl
-                                                    placeholder="Option Label"
-                                                    value={option.label}
-                                                    onChange={(value) => updateOption(index, optionIndex, 'label', value)}
-                                                />
-                                                <TextControl
-                                                    placeholder="Option Value"
-                                                    value={option.value}
-                                                    onChange={(value) => updateOption(index, optionIndex, 'value', value)}
-                                                />
-                                                <Button
-                                                    isDestructive
-                                                    onClick={() => removeOption(index, optionIndex)}
-                                                >
-                                                    Remove
-                                                </Button>
+                                                {choice.field_type !== 'truefalse' ? (
+                                                    <>
+                                                        <TextControl
+                                                            placeholder="Option Label"
+                                                            value={option.label}
+                                                            onChange={(value) => updateOption(index, optionIndex, 'label', value)}
+                                                        />
+                                                        <TextControl
+                                                            placeholder="Option Value"
+                                                            value={option.value}
+                                                            onChange={(value) => updateOption(index, optionIndex, 'value', value)}
+                                                            disabled={option.disabled}
+                                                        />
+                                                        <Button
+                                                            isDestructive
+                                                            onClick={() => removeOption(index, optionIndex)}
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <TextControl
+                                                            placeholder="Option Label"
+                                                            value={option.label}
+                                                            onChange={(value) => updateOption(index, optionIndex, 'label', value)}
+                                                        />
+                                                        <TextControl
+                                                            placeholder="Option Value"
+                                                            value={option.value}
+                                                            onChange={(value) => updateOption(index, optionIndex, 'value', value)}
+                                                            disabled="true"
+                                                        />
+                                                    </>
+                                                )}
                                             </div>
                                         ))}
+                                         {choice.field_type !== 'truefalse' ? (
+                                                    <>
                                         <Button isPrimary onClick={() => addOption(index)}>Add Option</Button>
+                                                    </>
+                                                ) : (   
+                                                    <>
+                                                    </>
+                                                )}  
                                     </div>
     
                                 <Button
