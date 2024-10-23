@@ -857,121 +857,139 @@ register_block_type('adaptive-content-enhancer/option', array(
     ),
 ));
 
-
-
-
-
+// Extend REST API to include /meta endpoint for each post and specific meta fields
 add_action('rest_api_init', function() {
-    register_rest_route('ace/v1', '/meta/(?P<id>\d+)(/(?P<field>[\w\d_]+))?(:(?P<part>label|value))?', array(
+    register_rest_route('wp/v2', '/posts/(?P<id>\d+)/meta', array(
         'methods' => 'GET',
-        'callback' => 'get_post_meta_fields',
+        'callback' => 'get_post_meta_via_rest',
+        'permission_callback' => '__return_true',
+    ));
+
+    // Register route to get specific meta field
+    register_rest_route('wp/v2', '/posts/(?P<id>\d+)/meta/(?P<key>[\w\d_]+)', array(
+        'methods' => 'GET',
+        'callback' => 'get_specific_post_meta_via_rest',
         'permission_callback' => '__return_true',
     ));
 });
 
-
-function get_post_meta_fields($data) {
-    $post_id = $data['id'];
+function get_post_meta_via_rest($request) {
+    $post_id = $request['id'];
     $post = get_post($post_id);
 
     if (!$post) {
         return new WP_Error('rest_post_invalid_id', __('Invalid post ID.'), array('status' => 404));
     }
 
-    // Get all post meta
-    $meta = get_post_meta($post_id);
+    // Make a request to fetch the full post data with context
+    $rest_request = new WP_REST_Request('GET', "/wp/v2/posts/$post_id");
+    $rest_request->set_param('context', 'view');
+    $rest_request->set_param('from_meta_endpoint', 'true'); // Set flag for custom processing
 
-    // Initialize an empty array for filtered meta
-    $filtered_meta = array();
+    $rest_response = rest_do_request($rest_request);
 
-    // Fetch dropdown groups
-    $choices = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'select'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
-    );
-
-    // Fetch true/false fields
-
-    // Handle dropdown groups
-    if (!empty($choices)) {
-        foreach ($choices as $group_data) {
-            // Check if the group should be shown in REST
-            if (empty($group_data['show_in_rest'])) {
-                continue; // Skip this group if it shouldn't be shown
-            }
-
-            $meta_key = create_underscored_value($group_data['name']); // Get the key for the field
-
-            // Match the stored value for Option Groups
-            if (isset($meta[$meta_key])) {
-                $stored_value = maybe_unserialize($meta[$meta_key][0]); // Unserialize if needed
-
-                foreach ($group_data['options'] as $option) {
-                    if ($stored_value === $option['label']) { // Compare the stored value with option value
-                        // Store the label and value in the filtered meta
-                        $filtered_meta[$meta_key] = array(
-                            'label' => $option['label'],
-                            'value' => $option['value']
-                        );
-                        break; // Exit loop once a match is found
-                    }
-                }
-            }
-        }
+    // Check if the response has data and is not an error
+    if ($rest_response->is_error()) {
+        return $rest_response;
     }
 
-    // Process true/false fields dynamically
-    if (!empty($true_false_fields)) {
-        foreach ($true_false_fields as $field) {
-            $meta_key = create_underscored_value($field['name']); // Get the key for the true/false field
+    // Retrieve and return only the meta data from the response
+    $response_data = $rest_response->get_data();
+    $meta = $response_data['meta'] ?? [];
 
-            if (isset($meta_key)) {
-                // Check if this field should be shown in REST API
-                if (empty($field['show_in_rest'])) {
-                    continue; // Skip this field if it shouldn't be shown
-                }
-                // Fetch and interpret the stored meta value
-                $meta_value = $meta[$meta_key][0];
-                $is_true = filter_var($meta_value, FILTER_VALIDATE_BOOLEAN);
-
-                // Determine the label based on the boolean interpretation
-                $label = $is_true ? $field['true_label'] : $field['false_label'];
-
-                $filtered_meta[$meta_key] = array(
-                    'label' => $label,
-                    'value' => $is_true ? '1' : '0' // Store as '1' or '0' for consistency
-                );
-            }
-        }
-    }
-
-    // Check if a specific field is requested
-    if (isset($data['field'])) {
-        $field_key = create_underscored_value($data['field']);
-
-        // Check if the field exists in the filtered_meta
-        if (array_key_exists($field_key, $filtered_meta)) {
-            $field_data = $filtered_meta[$field_key]; // Get the specific field data
-
-            // Check if a specific part (label or value) is requested
-            if (isset($data['part']) && in_array($data['part'], ['label', 'value'])) {
-                return new WP_REST_Response($field_data[$data['part']]); // Return the requested part
-            }
-
-            return new WP_REST_Response($field_data); // Return the full field data if no specific part is requested
-        } else {
-            return new WP_Error('rest_field_invalid', __('Invalid field specified.'), array('status' => 404));
-        }
-    }
-
-    return new WP_REST_Response($filtered_meta); // Return the filtered meta array with label and value
+    return new WP_REST_Response($meta);
 }
 
+// Handle requests for specific meta fields
+function get_specific_post_meta_via_rest($request) {
+    $post_id = $request['id'];
+    $meta_key = $request['key'];
+    $post = get_post($post_id);
 
+    if (!$post) {
+        return new WP_Error('rest_post_invalid_id', __('Invalid post ID.'), array('status' => 404));
+    }
 
+    // Make a request to fetch the full post data with context
+    $rest_request = new WP_REST_Request('GET', "/wp/v2/posts/$post_id");
+    $rest_request->set_param('context', 'view');
+    $rest_request->set_param('from_meta_endpoint', 'true'); // Set flag for custom processing
+
+    $rest_response = rest_do_request($rest_request);
+
+    // Check if the response has data and is not an error
+    if ($rest_response->is_error()) {
+        return $rest_response;
+    }
+
+    // Retrieve the meta data
+    $response_data = $rest_response->get_data();
+    $meta = $response_data['meta'] ?? [];
+
+    // Check if the specific key exists
+    if (!isset($meta[$meta_key])) {
+        return new WP_Error('rest_meta_key_invalid', __('Invalid meta key.'), array('status' => 404));
+    }
+
+    return new WP_REST_Response($meta[$meta_key]);
+}
+
+// Modify existing filter to handle 'from_meta_endpoint' requests correctly
+add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
+function modify_post_meta_for_rest($response, $post, $request) {
+    $from_meta_endpoint = $request->get_param('from_meta_endpoint');
+    
+    // Skip non-view contexts and unrelated requests
+    if ($request->get_param('context') !== 'view' && !$from_meta_endpoint) {
+        return $response;
+    }
+
+    $meta = $response->data['meta'];
+    $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'select'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+    );
+
+    if (!empty($choices)) {
+        foreach ($choices as $group_data) {
+            $meta_key = create_underscored_value($group_data['name']);
+            if (empty($group_data['show_in_rest'])) {
+                unset($response->data['meta'][$meta_key]);
+            } else {
+                $label = '';
+                $value = '';
+
+                if (isset($meta[$meta_key])) {
+                    $stored_value = $meta[$meta_key];
+                    foreach ($group_data['options'] as $option) {
+                        if ($stored_value === $option['value']) {
+                            $label = $option['label'];
+                            $value = $option['value'];
+                            break;
+                        }
+                    }
+                }
+
+                if ($label !== '' && $value !== '') {
+                    $response->data['meta'][$meta_key] = array(
+                        'label' => $label,
+                        'value' => $value
+                    );
+                }
+            }
+        }
+    }
+
+    // Extend the links array to include the new /meta endpoint
+    $post_id = $post->ID;
+    $meta_link = rest_url("wp/v2/posts/{$post_id}/meta");
+    $response->add_link('https://api.w.org/meta', $meta_link);
+
+    return $response;
+}
 
 
 function filter_dynamic_meta_value($value, $source_name, $source_args, $block_instance, $attribute_name) {
@@ -1013,60 +1031,6 @@ add_filter('block_bindings_source_value', 'filter_dynamic_meta_value', 10, 5);
 
 
 
-
-
-add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
-
-function modify_post_meta_for_rest($response, $post, $request) {
-    if ($request->get_param('context') !== 'view') {
-        return $response;
-    }
-
-    $meta = $response->data['meta'];
-
-    $choices = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'select'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
-    );
-
-    if (!empty($choices)) {
-        foreach ($choices as $group_data) {
-            $meta_key = create_underscored_value($group_data['name']);
-
-            if (empty($group_data['show_in_rest'])) {
-                unset($response->data['meta'][$meta_key]);
-            } else {
-                $label = '';
-                $value = '';
-
-                if (isset($meta[$meta_key])) {
-                    $stored_value = $meta[$meta_key];
-
-
-                        foreach ($group_data['options'] as $option) {
-                            if ($stored_value === $option['value']) {
-                                $label = $option['label'];
-                                $value = $option['value'];
-                                break;
-                            }
-                        }
-                }
-
-                if ($label !== '' && $value !== '') {
-                    $response->data['meta'][$meta_key] = array(
-                        'label' => $label,
-                        'value' => $value
-                    );
-                }
-            }
-        }
-    }
-
-    return new WP_REST_Response($response);
-}
 
 
 
