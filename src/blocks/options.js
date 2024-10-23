@@ -145,25 +145,7 @@ registerBlockType('adaptive-content-enhancer/option', {
         }, [selectedGroup, availableGroups, metaValue, metaKey, setAttributes]);
         
 
-
-        // Sync dropdown or true/false value with post meta and block attributes
-        useEffect(() => {
-            if (selectedFieldType === 'truefalse') {
-                const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
-                if (selectedFieldData) {
-                    setAttributes({
-                        trueFalseValue: trueFalseValue,
-                        trueFalseLabel: trueFalseValue ? selectedFieldData.true_label : selectedFieldData.false_label,
-                    });
-                }
-            } else if (metaValue && metaKey && Array.isArray(metaValue[metaKey])) {
-                const [storedLabel, storedValue] = metaValue[metaKey];
-                setAttributes({
-                    choiceValue: storedValue,
-                    choiceLabel: storedLabel,
-                });
-            }
-        }, [trueFalseValue, selectedFieldType, selectedGroup, metaValue, metaKey, groupOptions, setAttributes]);
+        
 
         useEffect(() => {
             // Make sure both controls are synced by setting attributes when choiceValue changes
@@ -174,40 +156,55 @@ registerBlockType('adaptive-content-enhancer/option', {
 
         // Handle dropdown change, updating meta and syncing across all instances
         const handleChoicesChange = (newValue) => {
+            const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
+            if (!selectedFieldData) {
+                console.error("Selected field data is missing for:", selectedGroup);
+                return;
+            }
+        
+            // Handle true/false logic
+            if (selectedFieldType === 'truefalse') {
+                const label = newValue === '1' 
+                    ? selectedFieldData.options?.find(option => option.value === '1')?.label 
+                    : selectedFieldData.options?.find(option => option.value === '0')?.label;
+        
+                // Update meta and block attributes
+                setMetaValue({
+                    ...metaValue,
+                    [metaKey]: newValue, // Save as '1' or '0'
+                });
+        
+                setAttributes({
+                    trueFalseValue: newValue === '1',
+                    trueFalseLabel: label,
+                });
+        
+                console.log(`Toggle updated: ${newValue}, Label: ${label}`);
+                return;
+            }
+        
+            // Handle other field types
             const selectedOption = groupOptions.find(option => option.value === newValue);
-            console.log("Selected option:", metaKey);
-
-            // Sync other blocks with the same selectedGroup
-            const allBlocks = wp.data.select('core/block-editor').getBlocks();
-            allBlocks.forEach(block => {
-                if (block.attributes.selectedGroup === selectedGroup) {
-                    // Update attributes of other blocks to reflect the changes
-                    wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-                        choiceValue: selectedOption.value,
-                        choiceLabel: selectedOption.label,
-                    });
-                }
-            });
-
-
             if (!selectedOption) {
                 console.error("Selected option not found:", newValue);
                 return;
             }
-
-            console.log("Selected option:", selectedOption);
-
-                setMetaValue({
-                    ...metaValue,
-                    [metaKey]: selectedOption.label // Ensure saving just a string
-                });
-
-                setAttributes({
-                    choiceValue: newValue,
-                    choiceLabel: selectedOption.label,
-                });
-                console.log("Dropdown value updated to:", newValue);
+        
+            // Update meta and block attributes for dropdown
+            setMetaValue({
+                ...metaValue,
+                [metaKey]: selectedOption.value, // Save as a string
+            });
+        
+            setAttributes({
+                choiceValue: newValue,
+                choiceLabel: selectedOption.label,
+            });
+        
+            console.log("Dropdown value updated to:", newValue);
         };
+        
+        
 
 // Handle true/false toggle change, updating meta and syncing across all instances
 const handleToggleChange = (newValue) => {
@@ -243,38 +240,6 @@ const handleToggleChange = (newValue) => {
 };
 
 
-// Sync dropdown or true/false value with post meta and block attributes
-useEffect(() => {
-    if (selectedFieldType === 'truefalse') {
-        const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
-        if (selectedFieldData) {
-            // Ensure trueFalseValue is properly reflected in attributes
-            const storedValue = metaValue[metaKey] === '1' ? true : false; // Convert meta to boolean
-
-            setAttributes({
-                trueFalseValue: storedValue,
-                trueFalseLabel: storedValue 
-    ? selectedFieldData.options?.find(option => option.value === '1')?.label 
-    : selectedFieldData.options?.find(option => option.value === '0')?.label,
-            });
-            console.log(trueFalseLabel);
-            // Update the meta value if it's not already set correctly
-            if (storedValue !== trueFalseValue) {
-                setMetaValue({
-                    ...metaValue,
-                    [metaKey]: storedValue ? '1' : '0',
-                });
-            }
-        }
-    } else if (metaValue && metaKey && Array.isArray(metaValue[metaKey])) {
-        const [storedLabel, storedValue] = metaValue[metaKey];
-        setAttributes({
-            choiceValue: storedValue,
-            choiceLabel: storedLabel,
-        });
-    }
-}, [trueFalseValue, selectedFieldType, selectedGroup, metaValue, metaKey, groupOptions, setAttributes]);
-
 
 
         // Render controls based on field type
@@ -283,10 +248,11 @@ const renderFieldControls = (context) => {
         case 'truefalse':
             return (
                 <SwitchControl
-                    label={trueFalseLabel}
-                    checked={trueFalseValue}
-                    onChange={(newValue) => handleToggleChange(newValue)}
-                />
+    label={trueFalseLabel}
+    checked={trueFalseValue}
+    onChange={(newValue) => handleChoicesChange(newValue ? '1' : '0')}
+/>
+
             );
         case 'checkbox':
             return groupOptions.map((option, index) => (
