@@ -716,7 +716,12 @@ function get_group_options($selected_group, $attributes) {
     if ($selected_group) {
         foreach ($dropdown_groups as $group) {
             if (create_underscored_value($group['name']) === $selected_group) {
-
+                if ($group['field_type'] === 'truefalse') {
+                    $true_label = $group['true_label'] ?? 'True';
+                    $is_true = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true);
+                    $dropdown_label = $is_true ? $true_label : 'False';
+                    $dropdown_value = $is_true ? '1' : '0';
+                } else {
                     // For other field types, populate dropdown options.
                     foreach ($group['options'] as $option) {
                         $dropdown_options[] = [
@@ -728,6 +733,7 @@ function get_group_options($selected_group, $attributes) {
                             $dropdown_value = $option['value'];
                         }
                     }
+                }
             }
         }
     }
@@ -866,8 +872,7 @@ function get_post_meta_fields($data) {
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
     );
 
     // Fetch true/false fields
