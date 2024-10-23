@@ -2,7 +2,7 @@ import { useEffect, useState, RichText } from '@wordpress/element';
 import { useEntityProp } from '@wordpress/core-data';
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps, BlockControls } from '@wordpress/block-editor';
-import { PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton } from '@wordpress/components';
+import {  __experimentalText as Text, __experimentalHeading as Heading, Tip, PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton } from '@wordpress/components';
 import { edit } from '@wordpress/icons';
 
 
@@ -24,6 +24,7 @@ registerBlockType('adaptive-content-enhancer/option', {
         choiceValue: { type: 'string', default: '' },
         choiceLabel: { type: 'string', default: '' },
         selectedFieldType: { type: 'string', default: '' },
+        description: { type: 'string', default: '' }, // Add description attribute
         trueFalseValue: { type: 'boolean', default: false },
         trueFalseLabel: { type: 'string', default: '' },
         showAsTextEditor: { type: 'boolean', default: false }, // New attribute to control editor display
@@ -106,7 +107,33 @@ registerBlockType('adaptive-content-enhancer/option', {
             if (selectedGroup && selectedGroup !== '') {
                 const group = availableGroups.find(group => group?.name === selectedGroup);
                 if (group) {
-                    setAttributes({ selectedFieldType: group.field_type });
+                    setAttributes({ 
+                        selectedFieldType: group.field_type, 
+                        description: group.description || '' // Set description if available
+                    });
+        
+                    // If there is existing meta data, adopt it immediately
+                    if (metaValue && metaKey in metaValue) {
+                        const storedValue = metaValue[metaKey];
+                        if (group.field_type === 'truefalse') {
+                            const storedBoolean = storedValue === '1';
+                            setAttributes({
+                                trueFalseValue: storedBoolean,
+                                trueFalseLabel: storedBoolean ? group.true_label : group.false_label
+                            });
+                        } else {
+                            // Assume non-boolean meta is a string or array, handle appropriately
+                            const storedOption = group.options.find(option => option.value === storedValue || option.label === storedValue);
+                            if (storedOption) {
+                                setAttributes({
+                                    choiceValue: storedOption.value,
+                                    choiceLabel: storedOption.label
+                                });
+                            }
+                        }
+                    }
+        
+                    // Set options for the group
                     if (Array.isArray(group.options)) {
                         setGroupOptions(group.options);
                     } else {
@@ -114,10 +141,14 @@ registerBlockType('adaptive-content-enhancer/option', {
                     }
                 } else {
                     setGroupOptions([]);
-                    setAttributes({ selectedFieldType: '' });
+                    setAttributes({ 
+                        selectedFieldType: '', 
+                        description: '' // Clear description if group not found
+                    });
                 }
             }
-        }, [selectedGroup, availableGroups, setAttributes]);
+        }, [selectedGroup, availableGroups, metaValue, metaKey, setAttributes]);
+        
 
 
         // Sync dropdown or true/false value with post meta and block attributes
@@ -151,17 +182,17 @@ registerBlockType('adaptive-content-enhancer/option', {
             const selectedOption = groupOptions.find(option => option.value === newValue);
             console.log("Selected option:", metaKey);
 
-// Sync other blocks with the same selectedGroup
-const allBlocks = wp.data.select('core/block-editor').getBlocks();
-allBlocks.forEach(block => {
-    if (block.attributes.selectedGroup === selectedGroup) {
-        // Update attributes of other blocks to reflect the changes
-        wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-            choiceValue: selectedOption.value,
-            choiceLabel: selectedOption.label,
-        });
-    }
-});
+            // Sync other blocks with the same selectedGroup
+            const allBlocks = wp.data.select('core/block-editor').getBlocks();
+            allBlocks.forEach(block => {
+                if (block.attributes.selectedGroup === selectedGroup) {
+                    // Update attributes of other blocks to reflect the changes
+                    wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
+                        choiceValue: selectedOption.value,
+                        choiceLabel: selectedOption.label,
+                    });
+                }
+            });
 
 
             if (!selectedOption) {
@@ -173,7 +204,7 @@ allBlocks.forEach(block => {
 
                 setMetaValue({
                     ...metaValue,
-                    [metaKey]: selectedOption.value // Ensure saving just a string
+                    [metaKey]: selectedOption.label // Ensure saving just a string
                 });
 
                 setAttributes({
@@ -248,7 +279,7 @@ useEffect(() => {
 
 
         // Render controls based on field type
-        const renderFieldControls = () => {
+        const renderFieldControls = (context) => {
             switch (selectedFieldType) {
                 case 'truefalse':
                     return (
@@ -280,29 +311,31 @@ useEffect(() => {
                         />
                     );
                 default:
+                    const label = context === 'editor' ? 'Select an Option in Sidebar' : selectedGroup;
                     return (
                         <>
                             <CustomSelectControl
-                            className = 'false'
-    label="Select a Value"
-    value={groupOptions.find(option => option.value === choiceValue) ? {
-        key: choiceValue,
-        name: groupOptions.find(option => option.value === choiceValue)?.label
-    } : { key: '', name: 'Please select an option' }}
-    options={[
-        ...groupOptions.map(option => ({
-            name: option.label,
-            key: option.value,
-            style: { fontSize: '1rem', color: '#000' }, // Example styles
-        }))
-    ]}
-    onChange={({ selectedItem }) => handleChoicesChange(selectedItem.key)}
-/>
-
+                                style={{ fontSize: 'inherit',  padding: '.5em', height: 'auto', borderRadius: '.25em', }} // Example styles
+                                label={label}
+                                value={groupOptions.find(option => option.value === choiceValue) ? {
+                                    key: choiceValue,
+                                    name: groupOptions.find(option => option.value === choiceValue)?.label
+                                } : { key: '', name: 'Please select an option' }}
+                                options={[
+                                    ...groupOptions.map(option => ({
+                                        name: option.label,
+                                        key: option.value,
+                                        style: { fontSize: '1em', color: '#000' }, // Example styles
+                                    }))
+                                ]}
+                                onChange={({ selectedItem }) => handleChoicesChange(selectedItem.key)}
+                            />
                         </>
                     );
             }
         };
+
+        
 
 
 
@@ -406,42 +439,46 @@ const toolbarControls = (
                     </div>
                 )}
 
-                {/* Inspector Controls should always show full configuration, unaffected by showAsTextEditor */}
-                <InspectorControls>
-                    <PanelBody title="Dropdown Settings">
-                    <CustomSelectControl
-                            label="Select an Option"
-                            value={availableGroups.find(group => group.name === selectedGroup) ? {
-                                key: selectedGroup,
-                                name: availableGroups.find(group => group.name === selectedGroup)?.name,
-                                description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
-                            } : { key: '', name: 'Please select an Option' }}
-                            options={[
-                                ...availableGroups.map(group => ({
-                                    name: (
-                                        <>
-                                            {group.name}
-                                            <span className="field-type-description"> ({group.field_type})</span>
-                                        </>
-                                    ),
-                                    key: group.name,
-                                    description: group.field_type // Show field type as subtext
-                                }))
-                            ]}
-                            onChange={({ selectedItem }) => setAttributes({
-                                selectedGroup: selectedItem.key,
-                                choiceValue: '',
-                                choiceLabel: '',
-                                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
-                            })}
-                        />
+                                <InspectorControls>
+                                    <PanelBody title="Dropdown Settings">
+                                    <CustomSelectControl
+                                            label="Select an Option"
+                                            value={availableGroups.find(group => group.name === selectedGroup) ? {
+                                                key: selectedGroup,
+                                                name: (
+                                                    <>
+                                                        {availableGroups.find(group => group.name === selectedGroup)?.name}          
+                                                  </>
+                                                ),
+                                            } : { key: '', name: 'Please select an Option' }}
+                                            options={[
+                                                ...availableGroups.map(group => ({
+                                                    name: (
+                                                        <>
+                                                            {group.name}
+                                                        </>
+                                                    ),
+                                                    key: group.name,
+                                                    description: group.description,
+                                                    hint: group.field_type
+                                                }))
+                                            ]}
+                                            onChange={({ selectedItem }) => setAttributes({
+                                                selectedGroup: selectedItem.key,
+                                                choiceValue: '',
+                                                choiceLabel: '',
+                                                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
+                                            })}
+                                        />
 
-                        {selectedFieldType && (
-                            <p style={{ marginTop: '1em' }}><strong>Field Type:</strong> {selectedFieldType}</p>
-                        )}
+                                        {selectedFieldType && (
 
-                        {/* Always display controls here */}
-                        {selectedGroup && selectedGroup !== '' && renderFieldControls()}
+    <Text style={{ display: 'block', margin: '1em 0px' }}>{attributes.description}</Text>
+
+                                        )}
+
+                                        {/* Always display controls here */}
+                                        {selectedGroup && selectedGroup !== '' && renderFieldControls('editor')}
                     </PanelBody>
 
                     {/* New Inspector Controls */}
