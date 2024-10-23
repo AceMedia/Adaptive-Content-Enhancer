@@ -219,29 +219,28 @@ if (isset($_POST['save_groups'])) {
     // Initialize array for new group names
     $new_group_names = array();
 
-    // Save or update group names
-    if (isset($_POST['choices']) && is_array($_POST['choices'])) {
+      // Save or update group names
+      if (isset($_POST['choices']) && is_array($_POST['choices'])) {
         foreach ($_POST['choices'] as $group) {
             if (isset($group['name'], $group['options']) && is_array($group['options'])) {
                 // Create the sanitized name for the group
                 $sanitized_name = sanitize_text_field($group['name']);
                 $option_name = 'choices_' . create_underscored_value($sanitized_name);
 
-                // Set default field_type to 'select' if not provided      
-              $field_type = isset($group['field_type']) ? sanitize_text_field($group['field_type']) : 'select';
-
+                // Set default field_type to 'select' if not provided
+                $field_type = isset($group['field_type']) ? sanitize_text_field($group['field_type']) : 'select';
 
                 // Prepare the group data to be saved
                 $group_data = array(
                     'name' => $sanitized_name,
+                    'description' => sanitize_textarea_field($group['description']), // Include description
                     'options' => array_map(function ($option) {
-                    $value = !empty($option['value']) ? create_underscored_value($option['value']) : sanitize_text_field($option['label']);
                         return array(
                             'label' => sanitize_text_field($option['label']),
-                        'value' => $value,
+                            'value' => sanitize_text_field($option['value']),
                         );
                     }, $group['options']),
-                'field_type' => $field_type, // Save the field type
+                    'field_type' => $field_type,
                     'show_in_rest' => isset($group['show_in_rest']) ? 1 : 0,
                 );
 
@@ -532,7 +531,7 @@ function acefields_register_dynamic_meta() {
                 $sanitize_callback = $meta_type === 'boolean' ? 'rest_sanitize_boolean' : 'acefields_sanitize_serialized_meta';
 
                 // Register each field as a post meta field
-                register_post_meta(
+                register_meta(
                     'post',
                     $field_name_key,
                     array(
@@ -540,6 +539,7 @@ function acefields_register_dynamic_meta() {
                         'single'            => true,
                         'type'              => $meta_type, // Type based on field type
                         'sanitize_callback' => $sanitize_callback,
+                        'label'             => $field_data['name'] . ' (' . $type . ')', // Use the field name as the label
                     )
                 );
             }
@@ -834,7 +834,7 @@ function get_post_meta_fields($data) {
                 $stored_value = maybe_unserialize($meta[$meta_key][0]); // Unserialize if needed
 
                 foreach ($group_data['options'] as $option) {
-                    if ($stored_value === $option['value']) { // Compare the stored value with option value
+                    if ($stored_value === $option['label']) { // Compare the stored value with option value
                         // Store the label and value in the filtered meta
                         $filtered_meta[$meta_key] = array(
                             'label' => $option['label'],
