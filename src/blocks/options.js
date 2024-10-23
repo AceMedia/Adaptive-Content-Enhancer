@@ -117,13 +117,7 @@ registerBlockType('adaptive-content-enhancer/option', {
                     // If there is existing meta data, adopt it immediately
                     if (metaValue && metaKey in metaValue) {
                         const storedValue = metaValue[metaKey];
-                        if (group.field_type === 'truefalse') {
-                            const storedBoolean = storedValue === '1';
-                            setAttributes({
-                                trueFalseValue: storedBoolean,
-                                trueFalseLabel: storedBoolean ? group.true_label : group.false_label
-                            });
-                        } else {
+
                             // Assume non-boolean meta is a string or array, handle appropriately
                             const storedOption = group.options.find(option => option.value === storedValue || option.label === storedValue);
                             if (storedOption) {
@@ -132,7 +126,6 @@ registerBlockType('adaptive-content-enhancer/option', {
                                     choiceLabel: storedOption.label
                                 });
                             }
-                        }
                     }
         
                     // Set options for the group
@@ -249,6 +242,7 @@ const handleToggleChange = (newValue) => {
     });
 };
 
+
 // Sync dropdown or true/false value with post meta and block attributes
 useEffect(() => {
     if (selectedFieldType === 'truefalse') {
@@ -259,9 +253,11 @@ useEffect(() => {
 
             setAttributes({
                 trueFalseValue: storedValue,
-                trueFalseLabel: storedValue ? selectedFieldData.true_label : selectedFieldData.false_label,
+                trueFalseLabel: storedValue 
+    ? selectedFieldData.options?.find(option => option.value === '1')?.label 
+    : selectedFieldData.options?.find(option => option.value === '0')?.label,
             });
-
+            console.log(trueFalseLabel);
             // Update the meta value if it's not already set correctly
             if (storedValue !== trueFalseValue) {
                 setMetaValue({
@@ -280,62 +276,64 @@ useEffect(() => {
 }, [trueFalseValue, selectedFieldType, selectedGroup, metaValue, metaKey, groupOptions, setAttributes]);
 
 
+
         // Render controls based on field type
-        const renderFieldControls = (context) => {
-            switch (selectedFieldType) {
-                case 'truefalse':
-                    return (
-                        <SwitchControl
-                            label={trueFalseLabel}
-                            checked={trueFalseValue}
-                            onChange={(newValue) => handleToggleChange(newValue)}
-                        />
-                    );
-                case 'checkbox':
-                    return groupOptions.map((option, index) => (
-                        <CheckboxControl
-                            key={index}
-                            label={option.label}
-                            checked={choiceValue === option.value}
-                            onChange={(isChecked) => handleChoicesChange(isChecked ? option.value : '')}
-                        />
-                    ));
-                case 'radio':
-                case 'buttons':
-                    return (
-                        <RadioControl
-                            selected={choiceValue}
-                            options={groupOptions.map(option => ({
-                                label: option.label,
-                                value: option.value
-                            }))}
-                            onChange={(newValue) => handleChoicesChange(newValue)}
-                        />
-                    );
-                default:
-                    const label = context === 'editor' ? 'Select an Option in Sidebar' : selectedGroup;
-                    return (
-                        <>
-                            <CustomSelectControl
-                                style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }} // Example styles
-                                label={context === 'editor' ? label : (showLabelsInEditor ? label : null)}
-                                value={groupOptions.find(option => option.value === choiceValue) ? {
-                                    key: choiceValue,
-                                    name: groupOptions.find(option => option.value === choiceValue)?.label
-                                } : { key: '', name: 'Please select an option' }}
-                                options={[
-                                    ...groupOptions.map(option => ({
-                                        name: option.label,
-                                        key: option.value,
-                                        style: { fontSize: '1em', color: '#000' }, // Example styles
-                                    }))
-                                ]}
-                                onChange={({ selectedItem }) => handleChoicesChange(selectedItem.key)}
-                            />
-                        </>
-                    );
-            }
-        };
+const renderFieldControls = (context) => {
+    switch (selectedFieldType) {
+        case 'truefalse':
+            return (
+                <SwitchControl
+                    label={trueFalseLabel}
+                    checked={trueFalseValue}
+                    onChange={(newValue) => handleToggleChange(newValue)}
+                />
+            );
+        case 'checkbox':
+            return groupOptions.map((option, index) => (
+                <CheckboxControl
+                    key={index}
+                    label={option.label}
+                    checked={choiceValue === option.value}
+                    onChange={(isChecked) => handleChoicesChange(isChecked ? option.value : '')}
+                />
+            ));
+        case 'radio':
+        case 'buttons':
+            return (
+                <RadioControl
+                    selected={choiceValue}
+                    options={groupOptions.map(option => ({
+                        label: option.label,
+                        value: option.value
+                    }))}
+                    onChange={(newValue) => handleChoicesChange(newValue)}
+                />
+            );
+        default:
+            const label = context === 'editor' ? 'Select an Option in Sidebar' : selectedGroup;
+            return (
+                <>
+                    <CustomSelectControl
+                        style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }}
+                        label={context === 'editor' ? label : (showLabelsInEditor ? label : null)}
+                        value={groupOptions.find(option => option.value === choiceValue) ? {
+                            key: choiceValue,
+                            name: groupOptions.find(option => option.value === choiceValue)?.label
+                        } : { key: '', name: 'Please select an option' }}
+                        options={[
+                            ...groupOptions.map(option => ({
+                                name: option.label,
+                                key: option.value,
+                                style: { fontSize: '1em', color: '#000' },
+                            }))
+                        ]}
+                        onChange={({ selectedItem }) => handleChoicesChange(selectedItem.key)}
+                    />
+                </>
+            );
+    }
+};
+
 
         
 
