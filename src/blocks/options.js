@@ -3,7 +3,7 @@ import { useEntityProp } from '@wordpress/core-data';
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps, BlockControls } from '@wordpress/block-editor';
 import {  __experimentalText as Text, __experimentalHeading as Heading, Tip, PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton } from '@wordpress/components';
-import { edit } from '@wordpress/icons';
+import { edit, title } from '@wordpress/icons';
 
 const paragraphBlockSettings = wp.blocks.getBlockSupport('core/paragraph', 'supports');
 
@@ -22,7 +22,8 @@ registerBlockType('adaptive-content-enhancer/option', {
         choiceLabel: { type: 'string', default: '' },
         selectedFieldType: { type: 'string', default: '' },
         description: { type: 'string', default: '' }, // Add description attribute
-        trueFalseValue: { type: 'boolean' },
+        trueFalseValue: { type: 'string', default: '' },
+        title: { type: 'string', default: '' },
         trueFalseLabel: { type: 'string', default: '' },
         showAsTextEditor: { type: 'boolean', default: false }, 
         showLabelsInEditor: { type: 'boolean', default: true }, // New attribute to control editor display
@@ -100,30 +101,37 @@ registerBlockType('adaptive-content-enhancer/option', {
             }
         }, []);
 
-        // Update the group options and field type when the selected group changes
+        // Extend useEffect to fetch and set truefalse meta values correctly
         useEffect(() => {
             if (selectedGroup && selectedGroup !== '') {
                 const group = availableGroups.find(group => group?.name === selectedGroup);
                 if (group) {
                     setAttributes({ 
                         selectedFieldType: group.field_type, 
-                        description: group.description || '' // Set description if available
+                        description: group.description || '',
+                        title: group.title || '' // Ensure title is set
                     });
+        
                     // If there is existing meta data, adopt it immediately
                     if (metaValue && metaKey in metaValue) {
                         const storedValue = metaValue[attributes.selectedGroup];
+                        const storedOption = group.options.find(option => option.value === storedValue || option.label === storedValue);
+                        if (storedOption) {
+                            setAttributes({
+                                choiceValue: storedValue,
+                                choiceLabel: storedOption.label
+                            });
+                        }
         
-                    console.log(storedValue);
-      
-                            // Handle non-boolean types (dropdowns)
-                            const storedOption = group.options.find(option => option.value === storedValue || option.label === storedValue);
-                            if (storedOption) {
-                                setAttributes({
-                                    choiceValue: storedValue,
-                                    choiceLabel: storedOption.label
-                                });
-                            }
-                        
+                        // Handle true/false specifically
+                        if (group.field_type === 'truefalse') {
+                            const isTrue = storedValue === '1';
+                            const label = group.options.find(option => option.value === storedValue)?.label;
+                            setAttributes({
+                                trueFalseValue: storedValue,
+                                trueFalseLabel: label
+                            });
+                        }
                     }
         
                     // Set options for the group
@@ -136,33 +144,13 @@ registerBlockType('adaptive-content-enhancer/option', {
                     setGroupOptions([]);
                     setAttributes({ 
                         selectedFieldType: '', 
-                        description: '' // Clear description if group not found
+                        description: '',
+                        title: '' // Clear title if group not found
                     });
                 }
             }
         }, [selectedGroup, availableGroups, metaValue, metaKey, setAttributes]);
         
-
-        useEffect(() => {
-            if (selectedFieldType === 'truefalse' && selectedGroup) {
-                // Fetch all blocks and find the ones that match the selectedGroup
-                const allBlocks = wp.data.select('core/block-editor').getBlocks();
-                const matchingBlocks = allBlocks.filter(block => 
-                    block.attributes.selectedGroup === selectedGroup &&
-                    block.attributes.trueFalseValue !== undefined
-                );
-        
-                // If there are matching blocks, take the first one and sync its value
-                if (matchingBlocks.length > 0) {
-                    const { trueFalseValue, trueFalseLabel } = matchingBlocks[0].attributes;
-        
-                    setAttributes({
-                        trueFalseValue,
-                        trueFalseLabel,
-                    });
-                }
-            }
-        }, [selectedGroup, selectedFieldType, setAttributes]);
         
 
         useEffect(() => {
@@ -172,6 +160,9 @@ registerBlockType('adaptive-content-enhancer/option', {
             }
         }, [choiceValue, attributes.choiceValue, setAttributes]);
 
+
+        
+
         // Handle dropdown change, updating meta and syncing across all instances
         // Handle dropdown change, updating meta and syncing across all instances
 const handleChoicesChange = (newValue) => {
@@ -180,37 +171,7 @@ const handleChoicesChange = (newValue) => {
         return;
     }
 
-    // Handle true/false logic
-    if (selectedFieldType === 'truefalse') {
-        const label = newValue === '1' 
-            ? selectedFieldData.options?.find(option => option.value === '1')?.label 
-            : selectedFieldData.options?.find(option => option.value === '0')?.label;
 
-        // Sync other blocks with the same selectedGroup
-        const allBlocks = wp.data.select('core/block-editor').getBlocks();
-        allBlocks.forEach(block => {
-            if (block.attributes.selectedGroup === selectedGroup) {
-                // Update attributes of other blocks to reflect the changes
-                wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-                    trueFalseValue: newValue === '1',
-                    trueFalseLabel: label,
-                });
-            }
-        });
-
-        // Update meta and block attributes
-        setMetaValue({
-            ...metaValue,
-            [metaKey]: newValue, // Save as '1' or '0'
-        });
-
-        setAttributes({
-            trueFalseValue: newValue === '1',
-            trueFalseLabel: label,
-        });
-
-        return;
-    }
 
     // Handle other field types
     const selectedOption = groupOptions.find(option => option.value === newValue);
@@ -245,15 +206,9 @@ const handleChoicesChange = (newValue) => {
 
         // Render controls based on field type
         const renderFieldControls = (context) => {
+            const selectedGroupTitle = availableGroups.find(group => group.name === selectedGroup)?.title || 'Select an Option in Sidebar';
+            
             switch (selectedFieldType) {
-                case 'truefalse':
-                    return (
-                        <SwitchControl
-                            label={trueFalseLabel}
-                            checked={trueFalseValue}
-                            onChange={(newValue) => handleChoicesChange(newValue ? '1' : '0')}
-                        />
-                    );
                 case 'checkbox':
                     return groupOptions.map((option, index) => (
                         <CheckboxControl
@@ -275,13 +230,21 @@ const handleChoicesChange = (newValue) => {
                             onChange={(newValue) => handleChoicesChange(newValue)}
                         />
                     );
+                case 'truefalse':
+                    // Add support for 'truefalse' toggle controls
+                    return (
+                        <ToggleControl
+                            label={trueFalseLabel || "Toggle Option"}
+                            checked={trueFalseValue === '1'} // Ensure the toggle reflects '1' or '0'
+                            onChange={(newValue) => handleChoicesChange(newValue ? '1' : '0')}
+                        />
+                    );
                 default:
-                    const label = context === 'editor' ? 'Select an Option in Sidebar' : selectedGroup;
                     return (
                         <>
                             <CustomSelectControl
                                 style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }}
-                                label={context === 'editor' ? label : (showLabelsInEditor ? label : null)}
+                                label={context === 'editor' ? selectedGroupTitle : (showLabelsInEditor ? selectedGroupTitle : null)}
                                 value={groupOptions.find(option => option.value === choiceValue) ? {
                                     key: choiceValue,
                                     name: groupOptions.find(option => option.value === choiceValue)?.label
@@ -299,21 +262,12 @@ const handleChoicesChange = (newValue) => {
                     );
             }
         };
+        
 
        // Add toolbar controls based on selectedFieldType
 const toolbarControls = (
     <ToolbarGroup>
-        {selectedFieldType === 'truefalse' ? (
-            // Render a toggle switch for truefalse fields
-            <ToggleControl
-                label={trueFalseLabel || "Toggle Option"}
-                checked={trueFalseValue}
-                onChange={(newValue) => {
-                    handleChoicesChange(newValue ? '1' : '0')
-                    setAttributes({ trueFalseValue: newValue });
-                }}
-            />
-        ) : (
+
             // Otherwise, render the dropdown
             <Dropdown
                 popoverProps={{ position: 'bottom center' }}
@@ -343,7 +297,6 @@ const toolbarControls = (
                     </MenuGroup>
                 )}
             />
-        )}
     </ToolbarGroup>
 
 

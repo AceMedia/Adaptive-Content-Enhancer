@@ -99,8 +99,6 @@ function create_underscored_value($string) {
 // Load all options and filter based on custom logic
 $all_options = wp_load_alloptions();
 
-// Fetch true/false fields after saving dynamically from updated options
-$true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
 // If you need to load fresh options, do it within the filter function
 add_filter('filter_wp_options_by_field_type', 'filter_options_by_field_type', 10, 2);
@@ -138,7 +136,6 @@ $choices = array_merge(
 // Admin page HTML to manage Option Groups.
 function adaptive_content_enhancer_choices_page_html() {
     if (!current_user_can('manage_options')) {
-        error_log('Unauthorized attempt to delete group option');
         wp_send_json_error('Unauthorized', 403);
     }
 
@@ -159,17 +156,6 @@ function adaptive_content_enhancer_choices_page_html() {
 
 
 
-    // Loop through all true/false fields stored individually
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse');
-
-    foreach ($all_options as $option_name => $value) {
-            // Retrieve only the true/false fields
-            $field_data = (array) get_option($option_name, array());
-
-            if (!empty($field_data)) {
-                $true_false_fields[] = $field_data;
-            }
-    }
 
 
     // Handle saving/updating a specific group in single edit mode.
@@ -507,27 +493,25 @@ function ace_field_options_enqueue_editor_assets() {
     // Localize the dropdown groups for the dropdown block editor script
     wp_localize_script('acemedia-block-editor', 'choiceGroups', $choices);
 
-    // Localize the true/false fields for the true/false block editor script
-    wp_localize_script('acemedia-truefalse-editor', 'trueFalseFields', $true_false_fields);
 }
 add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_assets');
 
 
 
 // Register post meta fields dynamically based on Option Groups and True/False fields
-add_action('init', 'acefields_register_dynamic_meta');
+add_action('init', 'acefields_register_dynamic_meta_and_bindings');
 
-function acefields_register_dynamic_meta() {
+function acefields_register_dynamic_meta_and_bindings() {
     // Define a mapping of field types to how they should be treated
     $field_types = [
         'select' => 'string',
-        'truefalse' => 'boolean',
+        'truefalse' => 'string',
         'checkbox' => 'string',
         'radio' => 'string',
         'buttons' => 'string',
     ];
 
-    // Loop over each field type and register its meta fields
+    // Loop over each field type and register its meta fields and associated block bindings sources
     foreach ($field_types as $type => $meta_type) {
         // Fetch fields using the filter based on their type
         $fields = apply_filters('filter_wp_options_by_field_type', null, $type);
@@ -538,7 +522,7 @@ function acefields_register_dynamic_meta() {
                 $field_name_key = create_underscored_value($field_data['name']);
 
                 // Determine the sanitize callback based on the field type
-                $sanitize_callback = $meta_type === 'boolean' ? 'rest_sanitize_boolean' : 'acefields_sanitize_serialized_meta';
+                $sanitize_callback = 'acefields_sanitize_serialized_meta';
 
                 // Register each field as a post meta field
                 register_meta(
@@ -549,12 +533,40 @@ function acefields_register_dynamic_meta() {
                         'single'            => true,
                         'type'              => $meta_type, // Type based on field type
                         'sanitize_callback' => $sanitize_callback,
-                        'label'             => $field_data['name'] . ' (' . $type . ')', // Use the field name as the label
+                        'auth_callback'     => '__return_true',
+                        'label'             => $field_data['title'] . ' (' . $type . ')',
+                        'prepare_callback'  => 'acefields_prepare_meta_for_rest', // Custom prepare callback
                     )
                 );
+
+                // Dynamically register block bindings for this meta key
+                acefields_register_dynamic_block_binding($field_name_key, $field_data['title']);
             }
         }
     }
+}
+function acefields_register_dynamic_block_binding($meta_key, $label) {
+    // Register a block binding source for the specific meta field
+    register_block_bindings_source(
+        "acefields/{$meta_key}",
+        array(
+            'label'              => _x($label, 'block bindings source', 'acefields'),
+            'get_value_callback' => function ($source_args, $block_instance, $attribute_name) use ($meta_key) {
+                $post_id = $block_instance->context['postId'] ?? get_the_ID();
+                
+           
+                // Fetch the meta value
+                $meta_value = get_post_meta($post_id, $meta_key, true);
+             
+                // Process the meta value
+                $processed_value = acefields_prepare_meta_for_rest($meta_value, $post_id, $meta_key);
+                
+          
+                return $processed_value;
+            },
+            'uses_context' => array('postId', 'postType'),
+        )
+    );
 }
 
 // Custom sanitize function for serialized meta data
@@ -564,6 +576,27 @@ function acefields_sanitize_serialized_meta($meta_value) {
         $meta_value = wp_json_encode($meta_value);
     }
     return sanitize_text_field((string) $meta_value);
+}
+
+// Custom prepare callback to modify meta values before sending to REST API
+function acefields_prepare_meta_for_rest($meta_value, $post_id, $meta_key) {
+    // Attempt to decode JSON strings to arrays
+    $decoded_value = json_decode($meta_value, true);
+    if (is_array($decoded_value)) {
+        return $decoded_value;
+    }
+
+    // For individual values (non-arrays), handle value-to-label conversion
+    $field_data = apply_filters('filter_wp_options_by_field_name', null, $meta_key);
+    if ($field_data && is_array($field_data)) {
+        foreach ($field_data['options'] as $option) {
+            if ((string) $option['value'] === (string) $meta_value) {
+                return $option['label']; // Return the label instead of the raw value
+            }
+        }
+    }
+    // Return the raw meta value if no processing is needed
+    return 'test';
 }
 
 
@@ -582,6 +615,7 @@ function ace_field_options_render_block($attributes) {
     // Fetch the group options dynamically.
     $group_options = get_group_options($selected_group, $attributes);
     $dropdown_label = $group_options['label'];
+    $dropdown_title = $group_options['title']; // Use the dynamically fetched title
 
     $output = '';
 
@@ -590,7 +624,7 @@ function ace_field_options_render_block($attributes) {
         switch ($selected_field_type) {
             case 'truefalse':
                 // Fetch true/false field labels dynamically from wp_options.
-                $true_label = $group_options['label']; // This is already dynamically fetched from wp_options
+                $true_label = $group_options['label']; // Already dynamically fetched from wp_options
                 $is_checked = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true) ? 'checked' : '';
 
                 // Render the checkbox with the correct label.
@@ -621,11 +655,10 @@ function ace_field_options_render_block($attributes) {
                 break;
 
             default:
-            $output = '';
-            if ($show_labels) {
-                $output .= '<label>';
-                $output .= $selected_group;
-            }
+                if ($show_labels) {
+                    $output .= '<label>';
+                    $output .= $dropdown_title; // Render the title dynamically
+                }
 
                 // Default to select dropdown.
                 $select = '<select class="acemedia-input">';
@@ -640,6 +673,7 @@ function ace_field_options_render_block($attributes) {
                 }
                 $select .= '</select>';
                 $output .= $select;
+                
                 if ($show_labels) {
                     $output .= '</label>';
                 }
@@ -649,13 +683,13 @@ function ace_field_options_render_block($attributes) {
     } else {
         // Render plain text labels for non-input fields.
         if ($selected_field_type === 'truefalse') {
-            // Fetch true/false field label dynamically for display.
             $dropdown_label = $group_options['label']; // Use the dynamically fetched label
         }
 
         return sprintf('<p %s>%s</p>', $wrapper_attributes, esc_html($dropdown_label));
     }
 }
+
 
 function ace_enqueue_custom_select_scripts() {
     // Check if we should enqueue scripts based on the post content.
@@ -712,26 +746,22 @@ function get_group_options($selected_group, $attributes) {
     $dropdown_label = '';
     $dropdown_value = '';
     $dropdown_options = []; // Initialize an empty array for options
+    $dropdown_title = ''; // Initialize title
 
     if ($selected_group) {
         foreach ($dropdown_groups as $group) {
             if (create_underscored_value($group['name']) === $selected_group) {
-                if ($group['field_type'] === 'truefalse') {
-                    $true_label = $group['true_label'] ?? 'True';
-                    $is_true = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true);
-                    $dropdown_label = $is_true ? $true_label : 'False';
-                    $dropdown_value = $is_true ? '1' : '0';
-                } else {
-                    // For other field types, populate dropdown options.
-                    foreach ($group['options'] as $option) {
-                        $dropdown_options[] = [
-                            'label' => $option['label'],
-                            'value' => $option['value']
-                        ];
-                        if ((string)$dropdown_value_ref === (string)$option['value']) {
-                            $dropdown_label = $option['label'];
-                            $dropdown_value = $option['value'];
-                        }
+                $dropdown_title = $group['title']; // Fetch the title dynamically
+
+                // For other field types, populate dropdown options.
+                foreach ($group['options'] as $option) {
+                    $dropdown_options[] = [
+                        'label' => $option['label'],
+                        'value' => $option['value']
+                    ];
+                    if ((string)$dropdown_value_ref === (string)$option['value']) {
+                        $dropdown_label = $option['label'];
+                        $dropdown_value = $option['value'];
                     }
                 }
             }
@@ -741,9 +771,11 @@ function get_group_options($selected_group, $attributes) {
     return [
         'label' => $dropdown_label,
         'value' => $dropdown_value,
-        'options' => $dropdown_options // Ensure options are returned
+        'options' => $dropdown_options, // Ensure options are returned
+        'title' => $dropdown_title // Include the dynamically fetched title
     ];
 }
+
 
 
 
@@ -829,21 +861,6 @@ register_block_type('adaptive-content-enhancer/option', array(
 
 
 
-
-
-// Register the true/false block with its own render callback
-register_block_type('acemedia/true-false-block', array(
-    'render_callback' => 'ace_field_options_render_true_false_block',
-    'attributes' => array(
-        'selectedField' => array(
-            'type' => 'string',
-            'default' => ''
-        ),
-        // Other attributes as needed
-    )
-));
-
-
 add_action('rest_api_init', function() {
     register_rest_route('ace/v1', '/meta/(?P<id>\d+)(/(?P<field>[\w\d_]+))?(:(?P<part>label|value))?', array(
         'methods' => 'GET',
@@ -872,7 +889,8 @@ function get_post_meta_fields($data) {
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
     );
 
     // Fetch true/false fields
@@ -956,6 +974,47 @@ function get_post_meta_fields($data) {
 
 
 
+function filter_dynamic_meta_value($value, $source_name, $source_args, $block_instance, $attribute_name) {
+
+    if ($source_name !== 'core/post-meta') {
+        return $value;
+    }
+
+
+    // Fetch all options dynamically if it matches our keys
+    $dynamic_keys  = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'select'),
+        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
+    );
+
+    
+    foreach ($dynamic_keys as $group) {
+        $option_name = create_underscored_value($group['name']);
+        if ($source_args['key'] === $option_name) {
+            $fetched_option = get_option("choices_" . $option_name);
+
+            // Iterate over options to find a label matching the value
+            if (isset($fetched_option['options'])) {
+                foreach ($fetched_option['options'] as $option) {
+                    if ($option['value'] === $value) {
+                        return $option['label'];
+                    }
+                }
+            }
+        }
+    }
+
+   return $value;
+}
+add_filter('block_bindings_source_value', 'filter_dynamic_meta_value', 10, 5);
+
+
+
+
+
 add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
 
 function modify_post_meta_for_rest($response, $post, $request) {
@@ -1018,7 +1077,6 @@ add_action('wp_ajax_delete_wp_option', 'ace_delete_wp_option');
 
 function ace_delete_wp_option() {
     if (!current_user_can('manage_options')) {
-        error_log('User does not have permissions to delete options.');
         wp_send_json_error('Unauthorized', 403);
     }
 
@@ -1046,14 +1104,11 @@ function ace_delete_wp_option() {
         }
 
         if (delete_option($option_name)) {
-            error_log("Deleted group option: " . $option_name);
             wp_send_json_success('Option deleted successfully');
         } else {
-            error_log("Failed to delete group option: " . $option_name);
             wp_send_json_error(print_r($all_groups, false));
         }
     } else {
-        error_log('Invalid option name in delete request');
         wp_send_json_error('Invalid option name');
     }
 }
@@ -1273,7 +1328,6 @@ function handle_acf_import_submission() {
             $group_name = isset($_POST['acf_group_names'][$index]) ? sanitize_text_field($_POST['acf_group_names'][$index]) : '';
 
             error_log('Deserialized Choices: ' . print_r($choices, true));
-            error_log('Group Name (post_excerpt): ' . $group_name);
 
             if ($choices && is_array($choices) && !empty($group_name)) {
                 // Prepare the group data in the required format
@@ -1384,7 +1438,6 @@ function get_acf_sample_data($field_key) {
 
 function ace_determine_field_type($meta_value) {
     if (is_array($meta_value)) {
-        error_log('Array Value: ' . print_r($meta_value, true));
         return 'array';
     } elseif (is_bool($meta_value)) {
         return 'boolean';
@@ -1505,7 +1558,6 @@ function conditionally_register_acf_fields_for_current_post() {
         $post_id = intval($_GET['post']); // Get the current post ID from the URL
 
         if ($post_id) {
-            error_log('Post ID inside if block: ' . $post_id);
 
             // Dynamically register ACF fields only for the current post being edited
             $fields = ace_dynamically_register_acf_fields($post_id);
