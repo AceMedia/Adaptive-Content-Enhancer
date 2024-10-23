@@ -566,7 +566,8 @@ function ace_field_options_render_block($attributes) {
     $wrapper_attributes = get_block_wrapper_attributes();
     $selected_group = $attributes['selectedGroup'] ?? '';
     $selected_field_type = $attributes['selectedFieldType'] ?? '';
-    $show_as_input = $attributes['showAsTextFrontend'] ?? false;
+    $show_as_input = $attributes['showAsInputOnFrontend'] ?? false;
+    $show_labels = $attributes['showLabelsOnFrontend'] ?? false;
 
     // Fetch the group options dynamically.
     $group_options = get_group_options($selected_group, $attributes);
@@ -610,6 +611,12 @@ function ace_field_options_render_block($attributes) {
                 break;
 
             default:
+            $output = '';
+            if ($show_labels) {
+                $output .= '<label>';
+                $output .= $selected_group;
+            }
+
                 // Default to select dropdown.
                 $select = '<select class="acemedia-input">';
                 foreach ($group_options['options'] as $option) {
@@ -622,7 +629,10 @@ function ace_field_options_render_block($attributes) {
                     );
                 }
                 $select .= '</select>';
-                $output = $select;
+                $output .= $select;
+                if ($show_labels) {
+                    $output .= '</label>';
+                }
                 break;
         }
         return sprintf('<div %s>%s</div>', $wrapper_attributes, $output);

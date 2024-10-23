@@ -27,8 +27,10 @@ registerBlockType('adaptive-content-enhancer/option', {
         description: { type: 'string', default: '' }, // Add description attribute
         trueFalseValue: { type: 'boolean', default: false },
         trueFalseLabel: { type: 'string', default: '' },
-        showAsTextEditor: { type: 'boolean', default: false }, // New attribute to control editor display
-        showAsTextFrontend: { type: 'boolean', default: false }, // New attribute to control frontend display
+        showAsTextEditor: { type: 'boolean', default: false }, 
+        showLabelsInEditor: { type: 'boolean', default: true }, // New attribute to control editor display
+        showAsInputOnFrontend: { type: 'boolean', default: false }, // New attribute to control frontend display
+        showLabelsOnFrontend: { type: 'boolean', default: false }, // New attribute to control frontend display
     },
     supports: {
         html: false,
@@ -73,7 +75,7 @@ registerBlockType('adaptive-content-enhancer/option', {
         align: true, // Enable alignment options (left, center, right, wide, full)
     },
     edit: ({ attributes, setAttributes }) => {
-        const { selectedGroup, choiceValue, choiceLabel, selectedFieldType, trueFalseValue, trueFalseLabel, showAsTextEditor, showAsTextFrontend } = attributes;
+        const { selectedGroup, choiceValue, choiceLabel, selectedFieldType, trueFalseValue, trueFalseLabel, showAsTextEditor, showLabelsInEditor, showLabelsOnFrontend, showAsInputOnFrontend } = attributes;
         const [availableGroups, setAvailableGroups] = useState([]);
         const [groupOptions, setGroupOptions] = useState([]);
 
@@ -315,8 +317,8 @@ useEffect(() => {
                     return (
                         <>
                             <CustomSelectControl
-                                style={{ fontSize: 'inherit',  padding: '.5em', height: 'auto', borderRadius: '.25em', }} // Example styles
-                                label={label}
+                                style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }} // Example styles
+                                label={context === 'editor' ? label : (showLabelsInEditor ? label : null)}
                                 value={groupOptions.find(option => option.value === choiceValue) ? {
                                     key: choiceValue,
                                     name: groupOptions.find(option => option.value === choiceValue)?.label
@@ -481,18 +483,40 @@ const toolbarControls = (
                                         {selectedGroup && selectedGroup !== '' && renderFieldControls('editor')}
                     </PanelBody>
 
-                    {/* New Inspector Controls */}
-                    <PanelBody title="Display Options">
+                    <PanelBody title="Editor Options">
                         <SwitchControl
                             label="Show as Text in Editor"
                             checked={showAsTextEditor}
                             onChange={(newValue) => setAttributes({ showAsTextEditor: newValue })}
                         />
+
+                        {showAsTextEditor ? null : (
+                            <SwitchControl
+                                label="Show Labels in Editor"
+                                checked={showLabelsInEditor}
+                                onChange={(newValue) => setAttributes({ showLabelsInEditor: newValue })}
+                            />
+                        )}
+
+                    </PanelBody>
+                    <PanelBody title="Frontend Options">
                         <SwitchControl
                             label="Show as Input on Frontend"
-                            checked={showAsTextFrontend}
-                            onChange={(newValue) => setAttributes({ showAsTextFrontend: newValue })}
+                            checked={showAsInputOnFrontend}
+                            onChange={(newValue) => setAttributes({ showAsInputOnFrontend: newValue })}
                         />
+
+
+
+{showAsInputOnFrontend ?  (
+                            <SwitchControl
+                                label="Show Labels on Frontend"
+                                checked={showLabelsOnFrontend}
+                                onChange={(newValue) => setAttributes({ showLabelsOnFrontend: newValue })}
+                        />
+                        )   : null}
+
+
                     </PanelBody>
                 </InspectorControls>
             </>
