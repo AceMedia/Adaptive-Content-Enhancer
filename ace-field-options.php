@@ -1725,9 +1725,10 @@ function ace_save_options(WP_REST_Request $request) {
                 );
             }, $choice['options'] ?? []),
             'field_type' => sanitize_text_field($choice['field_type']),
-            'show_in_rest' => isset($choice['show_in_rest']) ? 1 : 0,
+            'show_in_rest' => !empty($choice['show_in_rest']) ? 1 : 0, // Handle checkbox properly
         );
 
+        // Save or update the choice option
         update_option($option_name, $group_data);
     }
 
@@ -1743,9 +1744,10 @@ function ace_save_options(WP_REST_Request $request) {
             'true_label' => sanitize_text_field($field['true_label']),
             'false_label' => sanitize_text_field($field['false_label']),
             'field_type' => 'truefalse', // Explicitly set field type
-            'show_in_rest' => isset($field['show_in_rest']) ? 1 : 0,
+            'show_in_rest' => !empty($field['show_in_rest']) ? 1 : 0, // Handle checkbox properly
         );
 
+        // Save or update the true/false option
         update_option($option_name, $field_data);
     }
 
@@ -1759,6 +1761,7 @@ function ace_save_options(WP_REST_Request $request) {
         'true_false_fields' => $updated_true_false_fields,
     ), 200);
 }
+
 
 
 

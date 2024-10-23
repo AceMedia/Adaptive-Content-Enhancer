@@ -100,6 +100,15 @@ const AdaptiveContentEnhancer = () => {
         setChoices(updatedChoices);
     };
 
+
+
+// Modified to handle checkbox for 'show_in_rest'
+const updateChoiceCheckbox = (index, checked) => {
+    const updatedChoices = [...choices];
+    updatedChoices[index].show_in_rest = checked;
+    setChoices(updatedChoices);
+};
+
     const updateOption = (groupIndex, optionIndex, field, value) => {
         const updatedChoices = [...choices];
         updatedChoices[groupIndex].options[optionIndex][field] = value;
@@ -123,6 +132,13 @@ const AdaptiveContentEnhancer = () => {
         updatedFields[index][field] = value;
         setTrueFalseFields(updatedFields);
     };
+
+    // Modified to handle checkbox for 'show_in_rest'
+const updateTrueFalseCheckbox = (index, checked) => {
+    const updatedFields = [...trueFalseFields];
+    updatedFields[index].show_in_rest = checked;
+    setTrueFalseFields(updatedFields);
+};
 
     const confirmAndRemoveGroup = (index, fieldType, groupName) => {
         if (window.confirm('Are you sure you want to remove this group?')) {
@@ -207,6 +223,14 @@ const AdaptiveContentEnhancer = () => {
                                 <button type="button" className="button add-option" onClick={() => addOption(index)}>Add Option</button>
                             </td>
                             <td>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={choice.show_in_rest}
+                                        onChange={(e) => updateChoiceCheckbox(index, e.target.checked)}
+                                    />
+                                    Show in Rest API
+                                </label>
                                 <button onClick={() => confirmAndRemoveGroup(index, choice.field_type, choice.name)}>Remove</button>
                             </td>
                         </tr>
@@ -216,7 +240,7 @@ const AdaptiveContentEnhancer = () => {
             <button onClick={handleAddChoiceGroup}>Add Group</button>
         </div>
     );
-
+    
     const renderTrueFalseFieldsTable = () => (
         <div>
             <h2>True/False Fields</h2>
@@ -236,11 +260,14 @@ const AdaptiveContentEnhancer = () => {
                             <td><input type="text" value={field.true_label} onChange={(e) => updateTrueFalseField(index, 'true_label', e.target.value)} /></td>
                             <td><input type="text" value={field.false_label} onChange={(e) => updateTrueFalseField(index, 'false_label', e.target.value)} /></td>
                             <td>
-                                <input 
-                                    type="checkbox" 
-                                    checked={field.show_in_rest} 
-                                    onChange={(e) => updateTrueFalseField(index, 'show_in_rest', e.target.checked)} 
-                                />
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={field.show_in_rest}
+                                        onChange={(e) => updateTrueFalseCheckbox(index, e.target.checked)}
+                                    />
+                                    Show in Rest API
+                                </label>
                                 <button onClick={() => confirmAndRemoveGroup(index, 'truefalse', field.name)}>Remove</button>
                             </td>
                         </tr>
