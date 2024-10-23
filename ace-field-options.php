@@ -307,7 +307,7 @@ function adaptive_content_enhancer_choices_page_html() {
                 );
                 
                 // Save or update the option
-                update_option("truefalse_" . $field_name, $data);
+                update_option("choices_" . $field_name, $data);
             }
         }
     }
@@ -716,12 +716,7 @@ function get_group_options($selected_group, $attributes) {
     if ($selected_group) {
         foreach ($dropdown_groups as $group) {
             if (create_underscored_value($group['name']) === $selected_group) {
-                if ($group['field_type'] === 'truefalse') {
-                    $true_label = $group['true_label'] ?? 'True';
-                    $is_true = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true);
-                    $dropdown_label = $is_true ? $true_label : 'False';
-                    $dropdown_value = $is_true ? '1' : '0';
-                } else {
+
                     // For other field types, populate dropdown options.
                     foreach ($group['options'] as $option) {
                         $dropdown_options[] = [
@@ -733,7 +728,6 @@ function get_group_options($selected_group, $attributes) {
                             $dropdown_value = $option['value'];
                         }
                     }
-                }
             }
         }
     }
@@ -876,7 +870,6 @@ function get_post_meta_fields($data) {
     );
 
     // Fetch true/false fields
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
     // Handle dropdown groups
     if (!empty($choices)) {
@@ -987,10 +980,7 @@ function modify_post_meta_for_rest($response, $post, $request) {
                 if (isset($meta[$meta_key])) {
                     $stored_value = $meta[$meta_key];
 
-                    if ($group_data['field_type'] === 'truefalse') {
-                        $value = $stored_value === '1' || $stored_value === 1 || $stored_value === true ? 1 : 0;
-                        $label = $value ? $group_data['true_label'] : $group_data['false_label'];
-                    } else {
+
                         foreach ($group_data['options'] as $option) {
                             if ($stored_value === $option['value']) {
                                 $label = $option['label'];
@@ -998,7 +988,6 @@ function modify_post_meta_for_rest($response, $post, $request) {
                                 break;
                             }
                         }
-                    }
                 }
 
                 if ($label !== '' && $value !== '') {
@@ -1016,32 +1005,6 @@ function modify_post_meta_for_rest($response, $post, $request) {
 
 
 
-
-
-
-// add_action('init', 'acefields_register_true_false_meta');
-
-function acefields_register_true_false_meta() {
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', wp_load_alloptions(), 'truefalse');
-
-    if (!empty($true_false_fields)) {
-        foreach ($true_false_fields as $field) {
-            $field_key = create_underscored_value($field['name']);
-
-            register_post_meta(
-                'post',
-                $field_key,
-                array(
-                    'show_in_rest'      => true,
-                    'single'            => true,
-                    'type'              => 'boolean', 
-                    'sanitize_callback' => 'rest_sanitize_boolean', 
-                    'auth_callback'     => '__return_true', // Allow read/write in REST API
-                )
-            );
-        }
-    }
-}
 
 
 
@@ -1652,12 +1615,6 @@ add_action('rest_api_init', function() {
         'permission_callback' => '__return_true', // Allow public access
     ));
 
-    register_rest_route('ace/v1', '/get-truefalse-fields', array(
-        'methods' => 'GET',
-        'callback' => 'ace_get_truefalse_fields',
-        'permission_callback' => '__return_true', // Allow public access
-    ));
-
     // Add endpoint for deleting a choice or true/false field
     register_rest_route('ace/v1', '/delete-option', array(
         'methods' => 'POST',
@@ -1698,12 +1655,10 @@ function ace_delete_option(WP_REST_Request $request) {
 }
 
 
-
 function ace_save_options(WP_REST_Request $request) {
     $choices = $request->get_param('choices');
-    $true_false_fields = $request->get_param('true_false_fields');
 
-    if (!is_array($choices) || !is_array($true_false_fields)) {
+    if (!is_array($choices)) {
         return new WP_REST_Response(array('error' => 'Missing or invalid data'), 400);
     }
 
@@ -1714,54 +1669,38 @@ function ace_save_options(WP_REST_Request $request) {
         }
 
         $option_name = 'choices_' . create_underscored_value($choice['name']);
+
+        // Prepare group data based on field type
         $group_data = array(
             'name' => sanitize_text_field($choice['name']),
-            'title' => sanitize_text_field($choice['title']), // Include the title field
+            'title' => sanitize_text_field($choice['title']),
             'description' => sanitize_textarea_field($choice['description'] ?? ''),
-            'options' => array_map(function ($option) {
+            'field_type' => sanitize_text_field($choice['field_type']),
+            'show_in_rest' => !empty($choice['show_in_rest']) ? 1 : 0,
+        );
+
+ 
+            // Handle other field types
+            $group_data['options'] = array_map(function ($option) {
                 return array(
                     'label' => sanitize_text_field($option['label']),
                     'value' => sanitize_text_field($option['value']),
                 );
-            }, $choice['options'] ?? []),
-            'field_type' => sanitize_text_field($choice['field_type']),
-            'show_in_rest' => !empty($choice['show_in_rest']) ? 1 : 0, // Handle checkbox properly
-        );
+            }, $choice['options'] ?? []);
 
         // Save or update the choice option
         update_option($option_name, $group_data);
     }
 
-    // Save or update true/false fields
-    foreach ($true_false_fields as $field) {
-        if (!isset($field['name']) || empty($field['true_label']) || empty($field['false_label'])) {
-            continue; // Skip invalid entries
-        }
-
-        $option_name = 'truefalse_' . create_underscored_value($field['name']);
-        $field_data = array(
-            'name' => sanitize_text_field($field['name']),
-            'title' => sanitize_text_field($field['title'] ?? ''),
-            'true_label' => sanitize_text_field($field['true_label']),
-            'false_label' => sanitize_text_field($field['false_label']),
-            'field_type' => 'truefalse', // Explicitly set field type
-            'show_in_rest' => !empty($field['show_in_rest']) ? 1 : 0, // Handle checkbox properly
-        );
-
-        // Save or update the true/false option
-        update_option($option_name, $field_data);
-    }
-
-    // Fetch and return the updated choices and true/false fields
+    // Fetch and return the updated choices
     $updated_choices = apply_filters('filter_wp_options_by_field_type', null, 'select');
-    $updated_true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
     return new WP_REST_Response(array(
         'success' => 'Options saved successfully',
-        'choices' => $updated_choices,
-        'true_false_fields' => $updated_true_false_fields,
+        'choices' => $updated_choices
     ), 200);
 }
+
 
 
 
@@ -1777,23 +1716,12 @@ function ace_get_choices() {
     $choices = array_merge(
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
         apply_filters('filter_wp_options_by_field_type', null, 'buttons')
     );
 
     return new WP_REST_Response($choices, 200);
-}
-
-/**
- * Fetches true/false fields from wp_options.
- *
- * @return WP_REST_Response
- */
-function ace_get_truefalse_fields() {
-    // Retrieve true/false fields
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
-
-    return new WP_REST_Response($true_false_fields, 200);
 }
 
 
