@@ -416,12 +416,12 @@ const toolbarControls = (
                             label="Select an Option"
                             value={availableGroups.find(group => group.name === selectedGroup) ? {
                                 key: selectedGroup,
-                                name: availableGroups.find(group => group.name === selectedGroup)?.name,
+                                name: availableGroups.find(group => group.name === selectedGroup)?.title,
                                 description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
                             } : { key: '', name: 'Please select an Option' }}
                             options={[
                                 ...availableGroups.map(group => ({
-                                    name: group.name,
+                                    name: group.title,
                                     key: group.name,
                                     description: group.field_type // Show field type as subtext
                                 }))
@@ -449,7 +449,7 @@ const toolbarControls = (
                                                 key: selectedGroup,
                                                 name: (
                                                     <>
-                                                        {availableGroups.find(group => group.name === selectedGroup)?.name}          
+                                                        {availableGroups.find(group => group.name === selectedGroup)?.title}          
                                                   </>
                                                 ),
                                             } : { key: '', name: 'Please select an Option' }}
@@ -457,7 +457,7 @@ const toolbarControls = (
                                                 ...availableGroups.map(group => ({
                                                     name: (
                                                         <>
-                                                            {group.name}
+                                                            {group.title}
                                                         </>
                                                     ),
                                                     key: group.name,

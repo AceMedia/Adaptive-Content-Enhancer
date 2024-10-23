@@ -1,6 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from '@wordpress/element';
 import { render } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
+import { 
+    TextControl, 
+    SelectControl, 
+    TextareaControl, 
+    ToggleControl, 
+    Button, 
+    Flex, 
+    FlexItem, 
+    Card, 
+    CardHeader,
+    CardBody, 
+    CardFooter,
+    Panel,
+    PanelBody,
+    PanelRow
+} from '@wordpress/components';
+import { more } from '@wordpress/icons';
+
 
 function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
@@ -24,10 +42,10 @@ const AdaptiveContentEnhancer = () => {
     }, []);
 
     const handleSave = () => {
-        // Ensure choices and true_false_fields are properly structured before sending
         const payload = {
             choices: choices.map(choice => ({
-                name: choice.name, // Keep original name
+                name: choice.name, // Hidden key
+                title: choice.title, // Editable display title
                 field_type: choice.field_type,
                 description: choice.description,
                 options: choice.options ? choice.options.map(option => ({
@@ -37,7 +55,8 @@ const AdaptiveContentEnhancer = () => {
                 show_in_rest: choice.show_in_rest ? 1 : 0
             })),
             true_false_fields: trueFalseFields.map(field => ({
-                name: field.name, // Keep original name
+                name: field.name,
+                title: field.title, // Include the title
                 true_label: field.true_label,
                 false_label: field.false_label,
                 show_in_rest: field.show_in_rest ? 1 : 0
@@ -47,10 +66,10 @@ const AdaptiveContentEnhancer = () => {
     
         // Save settings via the custom REST API endpoint
         apiFetch({
-            path: '/ace/v1/save-options', // Ensure correct endpoint
+            path: '/ace/v1/save-options',
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json', // Ensure proper JSON content type
+                'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload),
         }).then((response) => {
@@ -58,7 +77,7 @@ const AdaptiveContentEnhancer = () => {
                 alert('Settings saved successfully!');
             } else {
                 alert('Failed to save settings. Please try again.');
-                console.error('Error:', response.error); // Log the exact error for debugging
+                console.error('Error:', response.error);
             }
         }).catch((error) => {
             console.error('Error saving settings:', error);
@@ -70,10 +89,12 @@ const AdaptiveContentEnhancer = () => {
     
 
     const handleAddChoiceGroup = () => {
+        const newTitle = `Group ${choices.length + 1}`;
         setChoices([
             ...choices,
             {
-                name: '',
+                name: createLowercaseUnderscored(newTitle), // Create hidden key
+                title: newTitle, // Set default title
                 field_type: 'select',
                 description: '',
                 options: [],
@@ -87,6 +108,7 @@ const AdaptiveContentEnhancer = () => {
             ...trueFalseFields,
             {
                 name: '',
+                title: '',
                 true_label: 'True',
                 false_label: 'False',
                 show_in_rest: false,
@@ -97,6 +119,9 @@ const AdaptiveContentEnhancer = () => {
     const updateChoice = (index, field, value) => {
         const updatedChoices = [...choices];
         updatedChoices[index][field] = value;
+        if (field === 'title' && !updatedChoices[index].name) {
+            updatedChoices[index].name = createLowercaseUnderscored(value);
+        }
         setChoices(updatedChoices);
     };
 
@@ -130,6 +155,9 @@ const updateChoiceCheckbox = (index, checked) => {
     const updateTrueFalseField = (index, field, value) => {
         const updatedFields = [...trueFalseFields];
         updatedFields[index][field] = value;
+        if (field === 'title' && !updatedFields[index].name) {
+            updatedFields[index].name = createLowercaseUnderscored(value);
+        }
         setTrueFalseFields(updatedFields);
     };
 
@@ -175,71 +203,100 @@ const updateTrueFalseCheckbox = (index, checked) => {
         }
     };
 
-    const renderChoicesTable = () => (
-        <div>
-            <h2>Option Groups</h2>
-            <table className="wp-list-table widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th>Group Name</th>
-                        <th>Field Type</th>
-                        <th>Description</th>
-                        <th>Options</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {choices.map((choice, index) => (
-                        <tr key={index}>
-                            <td><input type="text" value={choice.name} onChange={(e) => updateChoice(index, 'name', e.target.value)} /></td>
-                            <td>
-                                <select value={choice.field_type} onChange={(e) => updateChoice(index, 'field_type', e.target.value)}>
-                                    <option value="select">Select</option>
-                                    <option value="checkbox">Checkbox</option>
-                                    <option value="radio">Radio</option>
-                                    <option value="buttons">Buttons</option>
-                                </select>
-                            </td>
-                            <td><textarea value={choice.description} onChange={(e) => updateChoice(index, 'description', e.target.value)} /></td>
-                            <td>
-                                <table className="group-options-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Option Label</th>
-                                            <th>Option Value</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {choice.options.map((option, optionIndex) => (
-                                            <tr key={optionIndex}>
-                                                <td><input type="text" value={option.label} onChange={(e) => updateOption(index, optionIndex, 'label', e.target.value)} /></td>
-                                                <td><input type="text" value={option.value} onChange={(e) => updateOption(index, optionIndex, 'value', e.target.value)} /></td>
-                                                <td><button type="button" className="button remove-option" onClick={() => removeOption(index, optionIndex)}>Remove</button></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                <button type="button" className="button add-option" onClick={() => addOption(index)}>Add Option</button>
-                            </td>
-                            <td>
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={choice.show_in_rest}
-                                        onChange={(e) => updateChoiceCheckbox(index, e.target.checked)}
-                                    />
-                                    Show in Rest API
-                                </label>
-                                <button onClick={() => confirmAndRemoveGroup(index, choice.field_type, choice.name)}>Remove</button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            <button onClick={handleAddChoiceGroup}>Add Group</button>
-        </div>
-    );
+    const renderChoicesTable = () => {
+        const [openIndexes, setOpenIndexes] = useState({});
+    
+        const toggleOpen = (index) => {
+            setOpenIndexes((prev) => ({
+                ...prev,
+                [index]: !prev[index],
+            }));
+        };
+    
+        return (
+            <div>
+                <h2>Option Groups</h2>
+                {choices.map((choice, index) => (
+                    <Card key={index} style={{ width: '100%', marginBottom: '20px' }}>
+                        <CardHeader
+                            onClick={() => toggleOpen(index)}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <strong>{choice.title || `Group ${index + 1}`}</strong>
+                        </CardHeader>
+                        {openIndexes[index] && (
+                            <CardBody>
+                            <TextControl
+                                label="Group Title"
+                                value={choice.title}
+                                onChange={(value) => updateChoice(index, 'title', value)}
+                            />
+                            <TextControl
+                                label="Group Name"
+                                value={`choices_${choice.name}`}
+                                onChange={(value) => updateChoice(index, 'name', value)}
+                                disabled='true'
+                            />
+                                <SelectControl
+                                    label="Field Type"
+                                    value={choice.field_type}
+                                    options={[
+                                        { label: 'Select', value: 'select' },
+                                        { label: 'Checkbox', value: 'checkbox' },
+                                        { label: 'Radio', value: 'radio' },
+                                        { label: 'Buttons', value: 'buttons' },
+                                    ]}
+                                    onChange={(value) => updateChoice(index, 'field_type', value)}
+                                />
+                                <TextareaControl
+                                    label="Description"
+                                    value={choice.description}
+                                    onChange={(value) => updateChoice(index, 'description', value)}
+                                />
+                                <ToggleControl
+                                    label="Show in REST API"
+                                    checked={choice.show_in_rest}
+                                    onChange={(value) => updateChoiceCheckbox(index, value)}
+                                />
+                                <div style={{ marginTop: '16px' }}>
+                                    <strong>Options:</strong>
+                                    {choice.options.map((option, optionIndex) => (
+                                        <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <TextControl
+                                                placeholder="Option Label"
+                                                value={option.label}
+                                                onChange={(value) => updateOption(index, optionIndex, 'label', value)}
+                                            />
+                                            <TextControl
+                                                placeholder="Option Value"
+                                                value={option.value}
+                                                onChange={(value) => updateOption(index, optionIndex, 'value', value)}
+                                            />
+                                            <Button
+                                                isDestructive
+                                                onClick={() => removeOption(index, optionIndex)}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <Button isPrimary onClick={() => addOption(index)}>Add Option</Button>
+                                </div>
+                                <Button
+                                    isDestructive
+                                    onClick={() => confirmAndRemoveGroup(index, choice.field_type, choice.name)}
+                                    style={{ marginTop: '16px' }}
+                                >
+                                    Remove Group
+                                </Button>
+                            </CardBody>
+                        )}
+                    </Card>
+                ))}
+                <Button isPrimary onClick={handleAddChoiceGroup}>Add Group</Button>
+            </div>
+        );
+    };
     
     const renderTrueFalseFieldsTable = () => (
         <div>
@@ -247,36 +304,70 @@ const updateTrueFalseCheckbox = (index, checked) => {
             <table className="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
+                        <th>Field Title</th> {/* New title column */}
                         <th>Field Name</th>
                         <th>Label for True</th>
                         <th>Label for False</th>
+                        <th>Show in REST API</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {trueFalseFields.map((field, index) => (
                         <tr key={index}>
-                            <td><input type="text" value={field.name} onChange={(e) => updateTrueFalseField(index, 'name', e.target.value)} /></td>
-                            <td><input type="text" value={field.true_label} onChange={(e) => updateTrueFalseField(index, 'true_label', e.target.value)} /></td>
-                            <td><input type="text" value={field.false_label} onChange={(e) => updateTrueFalseField(index, 'false_label', e.target.value)} /></td>
                             <td>
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={field.show_in_rest}
-                                        onChange={(e) => updateTrueFalseCheckbox(index, e.target.checked)}
-                                    />
-                                    Show in Rest API
-                                </label>
-                                <button onClick={() => confirmAndRemoveGroup(index, 'truefalse', field.name)}>Remove</button>
+                                <TextControl
+                                    placeholder="Field Title"
+                                    value={field.title} // Handle title
+                                    onChange={(value) => updateTrueFalseField(index, 'title', value)}
+                                />
+                            </td>
+                            <td>
+                                <TextControl
+                                    placeholder="Field Name"
+                                    value={`truefalse_${field.name}`}
+                                    onChange={(value) => updateTrueFalseField(index, 'name', value)}
+                                    disabled='true'
+                                />
+                            </td>
+                            <td>
+                                <TextControl
+                                    placeholder="True Label"
+                                    value={field.true_label}
+                                    onChange={(value) => updateTrueFalseField(index, 'true_label', value)}
+                                />
+                            </td>
+                            <td>
+                                <TextControl
+                                    placeholder="False Label"
+                                    value={field.false_label}
+                                    onChange={(value) => updateTrueFalseField(index, 'false_label', value)}
+                                />
+                            </td>
+                            <td>
+                                <ToggleControl
+                                    label="Show in REST API"
+                                    checked={field.show_in_rest}
+                                    onChange={(value) => updateTrueFalseCheckbox(index, value)}
+                                />
+                            </td>
+                            <td>
+                                <Button
+                                    isDestructive
+                                    onClick={() => confirmAndRemoveGroup(index, 'truefalse', field.name)}
+                                >
+                                    Remove
+                                </Button>
                             </td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-            <button onClick={handleAddTrueFalseField}>Add True/False Field</button>
+            <Button isPrimary onClick={handleAddTrueFalseField}>Add True/False Field</Button>
         </div>
     );
+    
+    
 
     return (
         <div className="wrap">

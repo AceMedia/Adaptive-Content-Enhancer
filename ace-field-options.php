@@ -1639,7 +1639,6 @@ function adaptive_content_enhancer_choices_page_react() {
     }
     ?>
     <div class="wrap">
-        <h1>Adaptive Content Enhancer Settings</h1>
         <div id="ace-settings-root"></div>
     </div>
     <?php
@@ -1710,13 +1709,14 @@ function ace_save_options(WP_REST_Request $request) {
 
     // Save each choice option
     foreach ($choices as $choice) {
-        if (!isset($choice['name']) || !isset($choice['field_type'])) {
+        if (!isset($choice['name']) || !isset($choice['title']) || !isset($choice['field_type'])) {
             continue; // Skip invalid entries
         }
 
         $option_name = 'choices_' . create_underscored_value($choice['name']);
         $group_data = array(
             'name' => sanitize_text_field($choice['name']),
+            'title' => sanitize_text_field($choice['title']), // Include the title field
             'description' => sanitize_textarea_field($choice['description'] ?? ''),
             'options' => array_map(function ($option) {
                 return array(
@@ -1741,6 +1741,7 @@ function ace_save_options(WP_REST_Request $request) {
         $option_name = 'truefalse_' . create_underscored_value($field['name']);
         $field_data = array(
             'name' => sanitize_text_field($field['name']),
+            'title' => sanitize_text_field($field['title'] ?? ''),
             'true_label' => sanitize_text_field($field['true_label']),
             'false_label' => sanitize_text_field($field['false_label']),
             'field_type' => 'truefalse', // Explicitly set field type
