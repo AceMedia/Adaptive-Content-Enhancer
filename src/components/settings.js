@@ -7,25 +7,25 @@ import {
     TextareaControl, 
     ToggleControl, 
     Button, 
-    Flex, 
-    FlexItem, 
     Card, 
     CardHeader,
     CardBody, 
-    CardFooter,
-    Panel,
-    PanelBody,
-    PanelRow
+    Modal,
 } from '@wordpress/components';
-import { more } from '@wordpress/icons';
+
+import SaveBar from './SaveBar/SaveBar'; // Adjust the path as needed
 
 function createLowercaseUnderscored(string) {
-    return string.toLowerCase().replace(/\s+/g, '_');
+    return string
+        .toLowerCase() // Convert to lowercase
+        .replace(/[^a-z0-9_ ]+/g, '') // Remove any character that is not a-z, 0-9, or space
+        .replace(/\s+/g, '_'); // Replace spaces with underscores
 }
 
 const AdaptiveContentEnhancer = () => {
     const [choices, setChoices] = useState([]);
-    const [editKey, setEditKey] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newChoice, setNewChoice] = useState({ title: '', name: '', field_type: 'select', description: '', options: [] });
 
     useEffect(() => {
         // Fetch options data from the backend
@@ -39,19 +39,19 @@ const AdaptiveContentEnhancer = () => {
                             false_label: choice.options?.find(option => option.value === '0')?.label || 'False'
                         };
                     }
-    
+
                     // Ensure existing options are marked as disabled
                     const updatedOptions = (choice.options || []).map(option => ({
                         ...option,
                         disabled: !!option.value // Disable existing options that have a value
                     }));
-    
+
                     return {
                         ...choice,
                         options: updatedOptions
                     };
                 });
-    
+
                 setChoices(updatedChoices);
             })
             .catch((error) => console.error('Error fetching choices:', error));
@@ -60,8 +60,8 @@ const AdaptiveContentEnhancer = () => {
     const handleSave = () => {
         const payload = {
             choices: choices.map(choice => ({
-                name: choice.name, // Hidden key
-                title: choice.title, // Editable display title
+                name: choice.name,
+                title: choice.title,
                 field_type: choice.field_type,
                 description: choice.description,
                 options: choice.options ? choice.options.map(option => ({
@@ -70,11 +70,10 @@ const AdaptiveContentEnhancer = () => {
                 })) : [],
                 show_in_rest: choice.show_in_rest ? 1 : 0
             })),
-            _wpnonce: aceAjax.nonce, // Assuming nonce is localized
+            _wpnonce: aceAjax.nonce,
         };
-    
-        // Save settings via the custom REST API endpoint
-        apiFetch({
+
+        return apiFetch({
             path: '/ace/v1/save-options',
             method: 'POST',
             headers: {
@@ -84,93 +83,39 @@ const AdaptiveContentEnhancer = () => {
         }).then((response) => {
             if (response.success) {
                 setChoices(choices.map(choice => ({ ...choice, isNew: false })));
-                alert('Settings saved successfully!');
+                return { success: true }; // Resolve promise with success
             } else {
-                alert('Failed to save settings. Please try again.');
                 console.error('Error:', response.error);
+                return { success: false }; // Resolve with failure
             }
         }).catch((error) => {
             console.error('Error saving settings:', error);
-            alert('Failed to save settings. Please try again.');
+            return { success: false }; // Resolve with failure
         });
     };
 
     const handleAddChoiceGroup = () => {
-        const newTitle = `Group ${choices.length + 1}`;
-        setChoices([
-            ...choices,
-            {
-                name: createLowercaseUnderscored(newTitle), // Create hidden key
-                title: newTitle, // Set default title
-                field_type: 'select',
-                description: '',
-                options: [],
-                show_in_rest: false,
-                isNew: true, // Add isNew property to identify this as a new group
-            },
-        ]);
-    };
-    
-
-    const updateChoice = (index, field, value) => {
-        const updatedChoices = [...choices];
-        updatedChoices[index][field] = value;
-        
-        // Automatically add default options when the field type is set to 'truefalse'
-        if (field === 'field_type' && value === 'truefalse') {
-            updatedChoices[index].options = [
-                { label: 'True', value: '1' },
-                { label: 'False', value: '0' }
-            ];
-            updatedChoices[index].options.forEach(option => option.disabled = true);
-        } else if (field === 'field_type' && value !== 'truefalse') {
-            // Clear options if it's not truefalse
-            updatedChoices[index].options = [];
-        }
-    
-        // Set name based on the title only if the group is new
-        if (field === 'title' && updatedChoices[index].isNew) {
-            updatedChoices[index].name = createLowercaseUnderscored(value);
-        }
-    
-        setChoices(updatedChoices);
-    };
-    
-
-    const updateChoiceCheckbox = (index, checked) => {
-        const updatedChoices = [...choices];
-        updatedChoices[index].show_in_rest = checked;
-        setChoices(updatedChoices);
+        setIsModalOpen(true);
     };
 
-    const updateOption = (groupIndex, optionIndex, field, value) => {
-        const updatedChoices = [...choices];
-        
-        // Update the specific field for the given option
-        updatedChoices[groupIndex].options[optionIndex][field] = value;
-        
-        // If the label is being updated and the option is new (not disabled), sync the value
-        if (field === 'label' && !updatedChoices[groupIndex].options[optionIndex].disabled) {
-            updatedChoices[groupIndex].options[optionIndex].value = createLowercaseUnderscored(value);
-        }
-        
-        setChoices(updatedChoices);
+    const handleModalSubmit = () => {
+        const newTitle = newChoice.title || `Group ${choices.length + 1}`;
+        const newChoiceData = {
+            name: createLowercaseUnderscored(newTitle), // Create hidden key
+            title: newTitle, // Set default title
+            field_type: newChoice.field_type,
+            description: newChoice.description,
+            options: newChoice.options,
+            show_in_rest: false,
+            isNew: true, // Add isNew property to identify this as a new group
+        };
+        setChoices([...choices, newChoiceData]);
+        setIsModalOpen(false);
+        resetNewChoice(); // Reset the form
     };
 
-    const addOption = (groupIndex) => {
-        const updatedChoices = [...choices];
-        updatedChoices[groupIndex].options.push({
-            label: '', 
-            value: '', // Sync with title
-            disabled: false // New options are not disabled
-        });
-        setChoices(updatedChoices);
-    };
-
-    const removeOption = (groupIndex, optionIndex) => {
-        const updatedChoices = [...choices];
-        updatedChoices[groupIndex].options.splice(optionIndex, 1);
-        setChoices(updatedChoices);
+    const resetNewChoice = () => {
+        setNewChoice({ title: '', name: '', field_type: 'select', description: '', options: [] }); // Reset form
     };
 
     const confirmAndRemoveGroup = (index, fieldType, groupName) => {
@@ -202,17 +147,174 @@ const AdaptiveContentEnhancer = () => {
             });
         }
     };
+    
+    const updateOption = (choice, option, field, value) => {
+        setChoices(prevChoices => {
+            const updatedChoices = [...prevChoices]; // Create a shallow copy of the previous state
+    
+            // Find the index of the chosen group
+            const choiceIndex = updatedChoices.findIndex(c => c.name === choice.name);
+            
+            if (choiceIndex !== -1) {
+                // Find the index of the specific option
+                const optionIndex = updatedChoices[choiceIndex].options.findIndex(opt => opt.label === option.label);
+    
+                if (optionIndex !== -1) {
+                    // Update only the specific option
+                    const updatedOption = { ...updatedChoices[choiceIndex].options[optionIndex] };
+    
+                    if (field === 'label') {
+                        updatedOption.label = value; // Update label directly
+                        if (!updatedOption.disabled) {
+                        updatedOption.value = createLowercaseUnderscored(value); // Sync value with underscored version
+                        }
+                    } else if (field === 'value') {
+                        updatedOption.value = createLowercaseUnderscored(value); // Update value directly when the field is 'value'
+                    }
+    
+                    // Set the updated option in the choices
+                    updatedChoices[choiceIndex].options[optionIndex] = updatedOption;
+                }
+            }
+    
+            return updatedChoices; // Return the updated choices
+        });
+    };
+    
+    
+    
+
+    const addOption = (choice) => {
+        const newOption = { label: '', value: '' };
+    
+        if (choice) {
+            // If choice is provided, add to the specific choice in the main choices
+            const updatedChoices = choices.map(c => {
+                if (c.name === choice.name) {
+                    return {
+                        ...c,
+                        options: [...c.options, newOption]
+                    };
+                }
+                return c;
+            });
+            setChoices(updatedChoices);
+        } else {
+            // If choice is null, add to newChoice for the modal
+            setNewChoice(prev => ({
+                ...prev,
+                options: [...prev.options, newOption]
+            }));
+        }
+    };
+    
+    
+    const removeOption = (choice, option) => {
+        const updatedChoices = choices.map(c => {
+            if (c.name === choice.name) {
+                // Filter out the option to be removed
+                return {
+                    ...c,
+                    options: c.options.filter(opt => opt.label !== option.label) // Adjust this line based on how you uniquely identify options
+                };
+            }
+            return c;
+        });
+        setChoices(updatedChoices);
+    };
+    
+
+    const addOptionToNewChoice = () => {
+        setNewChoice(prev => ({
+            ...prev,
+            options: [...prev.options, { label: '', value: '' }]
+        }));
+    };
+
+    const removeOptionFromNewChoice = (index) => {
+        setNewChoice(prev => ({
+            ...prev,
+            options: prev.options.filter((_, i) => i !== index)
+        }));
+    };
+
+    const renderChoiceFields = (choice) => (
+        <>
+            {/* Main choice fields */}
+            <TextControl
+                label="Group Title"
+                value={choice.title}
+            />
+            <TextControl
+                label="Group Name"
+                value={choice.name}
+                onChange={(value) => updateChoice(choice, 'name', value)}
+            />
+            <SelectControl
+                label="Field Type"
+                value={choice.field_type}
+                options={[
+                    { label: 'Select', value: 'select' },
+                    { label: 'Checkbox', value: 'checkbox' },
+                    { label: 'True/False', value: 'truefalse' },
+                    { label: 'Radio', value: 'radio' },
+                    { label: 'Buttons', value: 'buttons' },
+                ]}
+                onChange={(value) => updateChoice(choice, 'field_type', value)}
+            />
+            <TextareaControl
+                label="Description"
+                value={choice.description}
+                onChange={(value) => updateChoice(choice, 'description', value)}
+            />
+            <ToggleControl
+                label="Show in REST API"
+                checked={choice.show_in_rest}
+                onChange={(value) => updateChoice(choice, 'show_in_rest', value)}
+            />
+    
+            <div style={{ marginTop: '16px' }}>
+                <strong>Options:</strong>
+                {choice.options.map((option, optionIndex) => (
+                    <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <TextControl
+    placeholder="Option Label"
+    value={option.label}
+    onChange={(value) => updateOption(choice, option, 'label', value)}
+/>
+<TextControl
+    placeholder="Option Value"
+    value={option.value}
+    disabled={option.disabled}
+    onChange={(value) => updateOption(choice, option, 'value', value)} // Only updates the value
+/>
+
+                        <Button
+                            isDestructive
+                            onClick={() => removeOption(choice, option)} // Pass the entire choice and option
+                        >
+                            Remove
+                        </Button>
+                    </div>
+                ))}
+                {choice.field_type !== 'truefalse' && (
+                    <Button isPrimary onClick={() => addOption(choice)}>Add Option</Button>
+                )}
+            </div>
+        </>
+    );
+    
 
     const renderChoicesTable = () => {
         const [openIndexes, setOpenIndexes] = useState({});
-    
+
         const toggleOpen = (index) => {
             setOpenIndexes((prev) => ({
                 ...prev,
                 [index]: !prev[index],
             }));
         };
-    
+
         return (
             <div>
                 <h2>Option Groups</h2>
@@ -226,104 +328,11 @@ const AdaptiveContentEnhancer = () => {
                         </CardHeader>
                         {openIndexes[index] && (
                             <CardBody>
-                                <TextControl
-                                    label="Group Title"
-                                    value={choice.title}
-                                    onChange={(value) => updateChoice(index, 'title', value)}
-                                />
-                                <TextControl
-                                    label="Group Name"
-                                    value={`${choice.name}`}
-                                    onChange={(value) => updateChoice(index, 'name', value)}
-                                    disabled={!choice.isNew}
-                                />
-                                <SelectControl
-                                    label="Field Type"
-                                    value={choice.field_type}
-                                    options={[
-                                        { label: 'Select', value: 'select' },
-                                        { label: 'Checkbox', value: 'checkbox' },
-                                        { label: 'True/False', value: 'truefalse' },
-                                        { label: 'Radio', value: 'radio' },
-                                        { label: 'Buttons', value: 'buttons' },
-                                    ]}
-                                    onChange={(value) => updateChoice(index, 'field_type', value)}
-                                />
-                                <TextareaControl
-                                    label="Description"
-                                    value={choice.description}
-                                    onChange={(value) => updateChoice(index, 'description', value)}
-                                />
-                                <ToggleControl
-                                    label="Show in REST API"
-                                    checked={choice.show_in_rest}
-                                    onChange={(value) => updateChoiceCheckbox(index, value)}
-                                />
-    
-                        
-                                    <div style={{ marginTop: '16px' }}>
-                                        <strong>Options:</strong>
-                                        {choice.options.map((option, optionIndex) => (
-                                            <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {choice.field_type !== 'truefalse' ? (
-                                                    <>
-                                                        <TextControl
-                                                            placeholder="Option Label"
-                                                            value={option.label}
-                                                            onChange={(value) => updateOption(index, optionIndex, 'label', value)}
-                                                        />
-                                                        <TextControl
-                                                            placeholder="Option Value"
-                                                            value={option.value}
-                                                            onChange={(value) => updateOption(index, optionIndex, 'value', value)}
-                                                            disabled={option.disabled}
-                                                        />
-                                                        <Button
-                                                            isDestructive
-                                                            onClick={() => removeOption(index, optionIndex)}
-                                                        >
-                                                            Remove
-                                                        </Button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <TextControl
-                                                            placeholder="Option Label"
-                                                            value={option.label}
-                                                            onChange={(value) => updateOption(index, optionIndex, 'label', value)}
-                                                        />
-                                                        <TextControl
-                                                            placeholder="Option Value"
-                                                            value={option.value}
-                                                            onChange={(value) => updateOption(index, optionIndex, 'value', value)}
-                                                            disabled="true"
-                                                        />
-                                                    </>
-                                                )}
-                                            </div>
-                                        ))}
-                                         {choice.field_type !== 'truefalse' ? (
-                                                    <>
-                                        <Button isPrimary onClick={() => addOption(index)}>Add Option</Button>
-                                                    </>
-                                                ) : (   
-                                                    <>
-                                                    </>
-                                                )}  
-                                    </div>
-    
-                                <Button
-                                    isDestructive
-                                    onClick={() => confirmAndRemoveGroup(index, choice.field_type, choice.name)}
-                                    style={{ marginTop: '16px' }}
-                                >
-                                    Remove Group
-                                </Button>
+                                {renderChoiceFields(choice)}
                             </CardBody>
                         )}
                     </Card>
                 ))}
-                <Button isPrimary onClick={handleAddChoiceGroup}>Add Group</Button>
             </div>
         );
     };
@@ -332,7 +341,22 @@ const AdaptiveContentEnhancer = () => {
         <div className="wrap">
             <h1>Adaptive Content Enhancer Settings</h1>
             {renderChoicesTable()}
-            <button className="button-primary" onClick={handleSave}>Save Settings</button>
+
+            <SaveBar onSave={handleSave}>
+                <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup}>Add Options</Button>
+            </SaveBar>
+
+            {/* Modal for adding new choice group */}
+            {isModalOpen && (
+                <Modal
+                    title="Add New Choice Group"
+                    onRequestClose={() => setIsModalOpen(false)}
+                >
+                    {renderChoiceFields(newChoice)} {/* Render the new choice fields */}
+                    <Button isPrimary onClick={() => addOption(null, true)}>Add Option</Button> {/* Add option to modal */}
+                    <Button isPrimary onClick={handleModalSubmit}>Add Group</Button>
+                </Modal>
+            )}
         </div>
     );
 };
