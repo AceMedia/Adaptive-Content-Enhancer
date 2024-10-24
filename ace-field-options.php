@@ -55,7 +55,7 @@ function ace_field_options_enqueue_styles() {
     if ($screen->id === 'toplevel_page_adaptive-content-enhancer') {
         wp_enqueue_style(
             'acemedia-settings', // Handle
-            plugins_url('/assets/styles/css/settings.css', __FILE__), // Path to the CSS file
+            plugins_url('/assets/styles/settings.css', __FILE__), // Path to the CSS file
             array(), // Dependencies (if any)
             null // Version number
         );
@@ -63,7 +63,7 @@ function ace_field_options_enqueue_styles() {
 
         wp_enqueue_script(
             'acemedia-ajax',
-            plugins_url('/assets/blocks/ajax.js', __FILE__),
+            plugins_url('/assets/js/ajax.js', __FILE__),
             array('jquery'), // Dependencies
             null, // Version
             true // Load in footer
@@ -84,7 +84,7 @@ add_action('admin_enqueue_scripts', 'ace_field_options_enqueue_styles');
 function ace_field_options_enqueue_editor_styles() {
     wp_enqueue_style(
         'acemedia-editor', // Handle
-        plugins_url('/assets/styles/css/editor.css', __FILE__), // Path to the CSS file
+        plugins_url('/assets/styles/editor.css', __FILE__), // Path to the CSS file
         array(), // Dependencies (if any)
         null // Version number
     );
@@ -474,7 +474,7 @@ function ace_field_options_enqueue_editor_assets() {
         'acemedia-block-editor',
         plugins_url( '/assets/blocks/options.js', __FILE__ ),
         array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
-        filemtime( plugin_dir_path( __FILE__ ) . 'assets/index.js' )
+        filemtime( plugin_dir_path( __FILE__ ) . 'assets/blocks/options.js' )
     );
 
 
@@ -1603,12 +1603,23 @@ function ace_field_options_enqueue_settings_page_scripts() {
     if ($screen->id === 'options_page_adaptive-content-enhancer-react') {
         wp_enqueue_script(
             'acemedia-settings-react',
-            plugins_url('/assets/blocks/index.js', __FILE__),
+            plugins_url('/assets/index.js', __FILE__),
             array('wp-element', 'wp-components', 'wp-api-fetch', 'jquery'), // Ensure jQuery is included
-            filemtime(plugin_dir_path(__FILE__) . 'assets/blocks/index.js'),
+            filemtime(plugin_dir_path(__FILE__) . 'assets/index.js'),
             true
         );
-    
+
+
+        wp_enqueue_script(
+            'acemedia-ajax',
+            plugins_url('/assets/js/ajax.js', __FILE__),
+            array('jquery'), // Dependencies
+            null, // Version
+            true // Load in footer
+        );
+
+        wp_enqueue_style('wp-block-editor', includes_url('css/dist/block-editor.css'));
+
         wp_localize_script('acemedia-settings-react', 'aceAjax', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('ace_nonce') // Create a nonce for security
