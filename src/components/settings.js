@@ -298,7 +298,15 @@ const AdaptiveContentEnhancer = () => {
                     </div>
                 ))}
                 {choice.field_type !== 'truefalse' && (
-                    <Button isPrimary onClick={() => addOption(choice)}>Add Option</Button>
+                    <Button 
+                        isPrimary 
+                        onClick={() => {
+                            const option = isModalOpen ? null : choice;
+                            addOption(option);
+                        }}
+                    >
+                        Add Option
+                    </Button>
                 )}
             </div>
         </>
@@ -353,7 +361,6 @@ const AdaptiveContentEnhancer = () => {
                     onRequestClose={() => setIsModalOpen(false)}
                 >
                     {renderChoiceFields(newChoice)} {/* Render the new choice fields */}
-                    <Button isPrimary onClick={() => addOption(null, true)}>Add Option</Button> {/* Add option to modal */}
                     <Button isPrimary onClick={handleModalSubmit}>Add Group</Button>
                 </Modal>
             )}
