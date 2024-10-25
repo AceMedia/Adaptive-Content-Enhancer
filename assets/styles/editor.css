@@ -1,0 +1,8 @@
+.components-input-control__container .field-type-description {
+  padding: 0.25em;
+  font-size: 10px;
+  border-radius: 4px;
+  display: inline-block;
+  background: #CCCCCC;
+  margin-left: auto; /* This will push the element to the right edge */
+}
