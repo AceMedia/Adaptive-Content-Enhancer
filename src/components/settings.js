@@ -589,15 +589,18 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     };
     
     
-    
-    
     const removeOption = (choice, option) => {
         const updatedChoices = choices.map(c => {
             if (c.name === choice.name) {
                 // Filter out the option to be removed
+                const updatedOptions = c.options.filter(opt => opt.label !== option.label);
+                
+                // Mark the choice as changed
+                markAsChanged(c.name);
+                
                 return {
                     ...c,
-                    options: c.options.filter(opt => opt.label !== option.label) // Adjust this line based on how you uniquely identify options
+                    options: updatedOptions
                 };
             }
             return c;
