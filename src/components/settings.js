@@ -704,6 +704,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             </div>
         )}
 
+{choice.field_type !== 'text' && (
 <div style={{ marginTop: '16px' }}>
             <strong>Options:</strong>
             {choice.options.map((option, optionIndex) => (
@@ -742,6 +743,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             )}
         </div>
 
+)}
 
 
         </>
