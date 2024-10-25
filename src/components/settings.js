@@ -501,18 +501,22 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         setChoiceToDelete(null);
     };
     
+
+    
+
     const updateOption = (choice, option, field, value) => {
         if (isModalOpen) {
             setNewChoice((prevNewChoice) => {
-                const updatedOptions = prevNewChoice.options.map((opt) => {
-                    if (opt.label === option.label) {
+                const updatedOptions = prevNewChoice.options.map((opt, index) => {
+                    if (opt === option) {
+                        // Update the targeted option only
                         return {
                             ...opt,
                             [field]: value,
                             // Sync value with label only if it was not manually modified before
                             value: field === 'label' && opt.value === createLowercaseUnderscored(opt.label)
                                 ? createLowercaseUnderscored(value)
-                                : field === 'value' 
+                                : field === 'value'
                                     ? createLowercaseUnderscored(value) // Allow manual input
                                     : opt.value,
                         };
@@ -527,7 +531,9 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                 const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
     
                 if (choiceIndex !== -1) {
-                    const optionIndex = updatedChoices[choiceIndex].options.findIndex((opt) => opt.label === option.label);
+                    const optionIndex = updatedChoices[choiceIndex].options.findIndex(
+                        (opt) => opt === option
+                    );
     
                     if (optionIndex !== -1) {
                         const updatedOption = { ...updatedChoices[choiceIndex].options[optionIndex] };
@@ -551,8 +557,6 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             });
         }
     };
-    
-    
     
     
 
@@ -606,6 +610,16 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     
     
     const removeOption = (choice, option) => {
+        if (isModalOpen) {
+            // Handle removal in the modal for newChoice
+            setNewChoice((prevNewChoice) => {
+                const updatedOptions = prevNewChoice.options.filter(opt => opt.label !== option.label);
+                return {
+                    ...prevNewChoice,
+                    options: updatedOptions,
+                };
+            });
+        } else {
         const updatedChoices = choices.map(c => {
             if (c.name === choice.name) {
                 // Filter out the option to be removed
@@ -622,6 +636,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             return c;
         });
         setChoices(updatedChoices);
+    }
     };
 
     const formatRelativeTime = (timestamp) => {
