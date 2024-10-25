@@ -1,6 +1,6 @@
 {
     "name": "ace-field-options",
-    "version": "0.1.0",
+    "version": "0.420.0",
     "description": "Example block scaffolded with Create Block tool.",
     "author": "Shane Rounce",
     "license": "GPL-2.0-or-later",
@@ -26,5 +26,10 @@
         "sass": "^1.80.4",
         "sass-loader": "^16.0.2",
         "style-loader": "^4.0.0"
-    }
+    },
+    "files": [
+        "README.md",
+        "ace-field-options.php",
+        "assets"
+    ]
 }
