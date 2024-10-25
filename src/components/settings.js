@@ -504,14 +504,21 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     const updateOption = (choice, option, field, value) => {
         if (isModalOpen) {
             setNewChoice((prevNewChoice) => {
-                const updatedOptions = prevNewChoice.options.map((opt) =>
-                    opt.label === option.label ? {
-                        ...opt,
-                        [field]: value,
-                        // Prevent updates to the `value` field if it's a `truefalse` type
-                        value: prevNewChoice.field_type === 'truefalse' ? opt.value : (field === 'label' && !opt.disabled ? createLowercaseUnderscored(value) : opt.value),
-                    } : opt
-                );
+                const updatedOptions = prevNewChoice.options.map((opt) => {
+                    if (opt.label === option.label) {
+                        return {
+                            ...opt,
+                            [field]: value,
+                            // Sync value with label only if it was not manually modified before
+                            value: field === 'label' && opt.value === createLowercaseUnderscored(opt.label)
+                                ? createLowercaseUnderscored(value)
+                                : field === 'value' 
+                                    ? createLowercaseUnderscored(value) // Allow manual input
+                                    : opt.value,
+                        };
+                    }
+                    return opt;
+                });
                 return { ...prevNewChoice, options: updatedOptions };
             });
         } else {
@@ -544,6 +551,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             });
         }
     };
+    
     
     
     
