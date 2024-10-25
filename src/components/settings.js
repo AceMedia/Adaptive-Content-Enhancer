@@ -142,6 +142,8 @@ const handleTextChange = (choice, field, newValue) => {
         setNewChoice((prevNewChoice) => ({
             ...prevNewChoice,
             [field]: newValue,
+            // Sync `Group Name` with `Group Title` only in the modal and only when editing the title
+            name: field === 'title' ? createLowercaseUnderscored(newValue) : prevNewChoice.name,
             // Only update options if `field` is `field_type` and it's `truefalse`
             options: field === 'field_type' && newValue === 'truefalse' 
                 ? getTrueFalseOptions() 
@@ -155,11 +157,8 @@ const handleTextChange = (choice, field, newValue) => {
             );
 
             if (choiceIndex !== -1) {
-                const isFieldDisabled = (field === 'name' && !choice.isNew) || 
-                                        (choice.field_type === 'truefalse' && field === 'title');
-
                 // Skip updating if the field should be treated as disabled
-                if (isFieldDisabled) {
+                if (field === 'name' && !choice.isNew) {
                     return updatedChoices;
                 }
 
@@ -177,6 +176,9 @@ const handleTextChange = (choice, field, newValue) => {
         });
     }
 };
+
+
+
 
     
     
@@ -634,19 +636,17 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     const renderChoiceFields = (choice) => (
         <>
             
-
-                    {/* Main choice fields */}
             <TextControl
-                label="Group Title"
-                value={choice.title}
-                onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
-            />
+            label="Group Title"
+            value={choice.title}
+            onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
+        />
 
-            <TextControl
-                label="Group Name"
-                value={choice.name}
-                onChange={(newValue) => handleTextChange(choice, 'name', newValue)}
-            />
+        <TextControl
+            label="Group Name"
+            value={choice.name}
+            disabled={!isModalOpen || !newChoice.isNew} // Disable if not in modal or if not a new group
+        />
 
             <SelectControl
                 label="Field Type"
