@@ -1696,6 +1696,8 @@ function ace_save_options(WP_REST_Request $request) {
         return new WP_REST_Response(array('error' => 'Missing or invalid data'), 400);
     }
 
+    $updated_choice_names = []; // Track updated choice names for returning to the client
+
     foreach ($choices as $choice) {
         if (!isset($choice['name']) || !isset($choice['title']) || !isset($choice['field_type'])) {
             continue;
@@ -1710,7 +1712,7 @@ function ace_save_options(WP_REST_Request $request) {
             'description' => sanitize_textarea_field($choice['description'] ?? ''),
             'field_type' => sanitize_text_field($choice['field_type']),
             'show_in_rest' => !empty($choice['show_in_rest']) ? 1 : 0,
-            'created' => $existing_choice['created'] ?? current_time('mysql'),
+            'created' => $existing_choice['created'] ?? current_time('mysql'), // Keep the original created time
             'edited' => current_time('mysql'), // Always update edited timestamp
         );
 
@@ -1738,40 +1740,28 @@ function ace_save_options(WP_REST_Request $request) {
 
         update_option($option_name, $group_data);
         
-        // Optional: Log the saved group data
-        error_log(print_r($group_data, true));
+        // Add to updated choice names list
+        $updated_choice_names[] = $choice['name'];
     }
 
     return new WP_REST_Response(array(
         'success' => 'Options saved successfully',
+        'updated_choices' => $updated_choice_names, // Return the updated names
     ), 200);
 }
 
-
-function register_field_tags_taxonomy() {
-    register_taxonomy(
-        'field_tags',
-        null, // No specific object type; these can be added programmatically
-        array(
-            'label' => __( 'Field Tags' ),
-            'public' => true, // Not publicly queryable, but can be used internally
-            'show_in_rest' => true, // Enable REST API access
-            'hierarchical' => false,
-            'rewrite' => array( 'slug' => 'field-tag' ),
-        )
-    );
-}
-add_action('init', 'register_field_tags_taxonomy');
 
 function ace_get_choices(WP_REST_Request $request) {
     $page = (int) $request->get_param('page') ?: 1;
     $per_page = (int) $request->get_param('per_page') ?: 10;
     $sort_by = $request->get_param('sort') ?: 'created';
     $field_type = $request->get_param('field_type');
+    $choice_name = $request->get_param('choice_name'); // New parameter
 
     $offset = ($page - 1) * $per_page;
 
     $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'text'),
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
@@ -1799,6 +1789,15 @@ function ace_get_choices(WP_REST_Request $request) {
                 return 0;
         }
     });
+
+    // Locate the page of the specific choice if 'choice_name' is provided
+    if ($choice_name) {
+        $index = array_search($choice_name, array_column($choices, 'name'));
+        if ($index !== false) {
+            $page = floor($index / $per_page) + 1;
+            $offset = ($page - 1) * $per_page;
+        }
+    }
 
     $total_choices = count($choices);
     $paginated_choices = array_slice($choices, $offset, $per_page);
@@ -1838,7 +1837,6 @@ function ace_get_choices(WP_REST_Request $request) {
     return new WP_REST_Response($response_data, 200);
 }
 
-
 add_action('rest_api_init', function () {
     register_rest_route('ace/v1', '/get-choices', array(
         'methods' => 'GET',
@@ -1847,6 +1845,40 @@ add_action('rest_api_init', function () {
     ));
 });
 
+
+
+function register_field_tags_taxonomy() {
+    register_taxonomy(
+        'field_tags',
+        null, // No specific object type; these can be added programmatically
+        array(
+            'label' => __( 'Field Tags' ),
+            'public' => true, // Not publicly queryable, but can be used internally
+            'show_in_rest' => true, // Enable REST API access
+            'hierarchical' => false,
+            'rewrite' => array( 'slug' => 'field-tag' ),
+        )
+    );
+}
+add_action('init', 'register_field_tags_taxonomy');
+
+
+
+function block_binding_detector_enqueue() {
+    $asset_file = include( plugin_dir_path( __FILE__ ) . 'assets/js/editor.asset.php' );
+
+    wp_enqueue_script(
+        'block-binding-detector',
+        plugins_url( '/assets/js/editor.js', __FILE__ ),
+        $asset_file['dependencies'],
+        $asset_file['version'],
+        true
+    );
+
+    // Ensure that your script has access to translations, if needed.
+    wp_set_script_translations( 'block-binding-detector', 'devblog' );
+}
+//add_action( 'enqueue_block_editor_assets', 'block_binding_detector_enqueue' );
 
 
 ?>
