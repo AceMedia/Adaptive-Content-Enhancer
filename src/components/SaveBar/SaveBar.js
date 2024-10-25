@@ -3,13 +3,12 @@ import { useState, useEffect } from '@wordpress/element';
 import { Button, Flex, FlexItem, ToggleControl } from '@wordpress/components';
 import './SaveBar.scss'; // Import the SCSS styles
 
-const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
+const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText = "Save Settings" }) => {
     const [buttonText, setButtonText] = useState(saveText);
     const [isSuccess, setIsSuccess] = useState(false);
     const [message, setMessage] = useState(''); // Manage message state
     const [elapsedTime, setElapsedTime] = useState(0);
     const [intervalId, setIntervalId] = useState(null);
-    const [unsavedChanges, setUnsavedChanges] = useState(false); // Track unsaved changes
     const [isLiveSaveEnabled, setIsLiveSaveEnabled] = useState(false); // Track live save state
 
     // Function to update the fixed position
@@ -29,37 +28,23 @@ const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
         window.addEventListener('scroll', updateFixedPosition);
         window.addEventListener('load', updateFixedPosition);
 
+        // Add beforeunload event to prompt the user if there are unsaved changes
+        const handleBeforeUnload = (event) => {
+            if (unsavedChanges) {
+                event.preventDefault();
+                event.returnValue = ''; // Required for Chrome to show the dialog
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
         // Cleanup function
         return () => {
             window.removeEventListener('resize', updateFixedPosition);
             window.removeEventListener('scroll', updateFixedPosition);
             window.removeEventListener('load', updateFixedPosition);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, []);
-
-    // Mutation observer to track DOM changes
-    useEffect(() => {
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach(mutation => {
-                // Check if the mutation target is outside of the SaveBar
-                if (!document.querySelector('.ace-save-bar').contains(mutation.target)) {
-                    setUnsavedChanges(true); // Mark unsaved changes
-                }
-            });
-        });
-    
-        // Start observing changes to the body or a specific container
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-        });
-    
-        // Cleanup observer on unmount
-        return () => {
-            observer.disconnect();
-        };
-    }, []);
+    }, [unsavedChanges]);
 
     useEffect(() => {
         // Start the timer when the message is shown
@@ -76,7 +61,7 @@ const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
         if (typeof onSave === 'function') {
             setButtonText('Saving...'); // Change button text
             setMessage(''); // Reset message visibility for the saving process
-    
+
             onSave().then(response => {
                 if (response.success) {
                     setButtonText('Saved!'); // Change button text on success
@@ -84,13 +69,13 @@ const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
                     setUnsavedChanges(false); // Reset unsaved changes state
                     setElapsedTime(0); // Reset elapsed time
                     setMessage('Time since last saved'); // Show time since last saved
-    
+
                     // Start the timer for elapsed time
                     const id = setInterval(() => {
                         setElapsedTime((prev) => prev + 1);
                     }, 1000);
                     setIntervalId(id);
-                    
+
                     // Clear the message after success but keep it visible
                     setTimeout(() => {
                         setButtonText(saveText); // Reset to original text
@@ -104,7 +89,6 @@ const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
             });
         }
     };
-    
 
     const formatElapsedTime = (seconds) => {
         if (seconds < 60) return `${seconds} seconds ago`;
@@ -123,7 +107,7 @@ const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
                                 {message === 'Time since last saved' ? formatElapsedTime(elapsedTime) : message}
                             </span>
                         )}
-                         <div style={{ margin: '0px' }}>
+                        <div style={{ margin: '0px' }}>
                             <ToggleControl
                                 label="Live Save"
                                 className="ace-save-bar-toggle-control"
@@ -134,12 +118,12 @@ const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
                                 }}
                             />
                         </div>
-                        <Button 
+                        <Button
                             variant="primary"
-                            onClick={handleClick} 
-                            className={`wp-saving-button ${isSuccess ? 'saved' : ''}`}
+                            onClick={handleClick}
+                            className={`wp-saving-button ${unsavedChanges ? 'enabled' : ''} ${isSuccess ? 'saved' : ''}`}
                             aria-label={buttonText}
-                            disabled={isLiveSaveEnabled} // Disable button if live save is enabled
+                            disabled={!unsavedChanges || isLiveSaveEnabled} // Start disabled on load
                         >
                             <span className="dashicons dashicons-update"></span> {buttonText}
                         </Button>
@@ -153,7 +137,8 @@ const SaveBar = ({ children, onSave, saveText = "Save Settings" }) => {
 SaveBar.propTypes = {
     children: PropTypes.node,
     onSave: PropTypes.func.isRequired,
-    saveText: PropTypes.string,
+    setUnsavedChanges: PropTypes.func.isRequired,
+    unsavedChanges: PropTypes.bool.isRequired, // Added this line
 };
 
 export default SaveBar;

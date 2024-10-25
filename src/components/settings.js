@@ -11,7 +11,16 @@ import {
     CardHeader,
     CardBody, 
     Modal,
+    DropdownMenu,
+    MenuGroup,
+    MenuItem,
+    TagInput,
+    Tooltip,
+    Icon,
+    Flex, FlexItem, FlexBlock,
+    __experimentalConfirmDialog as ConfirmDialog
 } from '@wordpress/components';
+import { date } from '@wordpress/icons'; // You may need to add icons for other purposes
 
 import SaveBar from './SaveBar/SaveBar'; // Adjust the path as needed
 
@@ -24,13 +33,147 @@ function createLowercaseUnderscored(string) {
 
 const AdaptiveContentEnhancer = () => {
     const [choices, setChoices] = useState([]);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newChoice, setNewChoice] = useState({ title: '', name: '', field_type: 'select', description: '', options: [] });
+const [isModalOpen, setIsModalOpen] = useState(false);
+const [newChoice, setNewChoice] = useState({ 
+    title: '', 
+    name: '', 
+    field_type: 'select', 
+    description: '', 
+    options: [], 
+    tags: [] // Add tags property
+});
+
+const [changedChoices, setChangedChoices] = useState([]);
+const [currentPage, setCurrentPage] = useState(1); // Track the current page of choices
+const [hasMoreChoices, setHasMoreChoices] = useState(true); // Track if there are more choices to load
+const choicesPerPage = 3; // Define how many choices to load per page
+const [totalPages, setTotalPages] = useState(1); // Track the total number of pages
+const [sortBy, setSortBy] = useState('created'); // Default sort by 'created'
+const [fieldTypeFilter, setFieldTypeFilter] = useState(''); // Default to no filter
+const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+const [choiceToDelete, setChoiceToDelete] = useState(null);
+const [unsavedChanges, setUnsavedChanges] = useState(false);
+
+
+const handleFieldTypeChange = (selectedType) => {
+    setFieldTypeFilter(selectedType);
+    setCurrentPage(1); // Reset to first page when filter changes
+};
+
+
+const handleSortChange = (sortMethod) => {
+    setSortBy(sortMethod);
+};
+
+// Apply sorting to the fetched choices
+const sortChoices = (choices, sortBy) => {
+    return choices.sort((a, b) => {
+        switch (sortBy) {
+            case 'created':
+                return new Date(a.created) - new Date(b.created);
+            case 'edited':
+                return new Date(a.edited) - new Date(b.edited);
+            case 'title':
+                return a.title.localeCompare(b.title);
+            case 'field_type':
+                return a.field_type.localeCompare(b.field_type);
+            default:
+                return 0;
+        }
+    });
+};
+
+
+const handleTagChange = (choice, newTags) => {
+    if (isModalOpen) {
+        setNewChoice((prevNewChoice) => ({
+            ...prevNewChoice,
+            tags: newTags,
+        }));
+    } else {
+        setChoices((prevChoices) => {
+            const updatedChoices = [...prevChoices];
+            const choiceIndex = updatedChoices.findIndex(
+                (c) => c.name === choice.name
+            );
+
+            if (choiceIndex !== -1) {
+                updatedChoices[choiceIndex].tags = newTags;
+                markAsChanged(choice.name); // Mark as changed
+            }
+
+            return updatedChoices;
+        });
+    }
+};
+
+const markAsChanged = (choiceName) => {
+    setChangedChoices((prevChanged) => {
+        if (!prevChanged.includes(choiceName)) {
+            setUnsavedChanges(true); // Correctly indicate there are unsaved changes
+            return [...prevChanged, choiceName];
+        }
+        return prevChanged;
+    });
+};
+
+
+    const getTrueFalseOptions = (field, newValue, currentOptions) => {
+        return field === 'field_type' && newValue === 'truefalse'
+            ? [
+                  { label: 'True', value: '1', disabled: true },
+                  { label: 'False', value: '0', disabled: true },
+              ]
+            : currentOptions;
+    };
+
+
+    
+    
+    const handleTextChange = (choice, field, newValue) => {
+        if (isModalOpen) {
+            setNewChoice((prevNewChoice) => ({
+                ...prevNewChoice,
+                [field]: newValue,
+                options: getTrueFalseOptions(field, newValue, prevNewChoice.options),
+            }));
+        } else {
+            setChoices((prevChoices) => {
+                const updatedChoices = [...prevChoices];
+                const choiceIndex = updatedChoices.findIndex(
+                    (c) => c.name === choice.name
+                );
+    
+                if (choiceIndex !== -1) {
+                    updatedChoices[choiceIndex][field] = newValue;
+                    updatedChoices[choiceIndex].options = getTrueFalseOptions(
+                        field,
+                        newValue,
+                        updatedChoices[choiceIndex].options
+                    );
+                    markAsChanged(choice.name); // Mark as changed
+                }
+    
+                return updatedChoices;
+            });
+        }
+    };
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            // Force a state update to refresh the relative times
+            setChoices((prevChoices) => [...prevChoices]);
+        }, 1000);
+    
+        // Cleanup interval on component unmount
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
-        // Fetch options data from the backend
-        apiFetch({ path: '/ace/v1/get-choices' })
-            .then((fetchedChoices) => {
+        apiFetch({ path: `/ace/v1/get-choices?page=${currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeFilter}` })
+            .then((response) => {
+                const { choices: fetchedChoices, totalPages } = response;
+                
                 const updatedChoices = fetchedChoices.map(choice => {
                     if (choice.field_type === 'truefalse') {
                         return {
@@ -39,40 +182,76 @@ const AdaptiveContentEnhancer = () => {
                             false_label: choice.options?.find(option => option.value === '0')?.label || 'False'
                         };
                     }
-
+    
                     // Ensure existing options are marked as disabled
                     const updatedOptions = (choice.options || []).map(option => ({
                         ...option,
                         disabled: !!option.value // Disable existing options that have a value
                     }));
-
+    
                     return {
                         ...choice,
-                        options: updatedOptions
+                        options: updatedOptions,
+                        created: choice.created, // Store created timestamp
+                        edited: choice.edited // Store edited timestamp
                     };
                 });
-
-                setChoices(updatedChoices);
+    
+                // Apply sorting before setting state
+                setChoices(sortChoices(updatedChoices, sortBy));
+                setTotalPages(totalPages);
+    
+                if (currentPage >= totalPages) {
+                    setHasMoreChoices(false);
+                }
             })
             .catch((error) => console.error('Error fetching choices:', error));
-    }, []);
+    }, [currentPage, sortBy, fieldTypeFilter]); // Include `fieldTypeFilter` as a dependency
+      
+    
+    const loadMoreChoices = () => {
+        setCurrentPage(prevPage => prevPage + 1);
+    };
+
+
+
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        }
+    };
+    
+    const handleNextPage = () => {
+        if (currentPage < totalPages) {
+            setCurrentPage(currentPage + 1);
+        }
+    };
+    
+    
+
+    const [inputValue, setInputValue] = useState('');
 
     const handleSave = () => {
         const payload = {
-            choices: choices.map(choice => ({
-                name: choice.name,
-                title: choice.title,
-                field_type: choice.field_type,
-                description: choice.description,
-                options: choice.options ? choice.options.map(option => ({
-                    label: option.label,
-                    value: option.value,
-                })) : [],
-                show_in_rest: choice.show_in_rest ? 1 : 0
-            })),
+            choices: choices
+                .filter(choice => changedChoices.includes(choice.name))
+                .map(choice => ({
+                    name: choice.name,
+                    title: choice.title,
+                    field_type: choice.field_type,
+                    description: choice.description,
+                    options: choice.options ? choice.options.map(option => ({
+                        label: option.label,
+                        value: option.value,
+                    })) : [],
+                    show_in_rest: choice.show_in_rest ? 1 : 0,
+                    tags: choice.tags, // Include tags
+                    created: choice.created,
+                    edited: new Date().toISOString(), // Update edited timestamp
+                })),
             _wpnonce: aceAjax.nonce,
         };
-
+    
         return apiFetch({
             path: '/ace/v1/save-options',
             method: 'POST',
@@ -82,17 +261,71 @@ const AdaptiveContentEnhancer = () => {
             body: JSON.stringify(payload),
         }).then((response) => {
             if (response.success) {
-                setChoices(choices.map(choice => ({ ...choice, isNew: false })));
-                return { success: true }; // Resolve promise with success
+                setChangedChoices([]); // Reset changed choices
+    
+                // Re-fetch choices to refresh the UI
+                fetchChoices();
+    
+                return { success: true };
             } else {
                 console.error('Error:', response.error);
-                return { success: false }; // Resolve with failure
+                return { success: false };
             }
         }).catch((error) => {
             console.error('Error saving settings:', error);
-            return { success: false }; // Resolve with failure
+            return { success: false };
         });
     };
+
+
+    const fetchChoices = ({ navigateToLastPage = false } = {}) => {
+        apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeFilter}` })
+            .then((response) => {
+                const { choices: fetchedChoices, totalPages: updatedTotalPages } = response;
+                
+                const updatedChoices = fetchedChoices.map(choice => {
+                    if (choice.field_type === 'truefalse') {
+                        return {
+                            ...choice,
+                            true_label: choice.options?.find(option => option.value === '1')?.label || 'True',
+                            false_label: choice.options?.find(option => option.value === '0')?.label || 'False'
+                        };
+                    }
+    
+                    // Ensure existing options are marked as disabled
+                    const updatedOptions = (choice.options || []).map(option => ({
+                        ...option,
+                        disabled: !!option.value // Disable existing options that have a value
+                    }));
+    
+                    return {
+                        ...choice,
+                        options: updatedOptions,
+                        created: choice.created, // Store created timestamp
+                        edited: choice.edited // Store edited timestamp
+                    };
+                });
+    
+                setChoices(sortChoices(updatedChoices, sortBy));
+                setTotalPages(updatedTotalPages);
+                if (navigateToLastPage) {
+                    setCurrentPage(updatedTotalPages); // Navigate to the last page
+                }
+    
+                if (currentPage >= updatedTotalPages) {
+                    setHasMoreChoices(false);
+                }
+            })
+            .catch((error) => console.error('Error fetching choices:', error));
+    };
+    
+    
+    // Use fetchChoices in useEffect
+    useEffect(() => {
+        fetchChoices();
+    }, [currentPage, sortBy, fieldTypeFilter]);
+    
+    
 
     const handleAddChoiceGroup = () => {
         setIsModalOpen(true);
@@ -101,87 +334,167 @@ const AdaptiveContentEnhancer = () => {
     const handleModalSubmit = () => {
         const newTitle = newChoice.title || `Group ${choices.length + 1}`;
         const newChoiceData = {
-            name: createLowercaseUnderscored(newTitle), // Create hidden key
-            title: newTitle, // Set default title
+            name: createLowercaseUnderscored(newTitle),
+            title: newTitle,
             field_type: newChoice.field_type,
             description: newChoice.description,
             options: newChoice.options,
-            show_in_rest: false,
-            isNew: true, // Add isNew property to identify this as a new group
+            tags: newChoice.tags, // Correctly pass tags
+            show_in_rest: newChoice.show_in_rest, // Use the value from newChoice
+            isNew: true,
+            created: new Date().toISOString(),
+            edited: new Date().toISOString()
         };
-        setChoices([...choices, newChoiceData]);
-        setIsModalOpen(false);
-        resetNewChoice(); // Reset the form
-    };
-
-    const resetNewChoice = () => {
-        setNewChoice({ title: '', name: '', field_type: 'select', description: '', options: [] }); // Reset form
-    };
-
-    const confirmAndRemoveGroup = (index, fieldType, groupName) => {
-        if (window.confirm('Are you sure you want to remove this group?')) {
-            const processedGroupName = createLowercaseUnderscored(groupName);
-            const optionName = 'choices_' + processedGroupName;
     
-            apiFetch({
-                path: '/ace/v1/delete-option',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    option_name: optionName,
-                    _wpnonce: aceAjax.nonce,
-                }),
-            }).then((response) => {
-                if (response.success) {
-                    alert('Group removed successfully!');
-                    setChoices(choices.filter((_, i) => i !== index));
-                } else {
-                    alert('Failed to remove group. Please try again.');
-                    console.error('Error:', response.error);
-                }
-            }).catch((error) => {
-                console.error('Error removing group:', error);
-                alert('An error occurred. Please try again.');
-            });
-        }
-    };
-    
-    const updateOption = (choice, option, field, value) => {
-        setChoices(prevChoices => {
-            const updatedChoices = [...prevChoices]; // Create a shallow copy of the previous state
-    
-            // Find the index of the chosen group
-            const choiceIndex = updatedChoices.findIndex(c => c.name === choice.name);
-            
-            if (choiceIndex !== -1) {
-                // Find the index of the specific option
-                const optionIndex = updatedChoices[choiceIndex].options.findIndex(opt => opt.label === option.label);
-    
-                if (optionIndex !== -1) {
-                    // Update only the specific option
-                    const updatedOption = { ...updatedChoices[choiceIndex].options[optionIndex] };
-    
-                    if (field === 'label') {
-                        updatedOption.label = value; // Update label directly
-                        if (!updatedOption.disabled) {
-                        updatedOption.value = createLowercaseUnderscored(value); // Sync value with underscored version
-                        }
-                    } else if (field === 'value') {
-                        updatedOption.value = createLowercaseUnderscored(value); // Update value directly when the field is 'value'
-                    }
-    
-                    // Set the updated option in the choices
-                    updatedChoices[choiceIndex].options[optionIndex] = updatedOption;
-                }
+        apiFetch({
+            path: '/ace/v1/save-options',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                choices: [newChoiceData],
+                _wpnonce: aceAjax.nonce,
+            }),
+        }).then((response) => {
+            if (response.success) {
+                setIsModalOpen(false);
+                resetNewChoice();
+                // Fetch the updated list and set it to the last page
+                fetchChoices({ navigateToLastPage: true });
+            } else {
+                console.error('Error saving new group:', response.error);
+                alert('Failed to save the new group. Please try again.');
             }
-    
-            return updatedChoices; // Return the updated choices
+        }).catch((error) => {
+            console.error('Error saving new group:', error);
+            alert('An error occurred. Please try again.');
         });
     };
     
     
+    
+    
+    
+    
+
+    const resetNewChoice = () => {
+        setNewChoice({ 
+            title: '', 
+            name: '', 
+            field_type: 'select', 
+            description: '', 
+            options: [], 
+            tags: [], // Reset tags
+            show_in_rest: false // Reset show_in_rest
+        });
+    };
+    
+
+    const openConfirmDialog = (index, groupName) => {
+        setChoiceToDelete({ index, groupName });
+        setIsConfirmDialogOpen(true);
+    };
+    
+    const handleConfirmDelete = () => {
+        const { index, groupName } = choiceToDelete;
+        const processedGroupName = createLowercaseUnderscored(groupName);
+        const optionName = 'choices_' + processedGroupName;
+    
+        apiFetch({
+            path: '/ace/v1/delete-option',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                option_name: optionName,
+                _wpnonce: aceAjax.nonce,
+            }),
+        }).then((response) => {
+            if (response.success) {
+                alert('Group removed successfully!');
+                setChoices(choices.filter((_, i) => i !== index));
+            } else {
+                alert('Failed to remove group. Please try again.');
+                console.error('Error:', response.error);
+            }
+        }).catch((error) => {
+            console.error('Error removing group:', error);
+            alert('An error occurred. Please try again.');
+        });
+    
+        setIsConfirmDialogOpen(false);
+        setChoiceToDelete(null);
+    };
+    
+    const handleCancelDelete = () => {
+        setIsConfirmDialogOpen(false);
+        setChoiceToDelete(null);
+    };
+    
+    const updateOption = (choice, option, field, value) => {
+        if (isModalOpen) {
+            setNewChoice((prevNewChoice) => {
+                const updatedOptions = prevNewChoice.options.map((opt) =>
+                    opt.label === option.label ? {
+                        ...opt,
+                        [field]: value,
+                        value: field === 'label' && !opt.disabled ? createLowercaseUnderscored(value) : opt.value,
+                    } : opt
+                );
+                return { ...prevNewChoice, options: updatedOptions };
+            });
+        } else {
+            setChoices((prevChoices) => {
+                const updatedChoices = [...prevChoices];
+                const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
+    
+                if (choiceIndex !== -1) {
+                    const optionIndex = updatedChoices[choiceIndex].options.findIndex((opt) => opt.label === option.label);
+    
+                    if (optionIndex !== -1) {
+                        const updatedOption = { ...updatedChoices[choiceIndex].options[optionIndex] };
+                        if (field === 'label') {
+                            updatedOption.label = value;
+                            if (!updatedOption.disabled) {
+                                updatedOption.value = createLowercaseUnderscored(value);
+                            }
+                        } else if (field === 'value') {
+                            updatedOption.value = createLowercaseUnderscored(value);
+                        }
+                        updatedChoices[choiceIndex].options[optionIndex] = updatedOption;
+                        markAsChanged(choice.name); // Mark as changed
+                    }
+                }
+                return updatedChoices;
+            });
+        }
+    };
+
+
+    const handleToggleChange = (choice, newValue) => {
+        if (isModalOpen) {
+            setNewChoice((prevNewChoice) => ({
+                ...prevNewChoice,
+                show_in_rest: newValue,
+            }));
+        } else {
+            setChoices((prevChoices) => {
+                const updatedChoices = [...prevChoices];
+                const choiceIndex = updatedChoices.findIndex(
+                    (c) => c.name === choice.name
+                );
+    
+                if (choiceIndex !== -1) {
+                    updatedChoices[choiceIndex].show_in_rest = newValue;
+                    markAsChanged(choice.name); // Mark as changed
+                }
+    
+                return updatedChoices;
+            });
+        }
+    };
     
 
     const addOption = (choice) => {
@@ -208,7 +521,6 @@ const AdaptiveContentEnhancer = () => {
         }
     };
     
-    
     const removeOption = (choice, option) => {
         const updatedChoices = choices.map(c => {
             if (c.name === choice.name) {
@@ -222,34 +534,52 @@ const AdaptiveContentEnhancer = () => {
         });
         setChoices(updatedChoices);
     };
+
+    const formatRelativeTime = (timestamp) => {
+        if (!timestamp) return null;
     
-
-    const addOptionToNewChoice = () => {
-        setNewChoice(prev => ({
-            ...prev,
-            options: [...prev.options, { label: '', value: '' }]
-        }));
+        const time = new Date(timestamp);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - time) / 1000);
+    
+        const intervals = {
+            year: 31536000,  // 365 days
+            month: 2592000,  // 30 days
+            week: 604800,    // 7 days
+            day: 86400,      // 24 hours
+            hour: 3600,      // 60 minutes
+            minute: 60,      // 60 seconds
+            second: 1,
+        };
+    
+        for (const [key, seconds] of Object.entries(intervals)) {
+            const interval = Math.floor(diffInSeconds / seconds);
+            if (interval >= 1) {
+                return `${interval} ${key}${interval !== 1 ? 's' : ''} ago`;
+            }
+        }
+    
+        return 'Just now';
     };
-
-    const removeOptionFromNewChoice = (index) => {
-        setNewChoice(prev => ({
-            ...prev,
-            options: prev.options.filter((_, i) => i !== index)
-        }));
-    };
+    
 
     const renderChoiceFields = (choice) => (
         <>
-            {/* Main choice fields */}
+            
+
+                    {/* Main choice fields */}
             <TextControl
                 label="Group Title"
                 value={choice.title}
+                onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
             />
+
             <TextControl
                 label="Group Name"
                 value={choice.name}
-                onChange={(value) => updateChoice(choice, 'name', value)}
+                onChange={(newValue) => handleTextChange(choice, 'name', newValue)}
             />
+
             <SelectControl
                 label="Field Type"
                 value={choice.field_type}
@@ -260,34 +590,58 @@ const AdaptiveContentEnhancer = () => {
                     { label: 'Radio', value: 'radio' },
                     { label: 'Buttons', value: 'buttons' },
                 ]}
-                onChange={(value) => updateChoice(choice, 'field_type', value)}
+                onChange={(newValue) => handleTextChange(choice, 'field_type', newValue)} // Update choice's field_type directly
             />
             <TextareaControl
                 label="Description"
                 value={choice.description}
-                onChange={(value) => updateChoice(choice, 'description', value)}
+                onChange={(newValue) => handleTextChange(choice, 'description', newValue)}
             />
             <ToggleControl
-                label="Show in REST API"
-                checked={choice.show_in_rest}
-                onChange={(value) => updateChoice(choice, 'show_in_rest', value)}
-            />
-    
+    label="Show in REST API"
+    checked={choice.show_in_rest}
+    onChange={(newValue) => handleToggleChange(choice, newValue)}
+/>
+
+
+        <TextControl
+            label="Tags (comma-separated)"
+            value={choice.tags ? choice.tags.join(', ') : ''}
+            onChange={(newValue) => handleTagChange(choice, newValue.split(',').map(tag => tag.trim()))}
+        />
+
+
+
+
+        {/* Display tags and descriptions */}
+        {choice.tags_with_descriptions && choice.tags_with_descriptions.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+                <strong>Tags with Descriptions:</strong>
+                <ul>
+                    {choice.tags_with_descriptions.map((tag, index) => (
+                        <li key={index}>
+                            <strong>{tag.name}:</strong> {tag.description}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )}
+
             <div style={{ marginTop: '16px' }}>
                 <strong>Options:</strong>
                 {choice.options.map((option, optionIndex) => (
                     <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <TextControl
-    placeholder="Option Label"
-    value={option.label}
-    onChange={(value) => updateOption(choice, option, 'label', value)}
-/>
-<TextControl
-    placeholder="Option Value"
-    value={option.value}
-    disabled={option.disabled}
-    onChange={(value) => updateOption(choice, option, 'value', value)} // Only updates the value
-/>
+                            placeholder="Option Label"
+                            value={option.label}
+                            onChange={(value) => updateOption(choice, option, 'label', value)}
+                        />
+                        <TextControl
+                            placeholder="Option Value"
+                            value={option.value}
+                            disabled={option.disabled}
+                            onChange={(value) => updateOption(choice, option, 'value', value)} // Only updates the value
+                        />
 
                         <Button
                             isDestructive
@@ -312,7 +666,6 @@ const AdaptiveContentEnhancer = () => {
         </>
     );
     
-
     const renderChoicesTable = () => {
         const [openIndexes, setOpenIndexes] = useState({});
 
@@ -328,15 +681,78 @@ const AdaptiveContentEnhancer = () => {
                 <h2>Option Groups</h2>
                 {choices.map((choice, index) => (
                     <Card key={index} style={{ width: '100%', marginBottom: '20px' }}>
-                        <CardHeader
-                            onClick={() => toggleOpen(index)}
-                            style={{ cursor: 'pointer' }}
+                    <CardHeader
+    onClick={() => toggleOpen(index)}
+    style={{
+        cursor: 'pointer',
+        padding: '10px',
+        backgroundColor: '#f5f5f5',
+        borderBottom: '1px solid #ddd',
+        borderRadius: '4px'
+    }}
+>
+    <Flex justify="space-between" align="center" gap={2}>
+        {/* Left-aligned group name */}
+        <FlexItem>
+            <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
+                <Icon icon={
+                    choice.field_type === 'select' ? 'menu' :
+                    choice.field_type === 'checkbox' ? 'yes-alt' :
+                    choice.field_type === 'truefalse' ? 'admin-site-alt3' :
+                    choice.field_type === 'radio' ? 'radio' :
+                    'admin-tools'
+                } />
+                <strong>{choice.title || `Group ${index + 1}`}</strong>
+            </Flex>
+        </FlexItem>
+
+        {/* Right-aligned metadata and tags */}
+        <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
+            {/* Metadata for created/edited times */}
+            {choice.created && (
+                <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }}>
+                    <Tooltip text={`Created at ${new Date(choice.created).toLocaleString()}`}>
+                        <p><strong>Created:</strong> {formatRelativeTime(choice.created)}</p>
+                    </Tooltip>
+                    <Tooltip text={`Last edited at ${new Date(choice.edited).toLocaleString()}`}>
+                        <p><strong>Last Edited:</strong> {formatRelativeTime(choice.edited)}</p>
+                    </Tooltip>
+                </div>
+            )}
+
+            {/* Display tags as styled spans */}
+            {choice.tags && choice.tags.length > 0 && (
+                <Flex align="left" wrap="nowrap" gap={1} style={{ textAlign: 'left', width: 'auto' }}>
+                    {choice.tags.map((tag, idx) => (
+                        <span 
+                            key={idx} 
+                            style={{
+                                backgroundColor: '#007cba',
+                                color: '#fff',
+                                padding: '2px 6px',
+                                borderRadius: '12px',
+                                fontSize: '0.75em',
+                                whiteSpace: 'nowrap'
+                            }}
                         >
-                            <strong>{choice.title || `Group ${index + 1}`}</strong>
-                        </CardHeader>
+                            {tag}
+                        </span>
+                    ))}
+                </Flex>
+            )}
+        </Flex>
+    </Flex>
+</CardHeader>
+
                         {openIndexes[index] && (
                             <CardBody>
                                 {renderChoiceFields(choice)}
+                                <Button 
+                                    isDestructive 
+                                    onClick={() => openConfirmDialog(index, choice.name)}
+                                >
+                                    Delete Group
+                                </Button>
                             </CardBody>
                         )}
                     </Card>
@@ -348,9 +764,57 @@ const AdaptiveContentEnhancer = () => {
     return (
         <div className="wrap">
             <h1>Adaptive Content Enhancer Settings</h1>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <DropdownMenu
+                icon="sort"
+                label="Sort Options"
+                toggleProps={{ isPrimary: true }}
+            >
+                {({ onClose }) => (
+                    <MenuGroup label="Sort by">
+                        <MenuItem onClick={() => { handleSortChange('created'); onClose(); }}>Date Created</MenuItem>
+                        <MenuItem onClick={() => { handleSortChange('edited'); onClose(); }}>Date Edited</MenuItem>
+                        <MenuItem onClick={() => { handleSortChange('title'); onClose(); }}>Alphabetical</MenuItem>
+                    </MenuGroup>
+                )}
+            </DropdownMenu>
+
+            <SelectControl
+                label="Filter by Field Type"
+                value={fieldTypeFilter}
+                options={[
+                    { label: 'All Types', value: '' },
+                    { label: 'Select', value: 'select' },
+                    { label: 'Checkbox', value: 'checkbox' },
+                    { label: 'True/False', value: 'truefalse' },
+                    { label: 'Radio', value: 'radio' },
+                    { label: 'Buttons', value: 'buttons' }
+                ]}
+                onChange={(newValue) => handleFieldTypeChange(newValue)}
+            />
+        </div>
+
             {renderChoicesTable()}
 
-            <SaveBar onSave={handleSave}>
+            {currentPage > 1 && (
+    <Button isSecondary onClick={handlePreviousPage}>
+        Previous
+    </Button>
+)}
+
+{currentPage < totalPages && (
+    <Button isSecondary onClick={handleNextPage}>
+        Next
+    </Button>
+)}
+
+
+<SaveBar 
+    onSave={handleSave} 
+    setUnsavedChanges={setUnsavedChanges} 
+    unsavedChanges={unsavedChanges} // Pass unsavedChanges as a prop
+>
                 <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup}>Add Options</Button>
             </SaveBar>
 
@@ -364,6 +828,18 @@ const AdaptiveContentEnhancer = () => {
                     <Button isPrimary onClick={handleModalSubmit}>Add Group</Button>
                 </Modal>
             )}
+
+{isConfirmDialogOpen && (
+    <ConfirmDialog
+        isOpen={isConfirmDialogOpen}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        confirmButtonText="Yes, Delete"
+        cancelButtonText="Cancel"
+    >
+        Are you sure? <strong>This action cannot be undone!</strong>
+    </ConfirmDialog>
+)}
         </div>
     );
 };

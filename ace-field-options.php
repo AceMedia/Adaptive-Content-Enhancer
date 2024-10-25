@@ -1640,7 +1640,9 @@ function adaptive_content_enhancer_choices_page_react() {
     <?php
 }
 
-// Register REST API routes for fetching option groups and true/false fields.
+
+
+
 add_action('rest_api_init', function() {
     register_rest_route('ace/v1', '/get-choices', array(
         'methods' => 'GET',
@@ -1687,7 +1689,6 @@ function ace_delete_option(WP_REST_Request $request) {
     }
 }
 
-
 function ace_save_options(WP_REST_Request $request) {
     $choices = $request->get_param('choices');
 
@@ -1695,57 +1696,81 @@ function ace_save_options(WP_REST_Request $request) {
         return new WP_REST_Response(array('error' => 'Missing or invalid data'), 400);
     }
 
-    // Save each choice option
     foreach ($choices as $choice) {
         if (!isset($choice['name']) || !isset($choice['title']) || !isset($choice['field_type'])) {
-            continue; // Skip invalid entries
+            continue;
         }
 
         $option_name = 'choices_' . create_underscored_value($choice['name']);
+        $existing_choice = get_option($option_name);
 
-        // Prepare group data based on field type
         $group_data = array(
             'name' => sanitize_text_field($choice['name']),
             'title' => sanitize_text_field($choice['title']),
             'description' => sanitize_textarea_field($choice['description'] ?? ''),
             'field_type' => sanitize_text_field($choice['field_type']),
             'show_in_rest' => !empty($choice['show_in_rest']) ? 1 : 0,
+            'created' => $existing_choice['created'] ?? current_time('mysql'),
+            'edited' => current_time('mysql'), // Always update edited timestamp
         );
 
- 
-            // Handle other field types
-            $group_data['options'] = array_map(function ($option) {
-                return array(
-                    'label' => sanitize_text_field($option['label']),
-                    'value' => sanitize_text_field($option['value']),
-                );
-            }, $choice['options'] ?? []);
+        // Handle 'options' to ensure it's an array even if empty
+        $group_data['options'] = isset($choice['options']) && is_array($choice['options']) ? array_map(function ($option) {
+            return array(
+                'label' => sanitize_text_field($option['label']),
+                'value' => sanitize_text_field($option['value']),
+            );
+        }, $choice['options']) : [];
 
-        // Save or update the choice option
+        // Add tags processing
+        if (isset($choice['tags']) && is_array($choice['tags'])) {
+            $group_data['tags'] = array_map('sanitize_text_field', $choice['tags']);
+
+            // Loop through each tag and ensure it is added to the taxonomy
+            foreach ($group_data['tags'] as $tag) {
+                if (!term_exists($tag, 'field_tags')) {
+                    wp_insert_term($tag, 'field_tags');
+                }
+            }
+        } else {
+            $group_data['tags'] = [];
+        }
+
         update_option($option_name, $group_data);
+        
+        // Optional: Log the saved group data
+        error_log(print_r($group_data, true));
     }
-
-    // Fetch and return the updated choices
-    $updated_choices = apply_filters('filter_wp_options_by_field_type', null, 'select');
 
     return new WP_REST_Response(array(
         'success' => 'Options saved successfully',
-        'choices' => $updated_choices
     ), 200);
 }
 
 
+function register_field_tags_taxonomy() {
+    register_taxonomy(
+        'field_tags',
+        null, // No specific object type; these can be added programmatically
+        array(
+            'label' => __( 'Field Tags' ),
+            'public' => true, // Not publicly queryable, but can be used internally
+            'show_in_rest' => true, // Enable REST API access
+            'hierarchical' => false,
+            'rewrite' => array( 'slug' => 'field-tag' ),
+        )
+    );
+}
+add_action('init', 'register_field_tags_taxonomy');
 
+function ace_get_choices(WP_REST_Request $request) {
+    $page = (int) $request->get_param('page') ?: 1;
+    $per_page = (int) $request->get_param('per_page') ?: 10;
+    $sort_by = $request->get_param('sort') ?: 'created';
+    $field_type = $request->get_param('field_type');
 
+    $offset = ($page - 1) * $per_page;
 
-
-/**
- * Fetches option groups (choices) from wp_options based on their field types.
- *
- * @return WP_REST_Response
- */
-function ace_get_choices() {
-    // Retrieve option groups (select, checkbox, radio, buttons)
     $choices = array_merge(
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
@@ -1754,8 +1779,73 @@ function ace_get_choices() {
         apply_filters('filter_wp_options_by_field_type', null, 'buttons')
     );
 
-    return new WP_REST_Response($choices, 200);
+    if ($field_type) {
+        $choices = array_filter($choices, function($choice) use ($field_type) {
+            return $choice['field_type'] === $field_type;
+        });
+    }
+
+    usort($choices, function($a, $b) use ($sort_by) {
+        switch ($sort_by) {
+            case 'created':
+                return strtotime($a['created']) - strtotime($b['created']);
+            case 'edited':
+                return strtotime($a['edited']) - strtotime($b['edited']);
+            case 'title':
+                return strcmp($a['title'], $b['title']);
+            case 'field_type':
+                return strcmp($a['field_type'], $b['field_type']);
+            default:
+                return 0;
+        }
+    });
+
+    $total_choices = count($choices);
+    $paginated_choices = array_slice($choices, $offset, $per_page);
+    $total_pages = ceil($total_choices / $per_page);
+
+    // Fetch all tags from 'field_tags' taxonomy
+    $tags = get_terms(array(
+        'taxonomy' => 'field_tags',
+        'hide_empty' => false
+    ));
+
+    // Map tags with descriptions
+    $tags_with_descriptions = [];
+    foreach ($tags as $tag) {
+        $tags_with_descriptions[$tag->name] = $tag->description;
+    }
+
+    // Add tag descriptions to each choice
+    $response_data = [
+        'choices' => array_map(function($choice) use ($tags_with_descriptions) {
+            $choice['tags_with_descriptions'] = [];
+            if (isset($choice['tags'])) {
+                foreach ($choice['tags'] as $tag) {
+                    if (isset($tags_with_descriptions[$tag])) {
+                        $choice['tags_with_descriptions'][] = [
+                            'name' => $tag,
+                            'description' => $tags_with_descriptions[$tag]
+                        ];
+                    }
+                }
+            }
+            return $choice;
+        }, $paginated_choices),
+        'totalPages' => $total_pages,
+    ];
+
+    return new WP_REST_Response($response_data, 200);
 }
+
+
+add_action('rest_api_init', function () {
+    register_rest_route('ace/v1', '/get-choices', array(
+        'methods' => 'GET',
+        'callback' => 'ace_get_choices',
+        'permission_callback' => '__return_true', // Adjust permissions as needed
+    ));
+});
 
 
 

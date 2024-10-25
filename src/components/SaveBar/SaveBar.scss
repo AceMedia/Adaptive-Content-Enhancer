@@ -119,3 +119,15 @@
     background-color: green; /* Adjust styles for saved state */
     border-color: green; /* Adjust styles for saved state */
 }
+
+
+.wp-saving-button {
+    background-color: #007cba; /* Default color (WordPress blue) */
+    color: #fff; /* Text color */
+    border: none;
+}
+
+.wp-saving-button.enabled {
+    background-color: #28a745; /* Green color */
+    color: #fff; /* Ensure text is white */
+}
