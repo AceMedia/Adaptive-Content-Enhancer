@@ -138,15 +138,18 @@ const getTrueFalseOptions = () => {
 
 
 const handleTextChange = (choice, field, newValue) => {
+    const formattedValue = field === 'name' ? createLowercaseUnderscored(newValue) : newValue;
+
     if (isModalOpen) {
         setNewChoice((prevNewChoice) => ({
             ...prevNewChoice,
-            [field]: newValue,
-            // Sync `Group Name` with `Group Title` only in the modal and only when editing the title
-            name: field === 'title' ? createLowercaseUnderscored(newValue) : prevNewChoice.name,
-            // Only update options if `field` is `field_type` and it's `truefalse`
-            options: field === 'field_type' && newValue === 'truefalse' 
-                ? getTrueFalseOptions() 
+            [field]: formattedValue,
+            // Only sync 'name' when updating 'title' and name hasn't been manually modified
+            name: field === 'title' && prevNewChoice.name === createLowercaseUnderscored(prevNewChoice.title)
+                ? createLowercaseUnderscored(newValue)
+                : prevNewChoice.name,
+            options: field === 'field_type' && newValue === 'truefalse'
+                ? getTrueFalseOptions()
                 : prevNewChoice.options,
         }));
     } else {
@@ -157,25 +160,25 @@ const handleTextChange = (choice, field, newValue) => {
             );
 
             if (choiceIndex !== -1) {
-                // Skip updating if the field should be treated as disabled
                 if (field === 'name' && !choice.isNew) {
                     return updatedChoices;
                 }
 
-                updatedChoices[choiceIndex][field] = newValue;
+                updatedChoices[choiceIndex][field] = formattedValue;
 
-                // Only update options if `field` is `field_type` and it's `truefalse`
                 if (field === 'field_type' && newValue === 'truefalse') {
                     updatedChoices[choiceIndex].options = getTrueFalseOptions();
                 }
 
-                markAsChanged(choice.name); // Mark as changed
+                markAsChanged(choice.name);
             }
 
             return updatedChoices;
         });
     }
 };
+
+
 
 
 
@@ -399,7 +402,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     const handleModalSubmit = () => {
         const newTitle = newChoice.title || `Group ${choices.length + 1}`;
         const newChoiceData = {
-            name: createLowercaseUnderscored(newTitle),
+            name: newChoice.name,
             title: newTitle,
             field_type: newChoice.field_type,
             description: newChoice.description,
@@ -650,11 +653,19 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
         />
 
-        <TextControl
-            label="Group Name"
-            value={choice.name}
-            disabled={!isModalOpen || !newChoice.isNew} // Disable if not in modal or if not a new group
-        />
+<TextControl
+    label="Group Name"
+    value={choice.name}
+    disabled={!isModalOpen && !choice.isNew} // Only disable when not in modal and not a new group
+    onChange={(newValue) => {
+        const formattedValue = createLowercaseUnderscored(newValue);
+        handleTextChange(choice, 'name', formattedValue);
+        setNewChoice((prevNewChoice) => ({
+            ...prevNewChoice,
+            name: formattedValue,
+        }));
+    }} // Allow manual updates and apply formatting
+/>
 
             <SelectControl
                 label="Field Type"
