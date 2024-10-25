@@ -129,133 +129,135 @@ const markAsChanged = (choiceName) => {
 };
 
 
-    const getTrueFalseOptions = (field, newValue, currentOptions) => {
-        return field === 'field_type' && newValue === 'truefalse'
-            ? [
-                  { label: 'True', value: '1', disabled: true },
-                  { label: 'False', value: '0', disabled: true },
-              ]
-            : currentOptions;
-    };
+const getTrueFalseOptions = () => {
+    return [
+        { label: 'True', value: '1', disabled: true },
+        { label: 'False', value: '0', disabled: true },
+    ];
+};
 
 
-    const handleTextChange = (choice, field, newValue) => {
-        if (isModalOpen) {
-            setNewChoice((prevNewChoice) => ({
-                ...prevNewChoice,
-                [field]: newValue,
-                options: getTrueFalseOptions(field, newValue, prevNewChoice.options),
-            }));
-        } else {
-            setChoices((prevChoices) => {
-                const updatedChoices = [...prevChoices];
-                const choiceIndex = updatedChoices.findIndex(
-                    (c) => c.name === choice.name
-                );
-    
-                if (choiceIndex !== -1) {
-                    const isFieldDisabled = (field === 'name' && !choice.isNew) || 
-                                            (choice.field_type === 'truefalse' && field === 'title');
-    
-                    // Skip updating if the field should be treated as disabled
-                    if (isFieldDisabled) {
-                        return updatedChoices;
-                    }
-    
-                    updatedChoices[choiceIndex][field] = newValue;
-                    updatedChoices[choiceIndex].options = getTrueFalseOptions(
-                        field,
-                        newValue,
-                        updatedChoices[choiceIndex].options
-                    );
-                    markAsChanged(choice.name); // Mark as changed
+const handleTextChange = (choice, field, newValue) => {
+    if (isModalOpen) {
+        setNewChoice((prevNewChoice) => ({
+            ...prevNewChoice,
+            [field]: newValue,
+            // Only update options if `field` is `field_type` and it's `truefalse`
+            options: field === 'field_type' && newValue === 'truefalse' 
+                ? getTrueFalseOptions() 
+                : prevNewChoice.options,
+        }));
+    } else {
+        setChoices((prevChoices) => {
+            const updatedChoices = [...prevChoices];
+            const choiceIndex = updatedChoices.findIndex(
+                (c) => c.name === choice.name
+            );
+
+            if (choiceIndex !== -1) {
+                const isFieldDisabled = (field === 'name' && !choice.isNew) || 
+                                        (choice.field_type === 'truefalse' && field === 'title');
+
+                // Skip updating if the field should be treated as disabled
+                if (isFieldDisabled) {
+                    return updatedChoices;
                 }
-    
-                return updatedChoices;
-            });
-        }
-    };
-    
-    
-    const handleSave = () => {
-        const payload = {
-            choices: choices
-                .filter(choice => changedChoices.includes(choice.name))
-                .map(choice => ({
-                    name: choice.name,
-                    title: choice.title,
-                    field_type: choice.field_type,
-                    description: choice.description,
-                    options: choice.options ? choice.options.map(option => ({
-                        label: option.label,
-                        value: option.value,
-                    })) : [],
-                    show_in_rest: choice.show_in_rest ? 1 : 0,
-                    tags: choice.tags, // Include tags
-                    created: choice.created,
-                    edited: new Date().toISOString(), // Update edited timestamp
-                })),
-            _wpnonce: aceAjax.nonce,
-        };
-    
-        return apiFetch({
-            path: '/ace/v1/save-options',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        }).then((response) => {
-            if (response.success) {
-                // Only refresh the saved choices in the existing view
-                const updatedChoiceNames = payload.choices.map(choice => choice.name);
-                refreshUpdatedChoices(updatedChoiceNames);
-    
-                // Set `isNew` to false for all options of updated choices
-                setChoices(prevChoices => prevChoices.map(choice => {
-                    if (updatedChoiceNames.includes(choice.name)) {
-                        return {
-                            ...choice,
-                            options: choice.options.map(option => ({
-                                ...option,
-                                isNew: false, // Disable further edits after saving
-                                disabled: !!option.value, // Ensure existing options are properly disabled
-                            }))
-                        };
-                    }
-                    return choice;
-                }));
-    
-                setChangedChoices([]); // Reset changed choices
-                return { success: true };
-            } else {
-                console.error('Error:', response.error);
-                return { success: false };
+
+                updatedChoices[choiceIndex][field] = newValue;
+
+                // Only update options if `field` is `field_type` and it's `truefalse`
+                if (field === 'field_type' && newValue === 'truefalse') {
+                    updatedChoices[choiceIndex].options = getTrueFalseOptions();
+                }
+
+                markAsChanged(choice.name); // Mark as changed
             }
-        }).catch((error) => {
-            console.error('Error saving settings:', error);
-            return { success: false };
+
+            return updatedChoices;
         });
+    }
+};
+
+    
+    
+const handleSave = () => {
+    const payload = {
+        choices: choices
+            .filter(choice => changedChoices.includes(choice.name))
+            .map(choice => ({
+                name: choice.name,
+                title: choice.title,
+                field_type: choice.field_type,
+                description: choice.description,
+                options: choice.options ? choice.options.map(option => ({
+                    label: option.label,
+                    value: option.value,
+                })) : [],
+                show_in_rest: choice.show_in_rest ? 1 : 0,
+                tags: choice.tags,
+                created: choice.created,
+                edited: new Date().toISOString(),
+            })),
+        _wpnonce: aceAjax.nonce,
     };
+
+    return apiFetch({
+        path: '/ace/v1/save-options',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    }).then((response) => {
+        if (response.success) {
+            const updatedChoiceNames = payload.choices.map(choice => choice.name);
+            refreshUpdatedChoices(updatedChoiceNames);
+
+            setChangedChoices([]); // Reset changed choices
+            return { success: true };
+        } else {
+            console.error('Error:', response.error);
+            return { success: false };
+        }
+    }).catch((error) => {
+        console.error('Error saving settings:', error);
+        return { success: false };
+    });
+};
+
     
     
-    const refreshUpdatedChoices = (updatedChoiceNames) => {
-        apiFetch({ path: `/ace/v1/get-choices?names=${updatedChoiceNames.join(',')}` })
-            .then((response) => {
-                const { choices: updatedChoices } = response;
-    
-                // Merge updated choices into the current list without changing order
-                setChoices((prevChoices) => {
-                    const updatedChoiceMap = Object.fromEntries(updatedChoices.map(choice => [choice.name, choice]));
-                    return prevChoices.map((choice) => 
-                        updatedChoiceMap[choice.name] ? updatedChoiceMap[choice.name] : choice
-                    );
-                });
-            })
-            .catch((error) => console.error('Error refreshing updated choices:', error));
-    };
     
     
+const refreshUpdatedChoices = (updatedChoiceNames) => {
+    apiFetch({ path: `/ace/v1/get-choices?names=${updatedChoiceNames.join(',')}` })
+        .then((response) => {
+            const { choices: updatedChoices } = response;
+
+            // Ensure all options are marked as disabled
+            const updatedChoicesWithDisabledOptions = updatedChoices.map(choice => {
+                const updatedOptions = (choice.options || []).map(option => ({
+                    ...option,
+                    disabled: true // Force all options to be disabled
+                }));
+
+                return {
+                    ...choice,
+                    options: updatedOptions,
+                };
+            });
+
+            // Merge updated choices into the current list without changing order
+            setChoices((prevChoices) => {
+                const updatedChoiceMap = Object.fromEntries(updatedChoicesWithDisabledOptions.map(choice => [choice.name, choice]));
+                return prevChoices.map((choice) => 
+                    updatedChoiceMap[choice.name] ? updatedChoiceMap[choice.name] : choice
+                );
+            });
+        })
+        .catch((error) => console.error('Error refreshing updated choices:', error));
+};
+
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -337,7 +339,7 @@ const markAsChanged = (choiceName) => {
         apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeFilter}` })
             .then((response) => {
                 const { choices: fetchedChoices, totalPages: updatedTotalPages } = response;
-                
+    
                 const updatedChoices = fetchedChoices.map(choice => {
                     if (choice.field_type === 'truefalse') {
                         return {
@@ -347,10 +349,10 @@ const markAsChanged = (choiceName) => {
                         };
                     }
     
-                    // Ensure existing options are marked as disabled
+                    // Ensure all options are marked as disabled when fetched
                     const updatedOptions = (choice.options || []).map(option => ({
                         ...option,
-                        disabled: !!option.value // Disable existing options that have a value
+                        disabled: true // Disable all options
                     }));
     
                     return {
@@ -373,6 +375,8 @@ const markAsChanged = (choiceName) => {
             })
             .catch((error) => console.error('Error fetching choices:', error));
     };
+    
+    
     
     
     // Use fetchChoices in useEffect
@@ -489,14 +493,14 @@ const markAsChanged = (choiceName) => {
     };
     
     const updateOption = (choice, option, field, value) => {
-    
         if (isModalOpen) {
             setNewChoice((prevNewChoice) => {
                 const updatedOptions = prevNewChoice.options.map((opt) =>
                     opt.label === option.label ? {
                         ...opt,
                         [field]: value,
-                        value: field === 'label' && !opt.disabled ? createLowercaseUnderscored(value) : opt.value,
+                        // Prevent updates to the `value` field if it's a `truefalse` type
+                        value: prevNewChoice.field_type === 'truefalse' ? opt.value : (field === 'label' && !opt.disabled ? createLowercaseUnderscored(value) : opt.value),
                     } : opt
                 );
                 return { ...prevNewChoice, options: updatedOptions };
@@ -511,14 +515,18 @@ const markAsChanged = (choiceName) => {
     
                     if (optionIndex !== -1) {
                         const updatedOption = { ...updatedChoices[choiceIndex].options[optionIndex] };
+    
+                        // Only allow label updates, and never update `value` for `truefalse`
                         if (field === 'label') {
                             updatedOption.label = value;
-                            if (!updatedOption.disabled) {
+                            if (!updatedOption.disabled && choice.field_type !== 'truefalse') {
                                 updatedOption.value = createLowercaseUnderscored(value);
                             }
-                        } else if (field === 'value') {
+                        } else if (field === 'value' && choice.field_type !== 'truefalse') {
+                            // Only update the value if it's not a `truefalse` type
                             updatedOption.value = createLowercaseUnderscored(value);
                         }
+    
                         updatedChoices[choiceIndex].options[optionIndex] = updatedOption;
                         markAsChanged(choice.name); // Mark as changed
                     }
@@ -527,6 +535,8 @@ const markAsChanged = (choiceName) => {
             });
         }
     };
+    
+    
     
 
 
@@ -555,10 +565,9 @@ const markAsChanged = (choiceName) => {
     
 
     const addOption = (choice) => {
-        const newOption = { label: '', value: '', isNew: true }; // Mark new options as `isNew`
+        const newOption = { label: '', value: '', isNew: true, disabled: false };
     
         if (choice) {
-            // If choice is provided, add to the specific choice in the main choices
             const updatedChoices = choices.map(c => {
                 if (c.name === choice.name) {
                     return {
@@ -569,14 +578,15 @@ const markAsChanged = (choiceName) => {
                 return c;
             });
             setChoices(updatedChoices);
-        } else {
-            // If choice is null, add to newChoice for the modal
+        } else if (isModalOpen) {
             setNewChoice(prev => ({
                 ...prev,
                 options: [...prev.options, newOption]
             }));
         }
     };
+    
+    
     
     
     const removeOption = (choice, option) => {
@@ -687,41 +697,42 @@ const markAsChanged = (choiceName) => {
         )}
 
 <div style={{ marginTop: '16px' }}>
-    <strong>Options:</strong>
-    {choice.options.map((option, optionIndex) => (
-        <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TextControl
-                placeholder="Option Label"
-                value={option.label}
-                onChange={(value) => updateOption(choice, option, 'label', value)}
-            />
-            <TextControl
-                placeholder="Option Value"
-                value={option.value}
-                disabled={!option.isNew && option.disabled} // Allow edit for new options
-                onChange={(value) => updateOption(choice, option, 'value', value)} // Only updates the value
-            />
+            <strong>Options:</strong>
+            {choice.options.map((option, optionIndex) => (
+                <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TextControl
+                        placeholder="Option Label"
+                        value={option.label}
+                        onChange={(value) => updateOption(choice, option, 'label', value)}
+                    />
+                    <TextControl
+    placeholder="Option Value"
+    value={option.value}
+    disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
+        onChange={(value) => updateOption(choice, option, 'value', value)}
+/>
 
-            <Button
-                isDestructive
-                onClick={() => removeOption(choice, option)}
-            >
-                Remove
-            </Button>
+                    <Button
+                        isDestructive
+                        onClick={() => removeOption(choice, option)}
+                        disabled={choice.field_type === 'truefalse'} // Prevent removal of true/false options
+                    >
+                        Remove
+                    </Button>
+                </div>
+            ))}
+            {choice.field_type !== 'truefalse' && (
+                <Button 
+                    isPrimary 
+                    onClick={() => {
+                        const option = isModalOpen ? null : choice;
+                        addOption(option);
+                    }}
+                >
+                    Add Option
+                </Button>
+            )}
         </div>
-    ))}
-    {choice.field_type !== 'truefalse' && (
-        <Button 
-            isPrimary 
-            onClick={() => {
-                const option = isModalOpen ? null : choice;
-                addOption(option);
-            }}
-        >
-            Add Option
-        </Button>
-    )}
-</div>
 
 
 
