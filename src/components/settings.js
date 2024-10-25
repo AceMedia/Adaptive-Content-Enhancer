@@ -179,9 +179,6 @@ const handleTextChange = (choice, field, newValue) => {
 
 
 
-
-    
-    
 const handleSave = () => {
     const payload = {
         choices: choices
@@ -193,7 +190,7 @@ const handleSave = () => {
                 description: choice.description,
                 options: choice.options ? choice.options.map(option => ({
                     label: option.label,
-                    value: option.value,
+                    value: option.value, // Only set disabled once saved, not before
                 })) : [],
                 show_in_rest: choice.show_in_rest ? 1 : 0,
                 tags: choice.tags,
@@ -213,7 +210,11 @@ const handleSave = () => {
     }).then((response) => {
         if (response.success) {
             const updatedChoiceNames = payload.choices.map(choice => choice.name);
+            // Re-fetch and ensure options are disabled only after successful save
             refreshUpdatedChoices(updatedChoiceNames);
+
+            // Refresh the current page to reflect updates without changing position
+            fetchChoices({ currentPage });
 
             setChangedChoices([]); // Reset changed choices
             return { success: true };
@@ -227,6 +228,8 @@ const handleSave = () => {
     });
 };
 
+
+
     
     
     
@@ -236,11 +239,11 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         .then((response) => {
             const { choices: updatedChoices } = response;
 
-            // Ensure all options are marked as disabled
+            // Ensure all options are marked as disabled after successful save
             const updatedChoicesWithDisabledOptions = updatedChoices.map(choice => {
                 const updatedOptions = (choice.options || []).map(option => ({
                     ...option,
-                    disabled: true // Force all options to be disabled
+                    disabled: true // Disable all options after being saved
                 }));
 
                 return {
@@ -259,6 +262,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         })
         .catch((error) => console.error('Error refreshing updated choices:', error));
 };
+
 
 
     useEffect(() => {
@@ -567,7 +571,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     
 
     const addOption = (choice) => {
-        const newOption = { label: '', value: '', isNew: true, disabled: false };
+        const newOption = { label: '', value: '', isNew: true, disabled: false }; // Default to not disabled
     
         if (choice) {
             const updatedChoices = choices.map(c => {
@@ -587,6 +591,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             }));
         }
     };
+    
     
     
     const removeOption = (choice, option) => {
