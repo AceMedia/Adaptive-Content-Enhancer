@@ -110,6 +110,7 @@ function ace_field_options_enqueue_editor_assets() {
 
     // Fetch dropdown groups dynamically by field_type: dropdown
     $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'text'),
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
@@ -118,7 +119,6 @@ function ace_field_options_enqueue_editor_assets() {
     );
 
     // Fetch true/false fields dynamically by field_type: truefalse
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', null, 'truefalse');
 
     // Localize the dropdown groups for the dropdown block editor script
     wp_localize_script('acemedia-block-editor', 'choiceGroups', $choices);
@@ -134,6 +134,7 @@ add_action('init', 'acefields_register_dynamic_meta_and_bindings');
 function acefields_register_dynamic_meta_and_bindings() {
     // Define a mapping of field types to how they should be treated
     $field_types = [
+        'text' => 'string',
         'select' => 'string',
         'truefalse' => 'string',
         'checkbox' => 'string',
@@ -250,7 +251,7 @@ function ace_field_options_render_block($attributes) {
     $output = '';
 
     // Render based on whether inputs or plain text are requested.
-    if ($show_as_input) {
+    if ($show_as_input && $selected_field_type != 'text') {
         switch ($selected_field_type) {
             case 'truefalse':
                 // Fetch true/false field labels dynamically from wp_options.
@@ -314,6 +315,10 @@ function ace_field_options_render_block($attributes) {
         // Render plain text labels for non-input fields.
         if ($selected_field_type === 'truefalse') {
             $dropdown_label = $group_options['label']; // Use the dynamically fetched label
+        }
+        // Render plain text labels for non-input fields.
+        if ($selected_field_type === 'text') {
+            $dropdown_label = get_post_meta(get_the_ID(), $selected_group, true);
         }
 
         return sprintf('<p %s>%s</p>', $wrapper_attributes, esc_html($dropdown_label));
@@ -576,6 +581,7 @@ function modify_post_meta_for_rest($response, $post, $request) {
 
     $meta = $response->data['meta'];
     $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'text'),
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
