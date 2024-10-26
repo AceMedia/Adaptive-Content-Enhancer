@@ -50,7 +50,7 @@ A: Absolutely. WP ACE uses AJAX for real-time management of field groups and opt
 
 1. **Settings Screen** - The main interface for managing dropdown groups and true/false fields.
 2. **Editor Integration** - Example of how WP ACE integrates seamlessly within the WordPress block editor.
-~3. **ACF Import** - Easily import ACF fields directly into WP ACE for seamless integration.~
+3. ~**ACF Import** - Easily import ACF fields directly into WP ACE for seamless integration.~
 
 ---
 
