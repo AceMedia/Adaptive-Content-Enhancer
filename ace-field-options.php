@@ -1457,12 +1457,16 @@ function ace_get_choices(WP_REST_Request $request) {
         }
     });
 
-    // Locate the page of the specific choice if 'choice_name' is provided
     if ($choice_name) {
-        $index = array_search($choice_name, array_column($choices, 'name'));
-        if ($index !== false) {
-            $page = floor($index / $per_page) + 1;
-            $offset = ($page - 1) * $per_page;
+        $choice = array_filter($choices, function($choice) use ($choice_name) {
+            return $choice['name'] === $choice_name;
+        });
+
+        if (!empty($choice)) {
+            $choice = array_values($choice)[0]; // Get the first match
+            return new WP_REST_Response(['choices' => [$choice]], 200);
+        } else {
+            return new WP_REST_Response(['error' => 'Choice not found'], 404);
         }
     }
 
