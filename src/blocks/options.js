@@ -13,7 +13,7 @@ function createLowercaseUnderscored(string) {
 
 // Register the block
 registerBlockType('adaptive-content-enhancer/option', {
-    title: 'Option',
+    title: 'Meta Choice',
     icon: 'yes-alt',
     category: 'text',
     attributes: {
