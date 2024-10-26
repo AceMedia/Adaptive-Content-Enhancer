@@ -97,7 +97,9 @@ registerBlockType('adaptive-content-enhancer/option', {
         // Fetch available groups and options from the backend
         useEffect(() => {
             if (Array.isArray(window.choiceGroups)) {
-                setAvailableGroups(window.choiceGroups);
+                // Filter out groups where the field type is "text"
+                const filteredGroups = window.choiceGroups.filter(group => group.field_type !== 'text');
+                setAvailableGroups(filteredGroups);
             }
         }, []);
 
