@@ -326,6 +326,37 @@ function ace_field_options_render_block($attributes) {
 }
 
 
+
+add_action('enqueue_block_editor_assets', 'ace_enqueue_text_block');
+
+function ace_enqueue_text_block() {
+    $dir = plugin_dir_path(__FILE__);
+    $url = plugin_dir_url(__FILE__);
+
+    if (file_exists("{$dir}/assets/js/blocks/text.asset.php")) {
+        $asset = include "{$dir}/assets/js/blocks/text.asset.php";
+
+        wp_enqueue_script(
+            'ace-text-block',
+            "{$url}/assets/js/blocks/text.js",
+            $asset['dependencies'],
+            $asset['version'],
+            true
+        );
+    } else {
+        wp_enqueue_script(
+            'ace-text-block',
+            "{$url}/assets/js/blocks/text.js",
+            ['wp-blocks', 'wp-element', 'wp-editor'],
+            filemtime("{$dir}/assets/js/blocks/text.js"),
+            true
+        );
+    }
+
+    wp_set_script_translations('ace-text-block', 'ace');
+}
+
+
 function ace_enqueue_custom_select_scripts() {
     // Check if we should enqueue scripts based on the post content.
     if (!is_singular('post')) {
