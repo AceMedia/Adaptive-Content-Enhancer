@@ -1,7 +1,7 @@
 ### WordPress Adaptive Content Enhancer (WP ACE)
 Contributors: Shane Rounce  
 Tags: block, custom fields, dynamic content, editor enhancements  
-Tested up to: 6.7 
+Tested up to: 6.7  
 Stable tag: 0.420.0  
 License: GPL-2.0-or-later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
