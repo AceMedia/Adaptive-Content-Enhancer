@@ -102,9 +102,9 @@ function ace_field_options_enqueue_editor_assets() {
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
         'acemedia-block-editor',
-        plugins_url( '/assets/blocks/options.js', __FILE__ ),
+        plugins_url( '/assets/js/blocks/options.js', __FILE__ ),
         array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
-        filemtime( plugin_dir_path( __FILE__ ) . 'assets/blocks/options.js' )
+        filemtime( plugin_dir_path( __FILE__ ) . 'assets/js/blocks/options.js' )
     );
 
 
@@ -1239,9 +1239,9 @@ function ace_field_options_enqueue_settings_page_scripts() {
     if ($screen->id === 'toplevel_page_adaptive-content-enhancer') {
         wp_enqueue_script(
             'acemedia-settings-react',
-            plugins_url('/assets/index.js', __FILE__),
+            plugins_url('/assets/js/index.js', __FILE__),
             array('wp-element', 'wp-components', 'wp-api-fetch', 'jquery'), // Ensure jQuery is included
-            filemtime(plugin_dir_path(__FILE__) . 'assets/index.js'),
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/index.js'),
             true
         );
 
