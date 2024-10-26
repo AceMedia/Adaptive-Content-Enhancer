@@ -246,7 +246,13 @@ const handleChoicesChange = (newValue) => {
                         <>
                             <CustomSelectControl
                                 style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }}
-                                label={context === 'editor' ? selectedGroupTitle : (showLabelsInEditor ? selectedGroupTitle : null)}
+                                label={
+                                    attributes.description 
+                                        ? attributes.description 
+                                        : (context === 'editor' 
+                                            ? selectedGroupTitle 
+                                            : (showLabelsInEditor ? selectedGroupTitle : null))
+                                }                                
                                 value={groupOptions.find(option => option.value === choiceValue) ? {
                                     key: choiceValue,
                                     name: groupOptions.find(option => option.value === choiceValue)?.label
