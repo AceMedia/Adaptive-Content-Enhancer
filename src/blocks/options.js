@@ -2,10 +2,13 @@ import { useEffect, useState, RichText } from '@wordpress/element';
 import { useEntityProp } from '@wordpress/core-data';
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps, BlockControls } from '@wordpress/block-editor';
-import {  __experimentalText as Text, __experimentalHeading as Heading, Tip, PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton } from '@wordpress/components';
+import {  __experimentalText as Text, __experimentalHeading as Heading, Tip, PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton, ToolbarDropdownMenu } from '@wordpress/components';
 import { edit, title } from '@wordpress/icons';
 
 const paragraphBlockSettings = wp.blocks.getBlockSupport('core/paragraph', 'supports');
+
+const truncateText = (text, maxLength = 42) => 
+    text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
 
 function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
@@ -114,27 +117,25 @@ registerBlockType('adaptive-content-enhancer/option', {
                         title: group.title || ''
                     });
         
-                    // Initialize choiceValue fresh based on field type and clear nested encodings
-                    if (metaValue && metaKey in metaValue) {
-                        const storedValue = metaValue[metaKey];
-                        if (selectedFieldType === 'checkbox' && Array.isArray(storedValue)) {
-                            setAttributes({ choiceValue: storedValue });
-                        } else if (typeof storedValue === 'string') {
-                            setAttributes({ choiceValue: storedValue });
-                        }
+                    // Only set choiceValue as an array if checkbox type
+                    if (selectedFieldType === 'checkbox' && Array.isArray(metaValue[metaKey])) {
+                        setAttributes({ choiceValue: metaValue[metaKey] });
+                    } else if (typeof metaValue[metaKey] === 'string') {
+                        setAttributes({ choiceValue: metaValue[metaKey] });
                     }
-        
                     setGroupOptions(group.options || []);
                 } else {
                     setAttributes({
                         selectedFieldType: '',
                         description: '',
-                        title: ''
+                        title: '',
+                        choiceValue: selectedFieldType === 'checkbox' ? [] : ''
                     });
                     setGroupOptions([]);
                 }
             }
-        }, [selectedGroup, availableGroups, metaValue, metaKey, setAttributes]);
+        }, [selectedGroup, availableGroups, metaValue, metaKey, selectedFieldType, setAttributes]);
+        
          
 
         useEffect(() => {
@@ -151,75 +152,46 @@ registerBlockType('adaptive-content-enhancer/option', {
         // Handle dropdown change, updating meta and syncing across all instances
         const handleChoicesChange = (newValue, isChecked = true) => {
             const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
-            if (!selectedFieldData) {
-                return;
-            }
+            if (!selectedFieldData) return;
         
-            // Check if the field type is checkbox
             if (selectedFieldType === 'checkbox') {
-                // Initialize choiceValue as an array if it’s not already
-                let currentChoices = Array.isArray(choiceValue) ? [...choiceValue] : [];
+                // Ensure choiceValue is an array for checkboxes
+                let updatedChoices = Array.isArray(choiceValue) ? [...choiceValue] : [];
         
                 // Add or remove the value based on the checked state
                 if (isChecked) {
-                    if (!currentChoices.includes(newValue)) {
-                        currentChoices.push(newValue);
+                    if (!updatedChoices.includes(newValue)) {
+                        updatedChoices.push(newValue);
                     }
                 } else {
-                    currentChoices = currentChoices.filter(value => value !== newValue);
+                    updatedChoices = updatedChoices.filter(value => value !== newValue);
                 }
         
-                // Sync all blocks with the same selectedGroup for checkboxes
-                const allBlocks = wp.data.select('core/block-editor').getBlocks();
-                allBlocks.forEach(block => {
-                    if (block.attributes.selectedGroup === selectedGroup) {
-                        wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-                            choiceValue: currentChoices,
-                            choiceLabel: groupOptions
-                                .filter(option => currentChoices.includes(option.value))
-                                .map(option => option.label)
-                                .join(', '),
-                        });
-                    }
-                });
-        
-                // Save the updated array to meta and block attributes
+                // Save the updated choices to meta and block attributes
                 setMetaValue({
                     ...metaValue,
-                    [metaKey]: currentChoices,
+                    [metaKey]: updatedChoices,
                 });
                 setAttributes({
-                    choiceValue: currentChoices,
+                    choiceValue: updatedChoices,
                     choiceLabel: groupOptions
-                        .filter(option => currentChoices.includes(option.value))
+                        .filter(option => updatedChoices.includes(option.value))
                         .map(option => option.label)
                         .join(', '),
                 });
             } else if (selectedFieldType === 'truefalse') {
+                // Save boolean value for true/false toggle
                 setMetaValue({
                     ...metaValue,
-                    [metaKey]: newValue, // Now saving the actual boolean
+                    [metaKey]: newValue,
                 });
                 setAttributes({ trueFalseValue: newValue });
             } else {
                 // Handle other field types as a single value
                 const selectedOption = groupOptions.find(option => option.value === newValue);
-                if (!selectedOption) {
-                    return;
-                }
+                if (!selectedOption) return;
         
-                // Sync all blocks with the same selectedGroup for other fields
-                const allBlocks = wp.data.select('core/block-editor').getBlocks();
-                allBlocks.forEach(block => {
-                    if (block.attributes.selectedGroup === selectedGroup) {
-                        wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-                            choiceValue: selectedOption.value,
-                            choiceLabel: selectedOption.label,
-                        });
-                    }
-                });
-        
-                // Update meta and block attributes for dropdown and other field types
+                // Update meta and block attributes for other field types
                 setMetaValue({
                     ...metaValue,
                     [metaKey]: selectedOption.value,
@@ -232,12 +204,26 @@ registerBlockType('adaptive-content-enhancer/option', {
         };
         
         
+        
 
         useEffect(() => {
             if (selectedGroup && metaKey in metaValue && trueFalseValue !== metaValue[metaKey]) {
                 setAttributes({ trueFalseValue: metaValue[metaKey] });
             }
         }, [metaValue, metaKey, selectedGroup, setAttributes]);
+
+
+        const renderTickerText = (text, maxLength = 42) => {
+            console.log('text:', text.length);
+            if (text.length > maxLength) {
+                return (
+                    <span className="ticker-container">
+                        <span className="ticker-text">{text}</span>
+                    </span>
+                );
+            }
+            return text;
+        };
         
 
         // Render controls based on field type
@@ -258,15 +244,13 @@ registerBlockType('adaptive-content-enhancer/option', {
                 
                     // Make sure cleanChoices is an array and log for verification
                     cleanChoices = Array.isArray(cleanChoices) ? cleanChoices : [];
-                    console.log("Parsed cleanChoices:", cleanChoices);
 
-    console.log(cleanChoices);
 
     return groupOptions.map((option, index) => (
         <CheckboxControl
             key={index}
             label={option.label}
-            checked={Array.isArray(cleanChoices) && cleanChoices.includes(option.value)} // Use cleaned array for includes
+            checked={Array.isArray(choiceValue) && choiceValue.includes(option.value)}
             onChange={(isChecked) => handleChoicesChange(option.value, isChecked)}
         />
     ));
@@ -308,7 +292,7 @@ registerBlockType('adaptive-content-enhancer/option', {
                                 } : { key: '', name: 'Please select an option' }}
                                 options={[
                                     ...groupOptions.map(option => ({
-                                        name: option.label,
+                                        name: renderTickerText(option.label),
                                         key: option.value,
                                         style: { fontSize: '1em', color: '#000' },
                                     }))
@@ -324,38 +308,18 @@ registerBlockType('adaptive-content-enhancer/option', {
        // Add toolbar controls based on selectedFieldType
 const toolbarControls = (
     <ToolbarGroup>
-            <Dropdown
-                popoverProps={{ position: 'bottom center' }}
-                renderToggle={({ isOpen, onToggle }) => (
-                    <ToolbarButton
-                        onClick={onToggle}
-                        aria-expanded={isOpen}
-                        icon={edit}
-                        label="Select Option"
-                        showTooltip={false} // Disable tooltip
-                        text="" // Add text to the button
-                    >
-                        {choiceLabel || "Select Option"}
-                    </ToolbarButton>
-                )}
-                renderContent={() => (
-                    <MenuGroup>
-                        {groupOptions.map((option) => (
-                            <MenuItem
-                                key={option.value}
-                                onClick={() => handleChoicesChange(option.value)}
-                                isSelected={choiceValue === option.value}
-                            >
-                                {option.label}
-                            </MenuItem>
-                        ))}
-                    </MenuGroup>
-                )}
-            />
-    </ToolbarGroup>
-
-
-
+    <ToolbarDropdownMenu
+        icon={edit}
+        label="Select Option"
+        text={truncateText(choiceLabel || "Select Option")}
+        popoverProps={{ position: 'bottom center' }}
+        controls={groupOptions.map((option) => ({
+            title: truncateText(option.label),
+            onClick: () => handleChoicesChange(option.value),
+            isActive: choiceValue === option.value,
+        }))}
+    />
+</ToolbarGroup>
 );
 
 
@@ -401,7 +365,7 @@ const toolbarControls = (
                     </div>
                 )}
                 <InspectorControls>
-                    <PanelBody title="Dropdown Settings">
+                <PanelBody title="Dropdown Settings" className="custom-dropdown-settings">
                         <CustomSelectControl
                             label="Select an Option"
                             value={availableGroups.find(group => group.name === selectedGroup) ? {
