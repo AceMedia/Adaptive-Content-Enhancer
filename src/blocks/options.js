@@ -22,7 +22,7 @@ registerBlockType('adaptive-content-enhancer/option', {
         choiceLabel: { type: 'string', default: '' },
         selectedFieldType: { type: 'string', default: '' },
         description: { type: 'string', default: '' }, // Add description attribute
-        trueFalseValue: { type: 'string', default: '' },
+        trueFalseValue: { type: 'boolean', default: false },
         title: { type: 'string', default: '' },
         trueFalseLabel: { type: 'string', default: '' },
         showAsTextEditor: { type: 'boolean', default: false }, 
@@ -108,52 +108,34 @@ registerBlockType('adaptive-content-enhancer/option', {
             if (selectedGroup && selectedGroup !== '') {
                 const group = availableGroups.find(group => group?.name === selectedGroup);
                 if (group) {
-                    setAttributes({ 
-                        selectedFieldType: group.field_type, 
+                    setAttributes({
+                        selectedFieldType: group.field_type,
                         description: group.description || '',
-                        title: group.title || '' // Ensure title is set
+                        title: group.title || ''
                     });
         
-                    // If there is existing meta data, adopt it immediately
+                    // Initialize choiceValue fresh based on field type and clear nested encodings
                     if (metaValue && metaKey in metaValue) {
-                        const storedValue = metaValue[attributes.selectedGroup];
-                        const storedOption = group.options.find(option => option.value === storedValue || option.label === storedValue);
-                        if (storedOption) {
-                            setAttributes({
-                                choiceValue: storedValue,
-                                choiceLabel: storedOption.label
-                            });
-                        }
-        
-                        // Handle true/false specifically
-                        if (group.field_type === 'truefalse') {
-                            const isTrue = storedValue === '1';
-                            const label = group.options.find(option => option.value === storedValue)?.label;
-                            setAttributes({
-                                trueFalseValue: storedValue,
-                                trueFalseLabel: label
-                            });
+                        const storedValue = metaValue[metaKey];
+                        if (selectedFieldType === 'checkbox' && Array.isArray(storedValue)) {
+                            setAttributes({ choiceValue: storedValue });
+                        } else if (typeof storedValue === 'string') {
+                            setAttributes({ choiceValue: storedValue });
                         }
                     }
         
-                    // Set options for the group
-                    if (Array.isArray(group.options)) {
-                        setGroupOptions(group.options);
-                    } else {
-                        setGroupOptions([]);
-                    }
+                    setGroupOptions(group.options || []);
                 } else {
-                    setGroupOptions([]);
-                    setAttributes({ 
-                        selectedFieldType: '', 
+                    setAttributes({
+                        selectedFieldType: '',
                         description: '',
-                        title: '' // Clear title if group not found
+                        title: ''
                     });
+                    setGroupOptions([]);
                 }
             }
         }, [selectedGroup, availableGroups, metaValue, metaKey, setAttributes]);
-        
-        
+         
 
         useEffect(() => {
             // Make sure both controls are synced by setting attributes when choiceValue changes
@@ -167,43 +149,95 @@ registerBlockType('adaptive-content-enhancer/option', {
 
         // Handle dropdown change, updating meta and syncing across all instances
         // Handle dropdown change, updating meta and syncing across all instances
-const handleChoicesChange = (newValue) => {
-    const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
-    if (!selectedFieldData) {
-        return;
-    }
+        const handleChoicesChange = (newValue, isChecked = true) => {
+            const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
+            if (!selectedFieldData) {
+                return;
+            }
+        
+            // Check if the field type is checkbox
+            if (selectedFieldType === 'checkbox') {
+                // Initialize choiceValue as an array if it’s not already
+                let currentChoices = Array.isArray(choiceValue) ? [...choiceValue] : [];
+        
+                // Add or remove the value based on the checked state
+                if (isChecked) {
+                    if (!currentChoices.includes(newValue)) {
+                        currentChoices.push(newValue);
+                    }
+                } else {
+                    currentChoices = currentChoices.filter(value => value !== newValue);
+                }
+        
+                // Sync all blocks with the same selectedGroup for checkboxes
+                const allBlocks = wp.data.select('core/block-editor').getBlocks();
+                allBlocks.forEach(block => {
+                    if (block.attributes.selectedGroup === selectedGroup) {
+                        wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
+                            choiceValue: currentChoices,
+                            choiceLabel: groupOptions
+                                .filter(option => currentChoices.includes(option.value))
+                                .map(option => option.label)
+                                .join(', '),
+                        });
+                    }
+                });
+        
+                // Save the updated array to meta and block attributes
+                setMetaValue({
+                    ...metaValue,
+                    [metaKey]: currentChoices,
+                });
+                setAttributes({
+                    choiceValue: currentChoices,
+                    choiceLabel: groupOptions
+                        .filter(option => currentChoices.includes(option.value))
+                        .map(option => option.label)
+                        .join(', '),
+                });
+            } else if (selectedFieldType === 'truefalse') {
+                setMetaValue({
+                    ...metaValue,
+                    [metaKey]: newValue, // Now saving the actual boolean
+                });
+                setAttributes({ trueFalseValue: newValue });
+            } else {
+                // Handle other field types as a single value
+                const selectedOption = groupOptions.find(option => option.value === newValue);
+                if (!selectedOption) {
+                    return;
+                }
+        
+                // Sync all blocks with the same selectedGroup for other fields
+                const allBlocks = wp.data.select('core/block-editor').getBlocks();
+                allBlocks.forEach(block => {
+                    if (block.attributes.selectedGroup === selectedGroup) {
+                        wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
+                            choiceValue: selectedOption.value,
+                            choiceLabel: selectedOption.label,
+                        });
+                    }
+                });
+        
+                // Update meta and block attributes for dropdown and other field types
+                setMetaValue({
+                    ...metaValue,
+                    [metaKey]: selectedOption.value,
+                });
+                setAttributes({
+                    choiceValue: selectedOption.value,
+                    choiceLabel: selectedOption.label,
+                });
+            }
+        };
+        
+        
 
-
-
-    // Handle other field types
-    const selectedOption = groupOptions.find(option => option.value === newValue);
-    if (!selectedOption) {
-        return;
-    }
-
-    // Sync other blocks with the same selectedGroup
-    const allBlocks = wp.data.select('core/block-editor').getBlocks();
-    allBlocks.forEach(block => {
-        if (block.attributes.selectedGroup === selectedGroup) {
-            wp.data.dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-                choiceValue: selectedOption.value,
-                choiceLabel: selectedOption.label,
-            });
-        }
-    });
-
-    // Update meta and block attributes for dropdown
-    setMetaValue({
-        ...metaValue,
-        [metaKey]: selectedOption.value, // Save as a string
-    });
-
-    setAttributes({
-        choiceValue: newValue,
-        choiceLabel: selectedOption.label,
-    });
-};
-
+        useEffect(() => {
+            if (selectedGroup && metaKey in metaValue && trueFalseValue !== metaValue[metaKey]) {
+                setAttributes({ trueFalseValue: metaValue[metaKey] });
+            }
+        }, [metaValue, metaKey, selectedGroup, setAttributes]);
         
 
         // Render controls based on field type
@@ -212,16 +246,31 @@ const handleChoicesChange = (newValue) => {
             
             switch (selectedFieldType) {
                 case 'checkbox':
-                    return groupOptions.map((option, index) => (
-                        <CheckboxControl
-                            key={index}
-                            label={option.label}
-                            checked={choiceValue === option.value}
-                            onChange={(isChecked) => handleChoicesChange(isChecked ? option.value : '')}
-                        />
-                    ));
+                    let cleanChoices = [];
+
+                    // Attempt to parse as JSON if it's a string representation of an array
+                    try {
+                        cleanChoices = JSON.parse(metaValue[selectedGroup]);
+                    } catch (e) {
+                        console.warn("Failed to parse metaValue as JSON:", e);
+                        cleanChoices = metaValue[selectedGroup];
+                    }
+                
+                    // Make sure cleanChoices is an array and log for verification
+                    cleanChoices = Array.isArray(cleanChoices) ? cleanChoices : [];
+                    console.log("Parsed cleanChoices:", cleanChoices);
+
+    console.log(cleanChoices);
+
+    return groupOptions.map((option, index) => (
+        <CheckboxControl
+            key={index}
+            label={option.label}
+            checked={Array.isArray(cleanChoices) && cleanChoices.includes(option.value)} // Use cleaned array for includes
+            onChange={(isChecked) => handleChoicesChange(option.value, isChecked)}
+        />
+    ));
                 case 'radio':
-                case 'buttons':
                     return (
                         <RadioControl
                             selected={choiceValue}
@@ -233,13 +282,13 @@ const handleChoicesChange = (newValue) => {
                         />
                     );
                 case 'truefalse':
-                    // Add support for 'truefalse' toggle controls
                     return (
                         <ToggleControl
-                            label={trueFalseLabel || "Toggle Option"}
-                            checked={trueFalseValue === '1'} // Ensure the toggle reflects '1' or '0'
-                            onChange={(newValue) => handleChoicesChange(newValue ? '1' : '0')}
-                        />
+    label={trueFalseLabel || "Toggle Option"}
+    checked={trueFalseValue} // Now it directly reflects the boolean value
+    onChange={(newValue) => handleChoicesChange(newValue)}
+/>
+
                     );
                 default:
                     return (
