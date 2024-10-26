@@ -28,9 +28,6 @@ node_modules/
 
 # dotenv environment variables file
 .env
-assets/blocks/ajax.asset.php
-assets/blocks/ajax.js
-assets/blocks/block.json
-assets/blocks/options.asset.php
-assets/blocks/options.js
-assets/styles/css/editor.css
+
+assets/
+.webpack-cache/
