@@ -9,9 +9,13 @@
     }
 }
 
-.content-enhancer-choices-choices-block {
+.content-enhancer-choices-choices-block,
+.custom-dropdown-settings {
     .components-base-control__label {
         font-weight: bold   ;
+    }
+    div {
+        min-width: 0px !important;
     }
 }
 
@@ -44,4 +48,27 @@
         }
     }
 
+}
+
+
+
+
+/* Container to hide overflow */
+.ticker-container {
+    overflow: none;
+    white-space: wrap;
+    position: relative;
+    width: 100%;
+    position: relative;
+}
+
+
+.ticker-container .ticker-text {
+    font-size: .8em !important;
+    display: inline-block;
+    max-width: 100%;
+    overflow: none;
+    white-space: wrap;
+    word-break: break-all;
+    line-height: 1.4;
 }
