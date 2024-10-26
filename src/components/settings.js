@@ -131,8 +131,17 @@ const markAsChanged = (choiceName) => {
 
 const getTrueFalseOptions = () => {
     return [
-        { label: 'True', value: '1', disabled: true },
-        { label: 'False', value: '0', disabled: true },
+        { label: 'True', value: 'true', disabled: true },
+        { label: 'False', value: 'false', disabled: true },
+    ];
+};
+
+
+const getDefaultOptions = () => {
+    return [
+        { label: '', value: '', disabled: false },
+        { label: '', value: '', disabled: false },
+        { label: '', value: '', disabled: false },
     ];
 };
 
@@ -148,8 +157,8 @@ const handleTextChange = (choice, field, newValue) => {
             name: field === 'title' && prevNewChoice.name === createLowercaseUnderscored(prevNewChoice.title)
                 ? createLowercaseUnderscored(newValue)
                 : prevNewChoice.name,
-            options: field === 'field_type' && newValue === 'truefalse'
-                ? getTrueFalseOptions()
+                options: field === 'field_type' 
+                ? (newValue === 'truefalse' ? getTrueFalseOptions() : getDefaultOptions())
                 : prevNewChoice.options,
         }));
     } else {
@@ -168,6 +177,8 @@ const handleTextChange = (choice, field, newValue) => {
 
                 if (field === 'field_type' && newValue === 'truefalse') {
                     updatedChoices[choiceIndex].options = getTrueFalseOptions();
+                } else {
+                    updatedChoices[choiceIndex].options = getDefaultOptions();
                 }
 
                 markAsChanged(choice.name);
@@ -755,6 +766,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         onChange={(value) => updateOption(choice, option, 'value', value)}
 />
 
+{choice.field_type !== 'truefalse' && (
                     <Button
                         isDestructive
                         onClick={() => removeOption(choice, option)}
@@ -762,6 +774,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                     >
                         Remove
                     </Button>
+            )}
                 </div>
             ))}
             {choice.field_type !== 'truefalse' && (
@@ -970,9 +983,11 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                 <Modal
                     title="Add New Choice Group"
                     onRequestClose={() => setIsModalOpen(false)}
+                    size='large'
+                    focusOnMount='firstContentElement' 
                 >
                     {renderChoiceFields(newChoice)} {/* Render the new choice fields */}
-                    <Button isPrimary onClick={handleModalSubmit}>Add Group</Button>
+                    <Button isPrimary variant='primary' onClick={handleModalSubmit}>Add Group</Button>
                 </Modal>
             )}
 
