@@ -2,7 +2,6 @@ const defaultConfig = require('@wordpress/scripts/config/webpack.config');
 const path = require('path');
 const glob = require('glob');
 
-// Dynamically get all JavaScript files from the src directory
 const entries = glob.sync('./src/**/*.js').reduce((acc, filePath) => {
     const entryName = filePath.replace('./src/', '').replace('.js', '');
     acc[entryName] = filePath;
@@ -13,11 +12,20 @@ module.exports = {
     ...defaultConfig,
     entry: entries,
     output: {
-        filename: (pathData) => {
-            // Maintain the same directory structure as src
-            return pathData.chunk.name.replace(/\\/g, '/').concat('.js');
+        filename: (pathData) => pathData.chunk.name.replace(/\\/g, '/').concat('.js'),
+        path: path.resolve(__dirname, 'assets/js'), // Output JavaScript to assets/js
+    },
+    cache: {
+        type: 'filesystem',
+        cacheDirectory: path.resolve(__dirname, '.webpack-cache'), // Unique cache directory
+        buildDependencies: {
+            config: [__filename], // Rebuild cache if webpack config changes
         },
-        path: path.resolve(__dirname, 'assets'),
+    },
+    watchOptions: {
+        ignored: /node_modules/, // Ignore node_modules to improve watch performance
+        aggregateTimeout: 300,   // Delay rebuild after the first change
+        poll: 1000,              // Check for changes every second (optional)
     },
     module: {
         rules: [
@@ -31,20 +39,21 @@ module.exports = {
                             '@wordpress/babel-preset-default',
                             '@babel/preset-react'
                         ],
+                        cacheDirectory: true, // Caches Babel transforms
                     },
                 },
             },
             {
                 test: /\.scss$/,
                 use: [
-                    'style-loader', // Injects CSS into the DOM
-                    'css-loader',   // Translates CSS into CommonJS
+                    'style-loader',
+                    'css-loader',
                     {
-                        loader: 'sass-loader', // Compiles Sass to CSS
+                        loader: 'sass-loader',
                         options: {
                             implementation: require('sass'),
                             sassOptions: {
-                                quietDeps: true, // Suppress deprecation warnings from dependencies
+                                quietDeps: true,
                             },
                         },
                     },
@@ -53,6 +62,6 @@ module.exports = {
         ],
     },
     resolve: {
-        extensions: ['.js', '.jsx'], // Resolve these extensions
+        extensions: ['.js', '.jsx'],
     },
 };

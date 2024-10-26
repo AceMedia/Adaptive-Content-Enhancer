@@ -4,18 +4,20 @@
     "description": "Example block scaffolded with Create Block tool.",
     "author": "Shane Rounce",
     "license": "GPL-2.0-or-later",
-    "main": "build/index.js",
+    "main": "assets/js/index.js",
     "scripts": {
-        "build": "npm-run-all build-js build-css",
+        "build": "npm-run-all clean-assets build-js build-css",
         "build-js": "wp-scripts build",
+        "dev-js": "wp-scripts start --watch",
         "build-css": "sass src/styles/scss:assets/styles --no-source-map",
-        "watch-css": "nodemon --watch src --ext scss --exec \"npm run build-css\"",
+        "clean-assets": "rm -rf assets/js && mkdir -p assets/js",
+        "watch-css": "chokidar 'src/**/*.scss' -c 'npm run build-css'",    
         "format": "wp-scripts format",
         "lint:css": "wp-scripts lint-style",
         "lint:js": "wp-scripts lint-js",
         "packages-update": "wp-scripts packages-update",
         "plugin-zip": "wp-scripts plugin-zip",
-        "start": "npm-run-all build-js watch-css"
+         "start": "npm-run-all dev-js watch-css"
     },
     "devDependencies": {
         "@wordpress/icons": "^10.10.0",
