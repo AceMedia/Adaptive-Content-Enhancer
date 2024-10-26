@@ -9,6 +9,11 @@ import { createBlock } from '@wordpress/blocks';
 import apiFetch from '@wordpress/api-fetch';
 import domReady from '@wordpress/dom-ready';
 
+function createLowercaseUnderscored(string) {
+    return string.toLowerCase().replace(/\s+/g, '_');
+}
+
+
 const updateParagraphPlaceholders = () => {
     const blocks = select('core/block-editor').getBlocks();
 
@@ -23,20 +28,15 @@ const updateParagraphPlaceholders = () => {
             const metaKey = metaBinding ? metaBinding.key : undefined;
 
             if (!metaKey) {
-                console.warn("Meta key is undefined; retrying block update.");
                 setTimeout(updateParagraphPlaceholders, 100); // Retry if meta key is missing
                 return;
             }
-
-            console.log("Found paragraph block with meta key:", metaKey);
 
             // Fetch the description for the specific meta key directly
             apiFetch({ path: `/ace/v1/get-choices?choice_name=${metaKey}` })
                 .then((response) => {
                     const choice = response.choices[0];
-                    console.log("Found choice for meta key:", choice);
                     const updatedPlaceholder = choice?.description || "Add content here...";
-                    console.log("Updating placeholder to:", updatedPlaceholder);
 
                     // Update the paragraph block's placeholder if it's different
                     if (block.attributes.placeholder !== updatedPlaceholder) {
@@ -62,11 +62,17 @@ domReady(() => {
 });
 
 registerBlockType('adaptive-content-enhancer/text-field', {
-    title: 'Custom Text Field',
+    title: 'Meta Text',
     category: 'text',
+    icon: 'editor-paragraph',
     attributes: {
         selectedMetaKey: { type: 'string', default: '' },
         content: { type: 'string', default: '' }
+    },
+    supports: {
+        advanced: false,
+        customClassName: false,
+        html: false
     },
     edit: ({ attributes, setAttributes, clientId }) => {
         const { selectedMetaKey, content } = attributes;
@@ -118,9 +124,7 @@ registerBlockType('adaptive-content-enhancer/text-field', {
                         }
                     }
                 });
-            
-                console.log("Inserting paragraph block with bindings:", paragraphBlock);
-            
+                        
                 dispatch('core/block-editor').insertBlocks(paragraphBlock);
                 dispatch('core/block-editor').removeBlock(clientId);
                 dispatch('core/block-editor').selectBlock(paragraphBlock.clientId);
@@ -133,7 +137,7 @@ registerBlockType('adaptive-content-enhancer/text-field', {
 
         const handleCreateField = () => {
             const newFieldData = {
-                name: newFieldName,
+                name: createLowercaseUnderscored(newFieldName),
                 title: newFieldName,
                 description: newFieldDescription,
                 field_type: 'text',
@@ -148,7 +152,6 @@ registerBlockType('adaptive-content-enhancer/text-field', {
         
                 // Log current post meta attributes
                 const currentMeta = select('core/editor').getEditedPostAttribute('meta');
-                console.log("Current post meta:", currentMeta);
         
                 // Inject the new field into the post meta attributes
                 const updatedMeta = {
@@ -160,7 +163,6 @@ registerBlockType('adaptive-content-enhancer/text-field', {
                 setTimeout(() => {
                     dispatch('core/editor').editPost({ meta: updatedMeta });
                     const newMeta = select('core/editor').getEditedPostAttribute('meta');
-                    console.log("Updated post meta with new field:", newMeta);
                 }, 10);
         
                 // Update available meta keys and set the new field as the selected meta key
