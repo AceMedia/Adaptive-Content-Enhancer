@@ -87,11 +87,11 @@ function filter_options_by_field_type($all_options, $type) {
 
 // Fetch dropdown groups after saving dynamically from updated options
 $choices = array_merge(
+    apply_filters('filter_wp_options_by_field_type', null, 'text'),
     apply_filters('filter_wp_options_by_field_type', null, 'select'),
     apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
     apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
     apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    apply_filters('filter_wp_options_by_field_type', null, 'buttons')
 );
 
 
@@ -114,8 +114,7 @@ function ace_field_options_enqueue_editor_assets() {
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+        apply_filters('filter_wp_options_by_field_type', null, 'radio')
     );
 
     // Fetch true/false fields dynamically by field_type: truefalse
@@ -136,8 +135,8 @@ function acefields_register_dynamic_meta_and_bindings() {
     $field_types = [
         'text' => 'string',
         'select' => 'string',
-        'truefalse' => 'string',
-        'checkbox' => 'string',
+        'truefalse' => 'boolean',
+        'checkbox' => 'array', // Set to 'array' for checkboxes
         'radio' => 'string',
         'buttons' => 'string',
     ];
@@ -155,80 +154,42 @@ function acefields_register_dynamic_meta_and_bindings() {
                 // Determine the sanitize callback based on the field type
                 $sanitize_callback = 'acefields_sanitize_serialized_meta';
 
+                // Define schema for array items if field type is checkbox
+                $schema = ($type === 'checkbox') 
+                    ? ['type' => 'array', 'items' => ['type' => 'string']] 
+                    : ['type' => $meta_type];
+
                 // Register each field as a post meta field
                 register_meta(
                     'post',
                     $field_name_key,
                     array(
-                        'show_in_rest'      => true,
+                        'show_in_rest'      => ['schema' => $schema], // Schema with array items for checkboxes
                         'single'            => true,
                         'type'              => $meta_type, // Type based on field type
                         'sanitize_callback' => $sanitize_callback,
                         'auth_callback'     => '__return_true',
-                        'label'             => $field_data['title'] . ' (' . $type . ')',
-                        'prepare_callback'  => 'acefields_prepare_meta_for_rest', // Custom prepare callback
                     )
                 );
-
-                // Dynamically register block bindings for this meta key
-                acefields_register_dynamic_block_binding($field_name_key, $field_data['title']);
             }
         }
     }
 }
-function acefields_register_dynamic_block_binding($meta_key, $label) {
-    // Register a block binding source for the specific meta field
-    register_block_bindings_source(
-        "acefields/{$meta_key}",
-        array(
-            'label'              => _x($label, 'block bindings source', 'acefields'),
-            'get_value_callback' => function ($source_args, $block_instance, $attribute_name) use ($meta_key) {
-                $post_id = $block_instance->context['postId'] ?? get_the_ID();
-                
-           
-                // Fetch the meta value
-                $meta_value = get_post_meta($post_id, $meta_key, true);
-             
-                // Process the meta value
-                $processed_value = acefields_prepare_meta_for_rest($meta_value, $post_id, $meta_key);
-                
-          
-                return $processed_value;
-            },
-            'uses_context' => array('postId', 'postType'),
-        )
-    );
-}
+
+
 
 // Custom sanitize function for serialized meta data
 function acefields_sanitize_serialized_meta($meta_value) {
+    // Return arrays and objects as they are to avoid double encoding
     if (is_array($meta_value) || is_object($meta_value)) {
-        // Convert arrays/objects to JSON string for storage
-        $meta_value = wp_json_encode($meta_value);
+        return $meta_value;
     }
+
+    // Convert other data types to a sanitized string
     return sanitize_text_field((string) $meta_value);
 }
 
-// Custom prepare callback to modify meta values before sending to REST API
-function acefields_prepare_meta_for_rest($meta_value, $post_id, $meta_key) {
-    // Attempt to decode JSON strings to arrays
-    $decoded_value = json_decode($meta_value, true);
-    if (is_array($decoded_value)) {
-        return $decoded_value;
-    }
 
-    // For individual values (non-arrays), handle value-to-label conversion
-    $field_data = apply_filters('filter_wp_options_by_field_name', null, $meta_key);
-    if ($field_data && is_array($field_data)) {
-        foreach ($field_data['options'] as $option) {
-            if ((string) $option['value'] === (string) $meta_value) {
-                return $option['label']; // Return the label instead of the raw value
-            }
-        }
-    }
-    // Return the raw meta value if no processing is needed
-    return 'test';
-}
 
 
 // Function to retrieve unserialized meta
@@ -268,7 +229,6 @@ function ace_field_options_render_block($attributes) {
 
             case 'checkbox':
             case 'radio':
-            case 'buttons':
                 // Loop and render inputs for each option in the selected group.
                 foreach ($group_options['options'] as $option) {
                     $isSelected = $attributes['choiceValue'] === $option['value'] ? 'checked' : '';
@@ -405,7 +365,6 @@ function get_group_options($selected_group, $attributes) {
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
     );
 
@@ -617,7 +576,6 @@ function modify_post_meta_for_rest($response, $post, $request) {
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
     );
 
     if (!empty($choices)) {
@@ -668,10 +626,10 @@ function filter_dynamic_meta_value($value, $source_name, $source_args, $block_in
 
     // Fetch all options dynamically if it matches our keys
     $dynamic_keys  = array_merge(
+        apply_filters('filter_wp_options_by_field_type', null, 'text'),
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
     );
 
@@ -718,11 +676,11 @@ function ace_delete_wp_option() {
 
         // Fetch all groups (dropdowns and true/false) using the filter
         $all_groups = array_merge(
+            apply_filters('filter_wp_options_by_field_type', null, 'text'),
             apply_filters('filter_wp_options_by_field_type', null, 'select'),
             apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
             apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
             apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-            apply_filters('filter_wp_options_by_field_type', null, 'buttons')
         );
 
         // Check if the group exists in the filtered options
@@ -746,16 +704,6 @@ function ace_delete_wp_option() {
 
 
 
-function ace_cleanup_nameless_true_false_fields() {
-    $true_false_fields = apply_filters('filter_wp_options_by_field_type', wp_load_alloptions(), 'truefalse');
-    
-    foreach ($true_false_fields as $field) {
-        if (empty($field['name'])) {
-            // Delete the option if it has no valid name
-        //    delete_option("choices_" . create_underscored_value($field['name']));
-        }
-    }
-}
 
 
 function get_all_acf_fields_and_types() {
@@ -875,12 +823,11 @@ function ace_field_options_acf_settings_page_html() {
     </table>
 
     <p><input type="submit" value="Import Selected Fields" class="button-primary" /></p>
-</form>
+    </form>
 
     </div>
     <?php
 }
-
 
 function get_acf_field_data_by_key($acf_field_key) {
     global $wpdb;
@@ -933,7 +880,6 @@ function get_acf_field_content_by_excerpt($field_key) {
     // If no result found, return null
     return null;
 }
-
 
 function handle_acf_import_submission() {
     // Validate user capabilities
@@ -1030,13 +976,6 @@ function handle_acf_import_submission() {
     exit;
 }
 
-
-
-
-
-
-
-
 function get_acf_sample_data($field_key) {
     global $wpdb;
 
@@ -1063,9 +1002,6 @@ function get_acf_sample_data($field_key) {
 
     return $sample_value;
 }
-
-
-
 
 function ace_determine_field_type($meta_value) {
     if (is_array($meta_value)) {
@@ -1277,13 +1213,6 @@ function ace_field_options_enqueue_settings_page_scripts() {
         );
 
 
-        wp_enqueue_script(
-            'acemedia-ajax',
-            plugins_url('/assets/js/ajax.js', __FILE__),
-            array('jquery'), // Dependencies
-            null, // Version
-            true // Load in footer
-        );
 
         wp_enqueue_style('wp-block-editor', includes_url('css/dist/block-editor.css'));
 
@@ -1432,8 +1361,7 @@ function ace_get_choices(WP_REST_Request $request) {
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'buttons')
+        apply_filters('filter_wp_options_by_field_type', null, 'radio')
     );
 
     if ($field_type) {
@@ -1534,22 +1462,6 @@ function register_field_tags_taxonomy() {
 add_action('init', 'register_field_tags_taxonomy');
 
 
-
-function block_binding_detector_enqueue() {
-    $asset_file = include( plugin_dir_path( __FILE__ ) . 'assets/js/editor.asset.php' );
-
-    wp_enqueue_script(
-        'block-binding-detector',
-        plugins_url( '/assets/js/editor.js', __FILE__ ),
-        $asset_file['dependencies'],
-        $asset_file['version'],
-        true
-    );
-
-    // Ensure that your script has access to translations, if needed.
-    wp_set_script_translations( 'block-binding-detector', 'devblog' );
-}
-//add_action( 'enqueue_block_editor_assets', 'block_binding_detector_enqueue' );
 
 
 ?>
