@@ -275,8 +275,6 @@ const handleChoicesChange = (newValue) => {
        // Add toolbar controls based on selectedFieldType
 const toolbarControls = (
     <ToolbarGroup>
-
-            // Otherwise, render the dropdown
             <Dropdown
                 popoverProps={{ position: 'bottom center' }}
                 renderToggle={({ isOpen, onToggle }) => (
@@ -337,7 +335,7 @@ const toolbarControls = (
                                     ...availableGroups.map(group => ({
                                         name: group.title,
                                         key: group.name,
-                                        description: group.field_type // Show field type as subtext
+                                        hint: group.field_type
                                     }))
                                 ]}
                                 onChange={({ selectedItem }) => setAttributes({
@@ -346,6 +344,7 @@ const toolbarControls = (
                                     choiceLabel: '',
                                     selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
                                 })}
+                                showSelectedHint = {true}
                             />
                         )}
                         {/* Render dynamic controls based on field type */}
@@ -372,7 +371,6 @@ const toolbarControls = (
                                         </>
                                     ),
                                     key: group.name,
-                                    description: group.description,
                                     hint: group.field_type
                                 }))
                             ]}
@@ -382,6 +380,7 @@ const toolbarControls = (
                                 choiceLabel: '',
                                 selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
                             })}
+                            showSelectedHint = 'true'
                         />
                         {selectedFieldType && (
                             <Text style={{ display: 'block', margin: '1em 0px' }}>{attributes.description}</Text>
