@@ -1,28 +1,9 @@
 import { useState, useEffect } from '@wordpress/element';
 import { render } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
-import { 
-    TextControl, 
-    SelectControl, 
-    TextareaControl, 
-    ToggleControl, 
-    Button, 
-    Card, 
-    CardHeader,
-    CardBody, 
-    Modal,
-    DropdownMenu,
-    MenuGroup,
-    MenuItem,
-    TagInput,
-    Tooltip,
-    Icon,
-    Flex, FlexItem, FlexBlock,
-    __experimentalConfirmDialog as ConfirmDialog
-} from '@wordpress/components';
-import { date } from '@wordpress/icons'; // You may need to add icons for other purposes
+import MainSettingsPanel from './MainSettingsPanel';
 
-import SaveBar from './SaveBar/SaveBar'; // Adjust the path as needed
+
 
 function createLowercaseUnderscored(string) {
     return string
@@ -157,16 +138,15 @@ const handleTextChange = (choice, field, newValue) => {
             name: field === 'title' && prevNewChoice.name === createLowercaseUnderscored(prevNewChoice.title)
                 ? createLowercaseUnderscored(newValue)
                 : prevNewChoice.name,
-                options: field === 'field_type' 
+            // Only set options if the field is 'field_type'
+            options: field === 'field_type'
                 ? (newValue === 'truefalse' ? getTrueFalseOptions() : getDefaultOptions())
-                : prevNewChoice.options,
+                : prevNewChoice.options, // Keep existing options if the field isn't 'field_type'
         }));
     } else {
         setChoices((prevChoices) => {
             const updatedChoices = [...prevChoices];
-            const choiceIndex = updatedChoices.findIndex(
-                (c) => c.name === choice.name
-            );
+            const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
 
             if (choiceIndex !== -1) {
                 if (field === 'name' && !choice.isNew) {
@@ -175,10 +155,11 @@ const handleTextChange = (choice, field, newValue) => {
 
                 updatedChoices[choiceIndex][field] = formattedValue;
 
-                if (field === 'field_type' && newValue === 'truefalse') {
-                    updatedChoices[choiceIndex].options = getTrueFalseOptions();
-                } else {
-                    updatedChoices[choiceIndex].options = getDefaultOptions();
+                // Update options only if the field is 'field_type'
+                if (field === 'field_type') {
+                    updatedChoices[choiceIndex].options = newValue === 'truefalse'
+                        ? getTrueFalseOptions()
+                        : getDefaultOptions();
                 }
 
                 markAsChanged(choice.name);
@@ -188,6 +169,7 @@ const handleTextChange = (choice, field, newValue) => {
         });
     }
 };
+
 
 
 
@@ -678,331 +660,71 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     };
     
 
-    const renderChoiceFields = (choice) => (
-        <>
-            
-            <TextControl
-            label="Group Title"
-            value={choice.title}
-            onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
-        />
-
-<TextControl
-    label="Group Name"
-    value={choice.name}
-    disabled={!isModalOpen && !choice.isNew} // Only disable when not in modal and not a new group
-    onChange={(newValue) => {
-        const formattedValue = createLowercaseUnderscored(newValue);
-        handleTextChange(choice, 'name', formattedValue);
-        setNewChoice((prevNewChoice) => ({
-            ...prevNewChoice,
-            name: formattedValue,
+    const [openIndexes, setOpenIndexes] = useState({});
+    
+    const toggleOpen = (index) => {
+        setOpenIndexes((prev) => ({
+            ...prev,
+            [index]: !prev[index],
         }));
-    }} // Allow manual updates and apply formatting
-/>
-
-            <SelectControl
-                label="Field Type"
-                value={choice.field_type}
-                options={[
-                    { label: 'Text', value: 'text' },
-                    { label: 'Select', value: 'select' },
-                    { label: 'Checkbox', value: 'checkbox' },
-                    { label: 'True/False', value: 'truefalse' },
-                    { label: 'Radio', value: 'radio' },
-                    { label: 'Buttons', value: 'buttons' },
-                ]}
-                onChange={(newValue) => handleTextChange(choice, 'field_type', newValue)} // Update choice's field_type directly
-            />
-            <TextareaControl
-                label="Description"
-                value={choice.description}
-                onChange={(newValue) => handleTextChange(choice, 'description', newValue)}
-            />
-            <ToggleControl
-    label="Show in REST API"
-    checked={choice.show_in_rest}
-    onChange={(newValue) => handleToggleChange(choice, newValue)}
-/>
-
-
-        <TextControl
-            label="Tags (comma-separated)"
-            value={choice.tags ? choice.tags.join(', ') : ''}
-            onChange={(newValue) => handleTagChange(choice, newValue.split(',').map(tag => tag.trim()))}
-        />
-
-
-
-
-        {/* Display tags and descriptions */}
-        {choice.tags_with_descriptions && choice.tags_with_descriptions.length > 0 && (
-            <div style={{ marginTop: '16px' }}>
-                <strong>Tags with Descriptions:</strong>
-                <ul>
-                    {choice.tags_with_descriptions.map((tag, index) => (
-                        <li key={index}>
-                            <strong>{tag.name}:</strong> {tag.description}
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        )}
-
-{choice.field_type !== 'text' && (
-<div style={{ marginTop: '16px' }}>
-            <strong>Options:</strong>
-            {choice.options.map((option, optionIndex) => (
-                <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <TextControl
-                        placeholder="Option Label"
-                        value={option.label}
-                        onChange={(value) => updateOption(choice, option, 'label', value)}
-                    />
-                    <TextControl
-    placeholder="Option Value"
-    value={option.value}
-    disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
-        onChange={(value) => updateOption(choice, option, 'value', value)}
-/>
-
-{choice.field_type !== 'truefalse' && (
-                    <Button
-                        isDestructive
-                        onClick={() => removeOption(choice, option)}
-                        disabled={choice.field_type === 'truefalse'} // Prevent removal of true/false options
-                    >
-                        Remove
-                    </Button>
-            )}
-                </div>
-            ))}
-            {choice.field_type !== 'truefalse' && (
-                <Button 
-                    isPrimary 
-                    onClick={() => {
-                        const option = isModalOpen ? null : choice;
-                        addOption(option);
-                    }}
-                >
-                    Add Option
-                </Button>
-            )}
-        </div>
-
-)}
-
-
-        </>
-    );
-    
-    const renderChoicesTable = () => {
-        const [openIndexes, setOpenIndexes] = useState({});
-    
-        const toggleOpen = (index) => {
-            setOpenIndexes((prev) => ({
-                ...prev,
-                [index]: !prev[index],
-            }));
-        };
-    
-        // Automatically open the new choice card and highlight it
-        useEffect(() => {
-            if (newlyAddedChoice) {
-                const newIndex = choices.findIndex((choice) => choice.name === newlyAddedChoice);
-                if (newIndex !== -1) {
-                    setOpenIndexes((prev) => ({
-                        ...prev,
-                        [newIndex]: true, // Open the card
-                    }));
-    
-                    // Remove the highlight after 3 seconds
-                    setTimeout(() => {
-                        setNewlyAddedChoice(null);
-                    }, 3000);
-                }
-            }
-        }, [newlyAddedChoice, choices]);
-    
-    
-        return (
-            <div>
-                <h2>Option Groups</h2>
-                {choices.map((choice, index) => (
-                    <Card 
-                    key={index} 
-                    style={{ 
-                        width: '100%', 
-                        marginBottom: '20px', 
-                        border: newlyAddedChoice === choice.name ? '2px solid #007cba' : 'none', // Add highlight
-                        transition: 'border 0.3s' // Smooth transition
-                    }}
-                    className={newlyAddedChoice === choice.name ? 'highlight' : ''} // Add highlight class
-                >
-                    <CardHeader
-                        onClick={() => toggleOpen(index)}
-                        style={{
-                            cursor: 'pointer',
-                            padding: '10px',
-                            backgroundColor: '#f5f5f5',
-                            borderBottom: '1px solid #ddd',
-                            borderRadius: '4px'
-                        }}
-                    >
-    <Flex justify="space-between" align="center" gap={2}>
-        {/* Left-aligned group name */}
-        <FlexItem>
-            <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
-                <Icon icon={
-                    choice.field_type === 'text' ? 'menu' :
-                    choice.field_type === 'select' ? 'menu' :
-                    choice.field_type === 'checkbox' ? 'yes-alt' :
-                    choice.field_type === 'truefalse' ? 'admin-site-alt3' :
-                    choice.field_type === 'radio' ? 'radio' :
-                    'admin-tools'
-                } />
-                <strong>{choice.title || `Group ${index + 1}`}</strong>
-            </Flex>
-        </FlexItem>
-
-        {/* Right-aligned metadata and tags */}
-        <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
-            {/* Metadata for created/edited times */}
-            {choice.created && (
-                <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }}>
-                    <Tooltip text={`Created at ${new Date(choice.created).toLocaleString()}`}>
-                        <p><strong>Created:</strong> {formatRelativeTime(choice.created)}</p>
-                    </Tooltip>
-                    <Tooltip text={`Last edited at ${new Date(choice.edited).toLocaleString()}`}>
-                        <p><strong>Last Edited:</strong> {formatRelativeTime(choice.edited)}</p>
-                    </Tooltip>
-                </div>
-            )}
-
-            {/* Display tags as styled spans */}
-            {choice.tags && choice.tags.length > 0 && (
-                <Flex align="left" wrap="nowrap" gap={1} style={{ textAlign: 'left', width: 'auto' }}>
-                    {choice.tags.map((tag, idx) => (
-                        <span 
-                            key={idx} 
-                            style={{
-                                backgroundColor: '#007cba',
-                                color: '#fff',
-                                padding: '2px 6px',
-                                borderRadius: '12px',
-                                fontSize: '0.75em',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            {tag}
-                        </span>
-                    ))}
-                </Flex>
-            )}
-        </Flex>
-    </Flex>
-</CardHeader>
-
-                        {openIndexes[index] && (
-                            <CardBody>
-                                {renderChoiceFields(choice)}
-                                <Button 
-                                    isDestructive 
-                                    onClick={() => openConfirmDialog(index, choice.name)}
-                                >
-                                    Delete Group
-                                </Button>
-                            </CardBody>
-                        )}
-                    </Card>
-                ))}
-            </div>
-        );
     };
 
+    // Automatically open the new choice card and highlight it
+    useEffect(() => {
+        if (newlyAddedChoice) {
+            const newIndex = choices.findIndex((choice) => choice.name === newlyAddedChoice);
+            if (newIndex !== -1) {
+                setOpenIndexes((prev) => ({
+                    ...prev,
+                    [newIndex]: true, // Open the card
+                }));
+
+                // Remove the highlight after 3 seconds
+                setTimeout(() => {
+                    setNewlyAddedChoice(null);
+                }, 3000);
+            }
+        }
+    }, [newlyAddedChoice, choices]);
+
+
+    
+
+
     return (
-        <div className="wrap">
-            <h1>Adaptive Content Enhancer Settings</h1>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <DropdownMenu
-                icon="sort"
-                label="Sort Options"
-                toggleProps={{ isPrimary: true }}
-            >
-                {({ onClose }) => (
-                    <MenuGroup label="Sort by">
-                        <MenuItem onClick={() => { handleSortChange('created'); onClose(); }}>Date Created</MenuItem>
-                        <MenuItem onClick={() => { handleSortChange('edited'); onClose(); }}>Date Edited</MenuItem>
-                        <MenuItem onClick={() => { handleSortChange('title'); onClose(); }}>Alphabetical</MenuItem>
-                    </MenuGroup>
-                )}
-            </DropdownMenu>
-
-            <SelectControl
-                label="Filter by Field Type"
-                value={fieldTypeFilter}
-                options={[
-                    { label: 'All Types', value: '' },
-                    { label: 'Text', value: 'text' },
-                    { label: 'Select', value: 'select' },
-                    { label: 'Checkbox', value: 'checkbox' },
-                    { label: 'True/False', value: 'truefalse' },
-                    { label: 'Radio', value: 'radio' },
-                    { label: 'Buttons', value: 'buttons' }
-                ]}
-                onChange={(newValue) => handleFieldTypeChange(newValue)}
-            />
-        </div>
-
-            {renderChoicesTable()}
-
-            {currentPage > 1 && (
-    <Button isSecondary onClick={handlePreviousPage}>
-        Previous
-    </Button>
-)}
-
-{currentPage < totalPages && (
-    <Button isSecondary onClick={handleNextPage}>
-        Next
-    </Button>
-)}
-
-
-<SaveBar 
-    onSave={handleSave} 
-    setUnsavedChanges={setUnsavedChanges} 
-    unsavedChanges={unsavedChanges} // Pass unsavedChanges as a prop
->
-                <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup}>Add Options</Button>
-            </SaveBar>
-
-            {/* Modal for adding new choice group */}
-            {isModalOpen && (
-                <Modal
-                    title="Add New Choice Group"
-                    onRequestClose={() => setIsModalOpen(false)}
-                    size='large'
-                    focusOnMount='firstContentElement' 
-                >
-                    {renderChoiceFields(newChoice)} {/* Render the new choice fields */}
-                    <Button isPrimary variant='primary' onClick={handleModalSubmit}>Add Group</Button>
-                </Modal>
-            )}
-
-{isConfirmDialogOpen && (
-    <ConfirmDialog
-        isOpen={isConfirmDialogOpen}
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
-        confirmButtonText="Yes, Delete"
-        cancelButtonText="Cancel"
-    >
-        Are you sure? <strong>This action cannot be undone!</strong>
-    </ConfirmDialog>
-)}
-        </div>
+        <MainSettingsPanel
+            choices={choices}
+            newlyAddedChoice={newlyAddedChoice}
+            openIndexes={openIndexes}
+            toggleOpen={toggleOpen}
+            handleTextChange={handleTextChange}
+            handleToggleChange={handleToggleChange}
+            handleTagChange={handleTagChange}
+            updateOption={updateOption}
+            removeOption={removeOption}
+            addOption={addOption}
+            handleSortChange={handleSortChange}
+            handleFieldTypeChange={handleFieldTypeChange}
+            fieldTypeFilter={fieldTypeFilter}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            handlePreviousPage={handlePreviousPage}
+            handleNextPage={handleNextPage}
+            handleSave={handleSave}
+            setUnsavedChanges={setUnsavedChanges}
+            unsavedChanges={unsavedChanges}
+            handleAddChoiceGroup={handleAddChoiceGroup}
+            isModalOpen={isModalOpen}
+            setIsModalOpen={setIsModalOpen}
+            newChoice={newChoice}
+            handleModalSubmit={handleModalSubmit}
+            isConfirmDialogOpen={isConfirmDialogOpen}
+            setIsConfirmDialogOpen={setIsConfirmDialogOpen}
+            handleConfirmDelete={handleConfirmDelete}
+            handleCancelDelete={handleCancelDelete}
+            openConfirmDialog={openConfirmDialog}
+            formatRelativeTime={formatRelativeTime}
+        />
     );
 };
 
