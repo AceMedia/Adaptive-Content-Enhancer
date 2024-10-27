@@ -113,6 +113,7 @@ const ChoiceCards = ({
                             addOption={addOption}
                             isModalOpen={isModalOpen}
                         />
+                        
                         <Button isDestructive onClick={() => openConfirmDialog(index, choice.name)}>
                             Delete Group
                         </Button>

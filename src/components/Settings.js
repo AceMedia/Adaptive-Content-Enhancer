@@ -1,4 +1,5 @@
 import { useState, useEffect } from '@wordpress/element';
+import { ConfirmDialog } from '@wordpress/components';
 import { render } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
 import MainSettingsPanel from './MainSettingsPanel';
@@ -453,41 +454,35 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     
 
     const openConfirmDialog = (index, groupName) => {
-        setChoiceToDelete({ index, groupName });
-        setIsConfirmDialogOpen(true);
+        console.log('Opening confirm dialog:', index, groupName); // Debugging line
+        const confirmDelete = window.confirm(`Are you sure you want to delete ${groupName}? This action cannot be undone!`);
+        if (confirmDelete) {
+            handleConfirmDelete(index, groupName);
+        }
     };
     
-    const handleConfirmDelete = () => {
-        const { index, groupName } = choiceToDelete;
+    const handleConfirmDelete = (index, groupName) => {
+        console.log('Deleting choice:', groupName); // Debugging line
+    
         const processedGroupName = createLowercaseUnderscored(groupName);
         const optionName = 'choices_' + processedGroupName;
     
         apiFetch({
             path: '/ace/v1/delete-option',
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                option_name: optionName,
-                _wpnonce: aceAjax.nonce,
-            }),
-        }).then((response) => {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ option_name: optionName, _wpnonce: aceAjax.nonce })
+        })
+        .then((response) => {
             if (response.success) {
-                alert('Group removed successfully!');
-                setChoices(choices.filter((_, i) => i !== index));
+                setChoices((prevChoices) => prevChoices.filter((_, i) => i !== index));
             } else {
-                alert('Failed to remove group. Please try again.');
-                console.error('Error:', response.error);
+                console.error('Failed to remove group:', response.error);
             }
-        }).catch((error) => {
-            console.error('Error removing group:', error);
-            alert('An error occurred. Please try again.');
-        });
-    
-        setIsConfirmDialogOpen(false);
-        setChoiceToDelete(null);
+        })
+        .catch((error) => console.error('Error removing group:', error));
     };
+    
     
     const handleCancelDelete = () => {
         setIsConfirmDialogOpen(false);
@@ -690,42 +685,52 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
 
     
 
-
     return (
-        <MainSettingsPanel
-            choices={choices}
-            newlyAddedChoice={newlyAddedChoice}
-            openIndexes={openIndexes}
-            toggleOpen={toggleOpen}
-            handleTextChange={handleTextChange}
-            handleToggleChange={handleToggleChange}
-            handleTagChange={handleTagChange}
-            updateOption={updateOption}
-            removeOption={removeOption}
-            addOption={addOption}
-            handleSortChange={handleSortChange}
-            handleFieldTypeChange={handleFieldTypeChange}
-            fieldTypeFilter={fieldTypeFilter}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            handlePreviousPage={handlePreviousPage}
-            handleNextPage={handleNextPage}
-            handleSave={handleSave}
-            setUnsavedChanges={setUnsavedChanges}
-            unsavedChanges={unsavedChanges}
-            handleAddChoiceGroup={handleAddChoiceGroup}
-            isModalOpen={isModalOpen}
-            setIsModalOpen={setIsModalOpen}
-            newChoice={newChoice}
-            handleModalSubmit={handleModalSubmit}
-            isConfirmDialogOpen={isConfirmDialogOpen}
-            setIsConfirmDialogOpen={setIsConfirmDialogOpen}
-            handleConfirmDelete={handleConfirmDelete}
-            handleCancelDelete={handleCancelDelete}
-            openConfirmDialog={openConfirmDialog}
-            formatRelativeTime={formatRelativeTime}
-        />
+        <>
+            <MainSettingsPanel
+                choices={choices}
+                newlyAddedChoice={newlyAddedChoice}
+                openIndexes={openIndexes}
+                toggleOpen={toggleOpen}
+                handleTextChange={handleTextChange}
+                handleToggleChange={handleToggleChange}
+                handleTagChange={handleTagChange}
+                updateOption={updateOption}
+                removeOption={removeOption}
+                addOption={addOption}
+                handleSortChange={handleSortChange}
+                handleFieldTypeChange={handleFieldTypeChange}
+                fieldTypeFilter={fieldTypeFilter}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                handlePreviousPage={handlePreviousPage}
+                handleNextPage={handleNextPage}
+                handleSave={handleSave}
+                setUnsavedChanges={setUnsavedChanges}
+                unsavedChanges={unsavedChanges}
+                handleAddChoiceGroup={handleAddChoiceGroup}
+                isModalOpen={isModalOpen}
+                setIsModalOpen={setIsModalOpen}
+                newChoice={newChoice}
+                handleModalSubmit={handleModalSubmit}
+                openConfirmDialog={openConfirmDialog}
+                formatRelativeTime={formatRelativeTime}
+            />
+    
+    {isConfirmDialogOpen && choiceToDelete && (
+                <ConfirmDialog
+                    isOpen={isConfirmDialogOpen}
+                    onConfirm={handleConfirmDelete}
+                    onCancel={handleCancelDelete}
+                    confirmButtonText="Yes, Delete"
+                    cancelButtonText="Cancel"
+                >
+                    Are you sure you want to delete <strong>{choiceToDelete.groupName}</strong>? This action cannot be undone!
+                </ConfirmDialog>
+            )}
+        </>
     );
+    
 };
 
 // Render the component to the admin settings page

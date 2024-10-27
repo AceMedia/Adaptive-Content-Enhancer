@@ -1,4 +1,4 @@
-import { Button, Modal, ConfirmDialog } from '@wordpress/components';
+import { Button, Modal } from '@wordpress/components';
 import SideBar from './SideBar';
 import ChoiceCards from './ChoiceCards'; // Adjust path as necessary
 import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
@@ -30,10 +30,6 @@ const MainSettingsPanel = ({
     setIsModalOpen,
     newChoice,
     handleModalSubmit,
-    isConfirmDialogOpen,
-    setIsConfirmDialogOpen,
-    handleConfirmDelete,
-    handleCancelDelete,
     openConfirmDialog,
     formatRelativeTime,
 }) => (
@@ -104,6 +100,7 @@ const MainSettingsPanel = ({
                     removeOption={removeOption}
                     addOption={addOption}
                     isModalOpen={isModalOpen}
+                    openConfirmDialog={openConfirmDialog}
                 />
                 <Button isPrimary variant="primary" onClick={handleModalSubmit}>
                     Add Group
@@ -111,18 +108,7 @@ const MainSettingsPanel = ({
             </Modal>
         )}
 
-        {/* Confirmation Dialog */}
-        {isConfirmDialogOpen && (
-            <ConfirmDialog
-                isOpen={isConfirmDialogOpen}
-                onConfirm={handleConfirmDelete}
-                onCancel={handleCancelDelete}
-                confirmButtonText="Yes, Delete"
-                cancelButtonText="Cancel"
-            >
-                Are you sure? <strong>This action cannot be undone!</strong>
-            </ConfirmDialog>
-        )}
+
     </div>
 );
 
