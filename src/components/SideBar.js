@@ -1,4 +1,8 @@
-import { SelectControl, __experimentalRadio as Radio, __experimentalRadioGroup as RadioGroup } from '@wordpress/components';
+import { 
+    SelectControl, 
+    __experimentalToggleGroupControl as ToggleGroupControl,
+    __experimentalToggleGroupControlOption as ToggleGroupControlOption 
+} from '@wordpress/components';
 import PropTypes from 'prop-types';
 
 const SideBar = ({ 
@@ -12,31 +16,27 @@ const SideBar = ({
             <div>
                 <div style={{ marginBottom: '8px' }}>Sort by:</div>
                 
-                <RadioGroup 
+                <ToggleGroupControl
                     label="Sort by"
+                    value="created"
                     onChange={handleSortChange}
-                    checked={sortBy}
+                    isBlock
+                    __nextHasNoMarginBottom
                     defaultChecked="created"
                 >
-                    <Radio 
-                        __next40pxDefaultSize 
-                        value="created"
-                    >
-                        Date Created
-                    </Radio>
-                    <Radio 
-                        __next40pxDefaultSize 
-                        value="edited"
-                    >
-                        Date Edited
-                    </Radio>
-                    <Radio 
-                        __next40pxDefaultSize 
-                        value="title"
-                    >
-                        Alphabetical
-                    </Radio>
-                </RadioGroup>
+                    <ToggleGroupControlOption 
+                        value="created" 
+                        label="Date Created" 
+                    />
+                    <ToggleGroupControlOption 
+                        value="edited" 
+                        label="Date Edited" 
+                    />
+                    <ToggleGroupControlOption 
+                        value="title" 
+                        label="Alphabetical" 
+                    />
+                </ToggleGroupControl>
             </div>
 
             <SelectControl
