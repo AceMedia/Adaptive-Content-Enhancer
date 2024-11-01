@@ -1,4 +1,4 @@
-import { Button, Modal } from '@wordpress/components';
+import { Button, Modal, Flex, FlexBlock, FlexItem } from '@wordpress/components';
 import SideBar from './SideBar';
 import ChoiceCards from './ChoiceCards'; // Adjust path as necessary
 import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
@@ -36,41 +36,49 @@ const MainSettingsPanel = ({
     <div className="wrap">
         <h1>Adaptive Content Enhancer Settings</h1>
 
-        {/* Sidebar */}
-        <SideBar 
-            handleSortChange={handleSortChange} 
-            fieldTypeFilter={fieldTypeFilter} 
-            handleFieldTypeChange={handleFieldTypeChange} 
-        />
+        <Flex gap={4}>
+                        <FlexItem style={{ alignSelf: 'flex-start' }}>
+                            <SideBar 
+                                handleSortChange={handleSortChange} 
+                                fieldTypeFilter={fieldTypeFilter} 
+                                handleFieldTypeChange={handleFieldTypeChange} 
+                            />
+                        </FlexItem>
 
-        {/* Choice Cards */}
-        <ChoiceCards
-            choices={choices}
-            newlyAddedChoice={newlyAddedChoice}
-            openIndexes={openIndexes}
-            toggleOpen={toggleOpen}
-            handleTextChange={handleTextChange}
-            handleToggleChange={handleToggleChange}
-            handleTagChange={handleTagChange}
-            updateOption={updateOption}
-            removeOption={removeOption}
-            addOption={addOption}
-            isModalOpen={isModalOpen}
-            openConfirmDialog={openConfirmDialog}
-            formatRelativeTime={formatRelativeTime}
-        />
 
-        {/* Pagination Buttons */}
-        {currentPage > 1 && (
-            <Button isSecondary onClick={handlePreviousPage}>
-                Previous
-            </Button>
-        )}
-        {currentPage < totalPages && (
-            <Button isSecondary onClick={handleNextPage}>
-                Next
-            </Button>
-        )}
+            <FlexBlock>
+                {/* Choice Cards */}
+                <ChoiceCards
+                    choices={choices}
+                    newlyAddedChoice={newlyAddedChoice}
+                    openIndexes={openIndexes}
+                    toggleOpen={toggleOpen}
+                    handleTextChange={handleTextChange}
+                    handleToggleChange={handleToggleChange}
+                    handleTagChange={handleTagChange}
+                    updateOption={updateOption}
+                    removeOption={removeOption}
+                    addOption={addOption}
+                    isModalOpen={isModalOpen}
+                    openConfirmDialog={openConfirmDialog}
+                    formatRelativeTime={formatRelativeTime}
+                />
+
+                {/* Pagination Buttons */}
+                <Flex justify="flex-start" gap={2}>
+                    {currentPage > 1 && (
+                        <Button isSecondary onClick={handlePreviousPage}>
+                            Previous
+                        </Button>
+                    )}
+                    {currentPage < totalPages && (
+                        <Button isSecondary onClick={handleNextPage}>
+                            Next
+                        </Button>
+                    )}
+                </Flex>
+            </FlexBlock>
+        </Flex>
 
         {/* Save Bar */}
         <SaveBar 
@@ -107,9 +115,10 @@ const MainSettingsPanel = ({
                 </Button>
             </Modal>
         )}
-
-
     </div>
 );
+
+
+
 
 export default MainSettingsPanel;
