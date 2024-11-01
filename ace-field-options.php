@@ -18,8 +18,8 @@ add_action('admin_post_import_acf_fields', 'handle_acf_import_submission');
 
 function ace_field_options_admin_menu() {
     add_menu_page(
-        'Options',
-        'Options',
+        'Fields',
+        'Fields',
         'manage_options',
         'adaptive-content-enhancer',
         'adaptive_content_enhancer_choices_page_react',
@@ -1341,7 +1341,7 @@ function ace_save_options(WP_REST_Request $request) {
     }
 
     return new WP_REST_Response(array(
-        'success' => 'Options saved successfully',
+        'success' => 'Fields saved successfully',
         'updated_choices' => $updated_choice_names, // Return the updated names
     ), 200);
 }
