@@ -11,13 +11,13 @@
         "dev-js": "wp-scripts start --watch",
         "build-css": "sass src/styles/scss:assets/styles --no-source-map",
         "clean-assets": "rm -rf assets/js && mkdir -p assets/js",
-        "watch-css": "chokidar 'src/**/*.scss' -c 'npm run build-css'",    
+        "watch-css": "chokidar 'src/**/*.scss' -c 'npm run build-css'",
         "format": "wp-scripts format",
         "lint:css": "wp-scripts lint-style",
         "lint:js": "wp-scripts lint-js",
         "packages-update": "wp-scripts packages-update",
         "plugin-zip": "wp-scripts plugin-zip",
-         "start": "npm-run-all dev-js watch-css"
+        "start": "npm-run-all dev-js watch-css"
     },
     "devDependencies": {
         "@wordpress/icons": "^10.10.0",
@@ -33,5 +33,10 @@
         "README.md",
         "ace-field-options.php",
         "assets"
-    ]
+    ],
+    "dependencies": {
+        "@fortawesome/fontawesome-svg-core": "^6.6.0",
+        "@fortawesome/free-solid-svg-icons": "^6.6.0",
+        "@fortawesome/react-fontawesome": "^0.2.2"
+    }
 }

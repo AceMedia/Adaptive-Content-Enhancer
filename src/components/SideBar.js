@@ -7,25 +7,22 @@ import {
 } from '@wordpress/components';
 import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
-import { Icon, filter, info } from '@wordpress/icons';
+import { Icon, filter, info, formatCapitalize } from '@wordpress/icons';
 
 const SearchComponent = ({ searchQuery, handleSearchChange }) => {
     return (
-        <TextControl
-            label="Search Fields"
+        <input
+            type="text"
             value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder="Type to search..."
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search..."
+            style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
         />
     );
 };
 
+
 const FieldSettingsOverview = ({ fields, formatRelativeTime, groupBy }) => {
-    console.log('FieldSettingsOverview props:', {
-        fieldsCount: fields.length,
-        groupBy,
-        sampleField: fields[0]
-    });
 
  
 
@@ -88,17 +85,22 @@ const FieldSettingsOverview = ({ fields, formatRelativeTime, groupBy }) => {
     );
 };
 
+
+
 const SideBar = ({ 
     handleSortChange, 
     sortBy, 
     fieldTypeFilter, 
-    setFieldTypeFilter, // Accept the setter function
+    setFieldTypeFilter, 
+    handleSearchChange,
+    searchQuery,
+    tagFilter, // Accept the setter function
+    tags,
+    setTagFilter, // Accept the setter function
     groupBy,
     handleGroupByChange,
-    searchQuery,
-    handleSearchChange,
     fields,
-    formatRelativeTime
+    formatRelativeTime,
 }) => {
     const handleFieldTypeChange = (selectedType) => {
         setFieldTypeFilter(prev => {
@@ -113,11 +115,24 @@ const SideBar = ({
         });
     };
 
+    const handleTagChange = (selectedTag) => {
+        setTagFilter(prev => {
+            if (selectedTag === '') {
+                return ['']; // Reset filter and set "All Tags" as active
+            }
+            if (prev.includes(selectedTag)) {
+                const newFilter = prev.filter(tag => tag !== selectedTag);
+                return newFilter.length === 0 ? [''] : newFilter; // If no filters left, set "All Tags"
+            }
+            return [...prev.filter(tag => tag !== ''), selectedTag]; // Add tag and remove "All Tags"
+        });
+    };
+
 
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <SearchComponent 
+           <SearchComponent 
                 searchQuery={searchQuery} 
                 handleSearchChange={handleSearchChange} 
             />
@@ -166,6 +181,25 @@ const SideBar = ({
             </div>
         </PanelBody>
 
+
+        <PanelBody icon={filter} title="Filter by Tags" initialOpen={true}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {[
+                        { label: 'All Tags', value: '' },
+                        ...Object.keys(tags).map(tag => ({ label: tag, value: tag }))
+                    ].map((option) => (
+                        <Button
+                            key={option.value}
+                            isPressed={tagFilter.includes(option.value)}
+                            onClick={() => handleTagChange(option.value)}
+                            className="toggle-button"
+                        >
+                            {option.label}
+                        </Button>
+                    ))}
+                </div>
+            </PanelBody>
+
             <PanelBody icon={filter} title="Group by" initialOpen={false}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     {[
@@ -196,12 +230,15 @@ const SideBar = ({
 SideBar.propTypes = {
     handleSortChange: PropTypes.func.isRequired,
     sortBy: PropTypes.string.isRequired,
-    fieldTypeFilter: PropTypes.string.isRequired,
-    handleFieldTypeChange: PropTypes.func.isRequired,
+    fieldTypeFilter: PropTypes.array.isRequired,
+    setFieldTypeFilter: PropTypes.func.isRequired,
+    tagFilter: PropTypes.array.isRequired,
+    setTagFilter: PropTypes.func.isRequired,
+    tags: PropTypes.object, // Update to be optional
     groupBy: PropTypes.string.isRequired,
     handleGroupByChange: PropTypes.func.isRequired,
-    searchQuery: PropTypes.string.isRequired,
     handleSearchChange: PropTypes.func.isRequired,
+    searchQuery: PropTypes.string.isRequired,
     fields: PropTypes.arrayOf(
         PropTypes.shape({
             name: PropTypes.string.isRequired,
@@ -212,5 +249,6 @@ SideBar.propTypes = {
     ).isRequired,
     formatRelativeTime: PropTypes.func.isRequired,
 };
+
 
 export default SideBar;

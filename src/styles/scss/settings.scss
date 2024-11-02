@@ -88,6 +88,7 @@ table {
         }
         .components-panel__body {
             padding: 0px;
+            border: none !important;
         }
     }
 
@@ -117,7 +118,7 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
             margin: 0px;
             font-size: 1em;
         }
-        .dashicons {
+        .icon {
             margin-left: -.5em;
             margin-right: 5px;
             background: rgba(248, 250, 252, 1);
@@ -132,6 +133,10 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
             align-items: center;
             text-align: center;
             width: 40px;
+            text-align: center;
+            svg {
+                margin: auto;
+            }
             &::before {
                 flex: auto;
             }
@@ -233,6 +238,7 @@ label {
 .components-panel__body.is-opened > .components-panel__body-title {
     margin: 0px;
     .components-panel__icon {
+        flex: none;
         float: left;
         display: block;
     }

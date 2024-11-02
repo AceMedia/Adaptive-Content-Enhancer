@@ -1,6 +1,17 @@
 import { Card, CardHeader, CardBody, Button, Flex, FlexItem, Tooltip, Icon } from '@wordpress/components';
 import ChoiceFields from './ChoiceFields';
 import PropTypes from 'prop-types';
+import {
+    formatCapitalize,
+    arrowDownAlt2,
+    forms,
+    yesAlt,
+    radio,
+    adminTools
+} from '@wordpress/icons';
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown } from '@fortawesome/free-solid-svg-icons';
 
 const ChoiceCards = ({
     choices,
@@ -20,8 +31,16 @@ const ChoiceCards = ({
     sortBy = 'edited',
 }) => {
 
-    console.log('ChoiceCards received sortBy:', sortBy); // Debug statement
 
+    const fieldTypeIcons = {
+        text: faFont,
+        checkbox: faCheckSquare,
+        select: faSquareCaretDown,
+        radio: faCircleDot,
+        truefalse: faToggleOn,
+    };
+
+    
     // Sort choices by edited date and then group them
     const sortedChoices = [...choices].sort((a, b) => {
         switch(sortBy) {
@@ -68,21 +87,9 @@ const ChoiceCards = ({
                                 <Flex justify="space-between" align="center" gap={2}>
                                     <FlexItem>
                                         <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
-                                            <Icon
-                                                icon={
-                                                    choice.field_type === 'text'
-                                                        ? 'menu'
-                                                        : choice.field_type === 'select'
-                                                        ? 'menu'
-                                                        : choice.field_type === 'checkbox'
-                                                        ? 'yes-alt'
-                                                        : choice.field_type === 'truefalse'
-                                                        ? 'admin-site-alt3'
-                                                        : choice.field_type === 'radio'
-                                                        ? 'radio'
-                                                        : 'admin-tools'
-                                                }
-                                            />
+                                            <span className='icon'>
+                                            <FontAwesomeIcon icon={fieldTypeIcons[choice.field_type] || fieldTypeIcons.default} />
+                                        </span>
                                             <h2>{choice.title || `Group ${index + 1}`}</h2>
                                         </Flex>
                                     </FlexItem>

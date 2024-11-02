@@ -1365,7 +1365,8 @@ function ace_get_choices(WP_REST_Request $request) {
     $per_page = (int) $request->get_param('per_page') ?: 10;
     $sort_by = $request->get_param('sort') ?: 'edited';
     $field_type = $request->get_param('field_type');
-    $choice_name = $request->get_param('choice_name'); // New parameter
+    $tags = $request->get_param('tags');
+    $search_query = $request->get_param('search_query'); // New parameter
 
     $offset = ($page - 1) * $per_page;
 
@@ -1384,6 +1385,25 @@ function ace_get_choices(WP_REST_Request $request) {
         });
     }
 
+    if ($tags) {
+        $tag_list = explode(',', $tags); // Split the tags by comma
+        $choices = array_filter($choices, function($choice) use ($tag_list) {
+            return isset($choice['tags']) && array_intersect($choice['tags'], $tag_list);
+        });
+    }
+
+    if ($search_query && strlen($search_query) >= 3) {
+        $choices = array_filter($choices, function($choice) use ($search_query) {
+            $search_query = strtolower($search_query);
+            return strpos(strtolower($choice['name']), $search_query) !== false ||
+                   strpos(strtolower($choice['field_type']), $search_query) !== false ||
+                   (isset($choice['description']) && strpos(strtolower($choice['description']), $search_query) !== false) ||
+                   (isset($choice['tags']) && array_filter($choice['tags'], function($tag) use ($search_query) {
+                       return strpos(strtolower($tag), $search_query) !== false;
+                   }));
+        });
+    }
+
     usort($choices, function($a, $b) use ($sort_by) {
         switch ($sort_by) {
             case 'created':
@@ -1398,19 +1418,6 @@ function ace_get_choices(WP_REST_Request $request) {
                 return 0;
         }
     });
-
-    if ($choice_name) {
-        $choice = array_filter($choices, function($choice) use ($choice_name) {
-            return $choice['name'] === $choice_name;
-        });
-
-        if (!empty($choice)) {
-            $choice = array_values($choice)[0]; // Get the first match
-            return new WP_REST_Response(['choices' => [$choice]], 200);
-        } else {
-            return new WP_REST_Response(['error' => 'Choice not found'], 404);
-        }
-    }
 
     $total_choices = count($choices);
     $paginated_choices = array_slice($choices, $offset, $per_page);
@@ -1445,6 +1452,7 @@ function ace_get_choices(WP_REST_Request $request) {
             return $choice;
         }, $paginated_choices),
         'totalPages' => $total_pages,
+        'tags' => $tags_with_descriptions // Include tags in the response
     ];
 
     return new WP_REST_Response($response_data, 200);

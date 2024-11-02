@@ -33,7 +33,12 @@ const MainSettingsPanel = ({
     handleModalSubmit,
     openConfirmDialog,
     formatRelativeTime,
-    setFieldTypeFilter
+    setFieldTypeFilter,
+    tagFilter,
+    setTagFilter, // Accept the setter function
+    tags, 
+    searchQuery,
+    handleSearchChange,
 }) => {
     // Define the groupBy state and its handler
     const [groupBy, setGroupBy] = useState('nothing'); // Default grouping option
@@ -66,20 +71,23 @@ const MainSettingsPanel = ({
                 <FlexItem style={{ alignSelf: 'flex-start', maxWidth: '25%' }} className="side-panel">
                     <SettingsHeader handleAddChoiceGroup={handleAddChoiceGroup} />
                     <SideBar 
-                        fields={choices} 
-                        handleSortChange={handleSortChange} 
-                        fieldTypeFilter={fieldTypeFilter} 
-                        handleFieldTypeChange={handleFieldTypeChange} 
-                        formatRelativeTime={formatRelativeTime} 
-                        groupBy={groupBy}
-                        handleGroupByChange={handleGroupByChange} // Pass the handler
+                        handleSortChange={handleSortChange}
                         sortBy={sortBy}
-                        setFieldTypeFilter={setFieldTypeFilter} // Pass the setter function
-
+                        fieldTypeFilter={fieldTypeFilter}
+                        setFieldTypeFilter={setFieldTypeFilter}
+                        tagFilter={tagFilter}
+                        setTagFilter={setTagFilter} // Pass the setter function
+                        tags={tags} // Pass the tags state
+                        groupBy={groupBy}
+                        handleGroupByChange={handleGroupByChange}
+                        fields={choices}
+                        formatRelativeTime={formatRelativeTime}
+                        searchQuery={searchQuery}
+                        handleSearchChange={handleSearchChange} 
                     />
                 </FlexItem>
 
-                <FlexBlock>
+                <FlexBlock style={{ alignSelf: 'flex-start' }} >
                     {/* Choice Cards */}
                     <ChoiceCards
                         choices={choices}

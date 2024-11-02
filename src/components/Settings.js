@@ -39,6 +39,14 @@ const [choiceToDelete, setChoiceToDelete] = useState(null);
 const [unsavedChanges, setUnsavedChanges] = useState(false);
 const [newlyAddedChoice, setNewlyAddedChoice] = useState(null); // Track newly added choice
 const [groupBy, setGroupBy] = useState('field_type'); // Default grouping by 'type'
+const [tagFilter, setTagFilter] = useState(['']); // Default to "All Tags"
+const [tags, setTags] = useState([]);
+const [searchQuery, setSearchQuery] = useState(''); // State to store search query
+
+
+const handleSearchChange = (query) => {
+    setSearchQuery(query);
+};
 
 const choicesWithDates = choices.map((choice) => ({
     ...choice,
@@ -51,7 +59,6 @@ const handleFieldTypeChange = (selectedType) => {
 };
 
 const handleGroupByChange = (groupOption) => {
-    console.log('Group option changed to:', groupOption);
     setGroupBy(groupOption); // Update the grouping state
 };
 
@@ -82,7 +89,6 @@ const sortChoices = (choices, sortBy) => {
 };
 
 useEffect(() => {
-    console.log('Applying initial sort by:', sortBy); // Debug statement
     const sortedChoices = sortChoices(choices, sortBy);
     setChoices(sortedChoices);
 }, [choices, sortBy]); 
@@ -347,36 +353,41 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
 
    
     
-    const fetchChoices = ({ navigateToLastPage = false } = {}) => {
-        const fieldTypeQuery = fieldTypeFilter.length === 0 || fieldTypeFilter.includes('') ? '' : fieldTypeFilter.join(',');
-    
-        apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeQuery}` })
-            .then((response) => {
-                const { choices: fetchedChoices, totalPages: updatedTotalPages } = response;
-    
-                const updatedChoices = fetchedChoices.map(choice => ({
-                    ...choice,
-                    modifiedAt: choice.edited || choice.created,
-                    options: (choice.options || []).map(option => ({
-                        ...option,
-                        disabled: true
-                    }))
-                }));
-    
-                // Apply sorting before setting state
-                setChoices(sortChoices(updatedChoices, sortBy));
-                setTotalPages(updatedTotalPages);
-                if (navigateToLastPage) {
-                    setCurrentPage(updatedTotalPages); // Navigate to the last page
-                }
-            })
-            .catch((error) => console.error('Error fetching choices:', error));
-    };
-    
-    // Ensure fetchChoices is called when fieldTypeFilter changes
-    useEffect(() => {
-        fetchChoices();
-    }, [fieldTypeFilter, currentPage, sortBy]);
+  // In Settings.js
+// In Settings.js
+const fetchChoices = ({ navigateToLastPage = false } = {}) => {
+    const fieldTypeQuery = fieldTypeFilter.length === 0 || fieldTypeFilter.includes('') ? '' : fieldTypeFilter.join(',');
+    const tagQuery = tagFilter.length === 0 || tagFilter.includes('') ? '' : tagFilter.join(',');
+    const searchQueryParam = searchQuery.length >= 3 ? `&search_query=${searchQuery}` : '';
+
+    apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeQuery}&tags=${tagQuery}${searchQueryParam}` })
+        .then((response) => {
+            const { choices: fetchedChoices, totalPages: updatedTotalPages, tags: fetchedTags } = response;
+
+            const updatedChoices = fetchedChoices.map(choice => ({
+                ...choice,
+                modifiedAt: choice.edited || choice.created,
+                options: (choice.options || []).map(option => ({
+                    ...option,
+                    disabled: true
+                }))
+            }));
+
+            // Apply sorting before setting state
+            setChoices(sortChoices(updatedChoices, sortBy));
+            setTotalPages(updatedTotalPages);
+            setTags(fetchedTags); // Set the fetched tags
+            if (navigateToLastPage) {
+                setCurrentPage(updatedTotalPages); // Navigate to the last page
+            }
+        })
+        .catch((error) => console.error('Error fetching choices:', error));
+};
+
+// Ensure fetchChoices is called when fieldTypeFilter, tagFilter, or searchQuery changes
+useEffect(() => {
+    fetchChoices();
+}, [fieldTypeFilter, tagFilter, searchQuery, currentPage, sortBy]);
     
 
     const handleAddChoiceGroup = () => {
@@ -444,7 +455,6 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     
 
     const openConfirmDialog = (index, groupName) => {
-        console.log('Opening confirm dialog:', index, groupName); // Debugging line
         const confirmDelete = window.confirm(`Are you sure you want to delete ${groupName}? This action cannot be undone!`);
         if (confirmDelete) {
             handleConfirmDelete(index, groupName);
@@ -452,7 +462,6 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     };
     
     const handleConfirmDelete = (index, groupName) => {
-        console.log('Deleting choice:', groupName); // Debugging line
     
         const processedGroupName = createLowercaseUnderscored(groupName);
         const optionName = 'choices_' + processedGroupName;
@@ -648,7 +657,6 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     const [openCardIds, setOpenCardIds] = useState([]); // Rename to be more specific
 
     const toggleOpen = (cardId) => {
-        console.log('Toggling open:', cardId); // Debugging line
         setOpenCardIds(prev => {
             const isOpen = prev.includes(cardId);
             return isOpen ? prev.filter(id => id !== cardId) : [cardId]; // Only keep clicked card ID
@@ -670,7 +678,6 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         }
     }, [newlyAddedChoice, choices]);
 
-    console.log(openCardIds);
 
     return (
         <>
@@ -682,6 +689,9 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                 newlyAddedChoice={newlyAddedChoice}
                 openIndexes={openCardIds}
                 toggleOpen={toggleOpen}
+                tagFilter={tagFilter}
+                setTagFilter={setTagFilter}
+                tags={tags}
                 setFieldTypeFilter={setFieldTypeFilter} // Pass the setter function
                 handleTextChange={handleTextChange}
                 handleToggleChange={handleToggleChange}
@@ -706,6 +716,8 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                 handleModalSubmit={handleModalSubmit}
                 openConfirmDialog={openConfirmDialog}
                 formatRelativeTime={formatRelativeTime}
+                searchQuery={searchQuery}
+                handleSearchChange={handleSearchChange} 
             />
     
     {isConfirmDialogOpen && choiceToDelete && (
