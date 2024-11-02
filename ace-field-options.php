@@ -404,7 +404,20 @@ function get_group_options($selected_group, $attributes) {
 
 
 
+function ace_field_options_admin_styles($hook) {
+    // Only load on plugin settings page
+    if ('toplevel_page_adaptive-content-enhancer' !== $hook) {
+        return;
+    }
 
+    wp_enqueue_style(
+        'ace-field-options-admin',
+        plugins_url('assets/styles/settings.css', __FILE__),
+        array(),
+        filemtime(plugin_dir_path(__FILE__) . 'assets/styles/settings.css')
+    );
+}
+add_action('admin_enqueue_scripts', 'ace_field_options_admin_styles');
 
 
 

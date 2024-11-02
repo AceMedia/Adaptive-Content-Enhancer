@@ -2,7 +2,6 @@ import { useState, useEffect } from '@wordpress/element';
 import { ConfirmDialog } from '@wordpress/components';
 import { render } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
-import MainSettingsPanel from './MainSettingsPanel';
 
 
 
@@ -12,6 +11,9 @@ function createLowercaseUnderscored(string) {
         .replace(/[^a-z0-9_ ]+/g, '') // Remove any character that is not a-z, 0-9, or space
         .replace(/\s+/g, '_'); // Replace spaces with underscores
 }
+
+import MainSettingsPanel from './MainSettingsPanel';
+
 
 const AdaptiveContentEnhancer = () => {
     const [choices, setChoices] = useState([]);
@@ -36,11 +38,21 @@ const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 const [choiceToDelete, setChoiceToDelete] = useState(null);
 const [unsavedChanges, setUnsavedChanges] = useState(false);
 const [newlyAddedChoice, setNewlyAddedChoice] = useState(null); // Track newly added choice
+const [groupBy, setGroupBy] = useState('field_type'); // Default grouping by 'type'
 
+const choicesWithDates = choices.map((choice) => ({
+    ...choice,
+    modifiedAt: choice.edited || choice.created, // Fallback if modifiedAt is missing
+}));
 
 const handleFieldTypeChange = (selectedType) => {
     setFieldTypeFilter(selectedType);
     setCurrentPage(1); // Reset to first page when filter changes
+};
+
+const handleGroupByChange = (groupOption) => {
+    console.log('Group option changed to:', groupOption);
+    setGroupBy(groupOption); // Update the grouping state
 };
 
 
@@ -266,7 +278,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         const interval = setInterval(() => {
             // Force a state update to refresh the relative times
             setChoices((prevChoices) => [...prevChoices]);
-        }, 1000);
+        }, 10000);
     
         // Cleanup interval on component unmount
         return () => clearInterval(interval);
@@ -342,11 +354,15 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeFilter}` })
             .then((response) => {
                 const { choices: fetchedChoices, totalPages: updatedTotalPages } = response;
-    
+        
                 const updatedChoices = fetchedChoices.map(choice => {
+                    // Calculate modifiedAt as the edited date if available, otherwise fall back to created date
+                    const modifiedAt = choice.edited || choice.created;
+    
                     if (choice.field_type === 'truefalse') {
                         return {
                             ...choice,
+                            modifiedAt,
                             true_label: choice.options?.find(option => option.value === '1')?.label || 'True',
                             false_label: choice.options?.find(option => option.value === '0')?.label || 'False'
                         };
@@ -361,11 +377,13 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                     return {
                         ...choice,
                         options: updatedOptions,
-                        created: choice.created, // Store created timestamp
-                        edited: choice.edited // Store edited timestamp
+                        created: choice.created,
+                        edited: choice.edited,
+                        modifiedAt // Store modifiedAt as the most recent date
                     };
                 });
     
+                // Apply sorting before setting state
                 setChoices(sortChoices(updatedChoices, sortBy));
                 setTotalPages(updatedTotalPages);
                 if (navigateToLastPage) {
@@ -378,6 +396,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             })
             .catch((error) => console.error('Error fetching choices:', error));
     };
+    
     
     
     
@@ -682,13 +701,12 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         }
     }, [newlyAddedChoice, choices]);
 
-
-    
-
     return (
         <>
             <MainSettingsPanel
-                choices={choices}
+                choices={choices} // Pass choices instead of trying to group here
+                groupBy={groupBy}
+                handleGroupByChange={handleGroupByChange}
                 newlyAddedChoice={newlyAddedChoice}
                 openIndexes={openIndexes}
                 toggleOpen={toggleOpen}

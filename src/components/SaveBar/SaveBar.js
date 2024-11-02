@@ -1,7 +1,6 @@
 import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
 import { Button, Flex, FlexItem, ToggleControl } from '@wordpress/components';
-import './SaveBar.scss'; // Import the SCSS styles
 
 const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText = "Save Settings" }) => {
     const [buttonText, setButtonText] = useState(saveText);
