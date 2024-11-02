@@ -17,7 +17,6 @@ const MainSettingsPanel = ({
     updateOption,
     removeOption,
     addOption,
-    handleSortChange,
     handleFieldTypeChange,
     fieldTypeFilter,
     currentPage,
@@ -37,9 +36,27 @@ const MainSettingsPanel = ({
 }) => {
     // Define the groupBy state and its handler
     const [groupBy, setGroupBy] = useState('nothing'); // Default grouping option
+    const [sortBy, setSortBy] = useState('title'); // or whatever default sort
 
     const handleGroupByChange = (newGroupBy) => {
         setGroupBy(newGroupBy);
+    };
+
+    const handleSortChange = (value) => {
+        setSortBy(value);
+    };
+
+    const sortChoices = (choices, sortBy) => {
+        return [...choices].sort((a, b) => {
+            switch(sortBy) {
+                case 'edited':
+                    return new Date(b.modified_time) - new Date(a.modified_time);
+                case 'title':
+                    return a.name.localeCompare(b.name);
+                default:
+                    return a.name.localeCompare(b.name);
+            }
+        });
     };
 
     return (
@@ -55,13 +72,14 @@ const MainSettingsPanel = ({
                         formatRelativeTime={formatRelativeTime} 
                         groupBy={groupBy}
                         handleGroupByChange={handleGroupByChange} // Pass the handler
+                        sortBy={sortBy}
                     />
                 </FlexItem>
 
                 <FlexBlock>
                     {/* Choice Cards */}
                     <ChoiceCards
-                        choices={choices}
+                        choices={sortChoices(choices, sortBy)}
                         groupBy={groupBy}  // Add this line
                         newlyAddedChoice={newlyAddedChoice}
                         openIndexes={openIndexes}
@@ -132,3 +150,5 @@ const MainSettingsPanel = ({
 };
 
 export default MainSettingsPanel;
+
+

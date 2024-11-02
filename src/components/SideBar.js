@@ -109,19 +109,19 @@ const SideBar = ({
 
             <ToggleGroupControl
                 label="Sort by"
-                value={sortBy}
+                value='edited'
                 onChange={handleSortChange}
                 defaultChecked="created"
                 isBlock
                 __nextHasNoMarginBottom
             >
                 <ToggleGroupControlOption 
-                    value="created" 
-                    label="Created" 
+                    value="edited" 
+                    label="Updated" 
                 />
                 <ToggleGroupControlOption 
-                    value="edited" 
-                    label="Edited" 
+                    value="created" 
+                    label="Created" 
                 />
                 <ToggleGroupControlOption 
                     value="title" 
