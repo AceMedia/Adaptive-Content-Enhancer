@@ -9,6 +9,23 @@ import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
 import { Icon, filter, info, formatCapitalize } from '@wordpress/icons';
 
+
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faCircleQuestion, faGlobe } from '@fortawesome/free-solid-svg-icons';
+
+
+
+const fieldTypeIcons = {
+    text: faFont,
+    checkbox: faCheckSquare,
+    select: faSquareCaretDown,
+    radio: faCircleDot,
+    truefalse: faToggleOn,
+    default: faGlobe,
+};
+
+
 const SearchComponent = ({ searchQuery, handleSearchChange }) => {
     return (
         <input
@@ -47,10 +64,13 @@ const FieldSettingsOverview = ({ fields, formatRelativeTime, groupBy }) => {
 
     return (
         <PanelBody 
-            title="Overview" 
-            initialOpen={false} 
-            onToggle={() => setIsOpen((prev) => !prev)} 
-            icon={info}
+            title={
+                <span>
+                    <FontAwesomeIcon icon={faCircleQuestion} />Overview
+                </span>
+            } 
+            initialOpen={true}
+            onToggle={() => setIsOpen(!isOpen)} // Update isOpen state on toggle
         >
             <div style={{ marginBottom: '15px' }}>
                 <strong>Total Fields:</strong> {fields.length}
@@ -159,7 +179,38 @@ const SideBar = ({
                 />
             </ToggleGroupControl>
 
-            <PanelBody icon={filter} title="Filter by Field Type" initialOpen={true}>
+
+
+            <PanelBody title={
+                                <span>
+                                    <FontAwesomeIcon icon={faLayerGroup} />Grouping
+                                </span>
+                            } initialOpen={false}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {[
+                        { label: 'Nothing', value: 'nothing' },
+                        { label: 'Type', value: 'type' },
+                        { label: 'Tag', value: 'tag' }
+                    ].map((option) => (
+                        <Button
+                            key={option.value}
+                            isPressed={groupBy === option.value}
+                            onClick={() => handleGroupByChange(option.value)}
+                            className="toggle-button"
+                        >
+                        
+                            {option.label}
+                        </Button>
+                    ))}
+                </div>
+            </PanelBody>
+
+            
+            <PanelBody title={
+                                <span>
+                                    <FontAwesomeIcon icon={faFilter} />Filter by Field Type
+                                </span>
+                            } initialOpen={false}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 {[
                     { label: 'All Types', value: '' },
@@ -175,14 +226,19 @@ const SideBar = ({
                         onClick={() => handleFieldTypeChange(option.value)}
                         className="toggle-button"
                     >
-                        {option.label}
+                        
+                        <FontAwesomeIcon icon={fieldTypeIcons[option.value] || fieldTypeIcons.default} /> {option.label}
                     </Button>
                 ))}
             </div>
         </PanelBody>
 
 
-        <PanelBody icon={filter} title="Filter by Tags" initialOpen={true}>
+        <PanelBody title={
+                                <span>
+                                    <FontAwesomeIcon icon={faTags} />Filter by Field Tags
+                                </span>
+                            } initialOpen={false}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     {[
                         { label: 'All Tags', value: '' },
@@ -200,24 +256,6 @@ const SideBar = ({
                 </div>
             </PanelBody>
 
-            <PanelBody icon={filter} title="Group by" initialOpen={false}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {[
-                        { label: 'Nothing', value: 'nothing' },
-                        { label: 'Type', value: 'type' },
-                        { label: 'Tag', value: 'tag' }
-                    ].map((option) => (
-                        <Button
-                            key={option.value}
-                            isPressed={groupBy === option.value}
-                            onClick={() => handleGroupByChange(option.value)}
-                            className="toggle-button"
-                        >
-                            {option.label}
-                        </Button>
-                    ))}
-                </div>
-            </PanelBody>
 
             <FieldSettingsOverview 
                 fields={fields} 

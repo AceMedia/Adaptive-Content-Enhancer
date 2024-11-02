@@ -2,7 +2,7 @@ $primary-color: #336699;
 $background-color: #f1f5f9;
 $white: #ffffff;
 $red: #ff0000;
-$green: #33995e;
+$green: #28a745;
 
 @use '../../components/SaveBar/SaveBar';
 
@@ -57,6 +57,7 @@ table {
             font-size: 1em;
             margin-bottom: 1em;
             font-family: serif;
+            color: black;
             font-style: italic;
         }
     }
@@ -73,6 +74,33 @@ table {
         max-width: 30%;
         min-width: 20%;
         width: 30%;
+        .components-panel__body.is-opened {
+            > div {
+                margin-top: .5em;
+            }
+        }
+        button.toggle-button {
+            padding: 16px 48px 16px 16px;
+            svg {
+                opacity: .5;
+            }
+            &:hover {
+                background: rgba(248, 250, 252, 1);
+            }
+            &.is-pressed {
+                background: #e2e8f0;
+                color:#000 !important;
+                svg {
+                    opacity: 1;
+                }
+                &:hover {
+                    color: black;
+                }
+            }
+        }
+        .svg-inline--fa {
+            margin-right: .5em;
+        }
         h1 {
             margin: 0px;
             padding: 0px;
@@ -242,4 +270,21 @@ label {
         float: left;
         display: block;
     }
+}
+
+
+.components-button.components-panel__body-toggle {
+    background: transparent;
+    &:hover {
+        background: rgba(248, 250, 252, 1);
+    }
+    svg {
+        transform: scale(1.2);
+    }
+}
+
+.side-panel > div > input{
+    border: 1px solid rgb(203, 213, 225);
+    padding: .5em 1em !important;
+    box-shadow: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
 }

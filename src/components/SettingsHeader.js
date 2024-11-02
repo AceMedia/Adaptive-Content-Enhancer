@@ -15,7 +15,7 @@ const SettingsHeader = ({ handleAddChoiceGroup }) => {
 
 <span>Fields</span></h1>
                 <p className="description">
-                    Manage your options &amp; fields.
+                    Manage your Fields &amp; Options.
                 </p>
             </FlexBlock>
         </Flex>

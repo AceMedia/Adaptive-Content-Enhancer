@@ -6,6 +6,7 @@ import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
 import SaveBar from './SaveBar/SaveBar'; // Adjust the path as needed
 import SettingsHeader from './SettingsHeader';
 
+
 const MainSettingsPanel = ({
     choices,
     newlyAddedChoice,
