@@ -30,10 +30,10 @@ const [newChoice, setNewChoice] = useState({
 const [changedChoices, setChangedChoices] = useState([]);
 const [currentPage, setCurrentPage] = useState(1); // Track the current page of choices
 const [hasMoreChoices, setHasMoreChoices] = useState(true); // Track if there are more choices to load
-const choicesPerPage = 10; // Define how many choices to load per page
+const choicesPerPage = 99; // Define how many choices to load per page
 const [totalPages, setTotalPages] = useState(1); // Track the total number of pages
-const [sortBy, setSortBy] = useState('created'); // Default sort by 'created'
-const [fieldTypeFilter, setFieldTypeFilter] = useState(''); // Default to no filter
+const [sortBy, setSortBy] = useState('edited'); // Default sort by 'created'
+const [fieldTypeFilter, setFieldTypeFilter] = useState(['']); // Default to "All Types"
 const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 const [choiceToDelete, setChoiceToDelete] = useState(null);
 const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -66,27 +66,26 @@ const sortChoices = (choices, sortBy) => {
         let comparison = 0;
         switch (sortBy) {
             case 'created':
-                comparison = new Date(a.created) - new Date(b.created);
+                comparison = new Date(b.created) - new Date(a.created);
                 break;
             case 'edited':
-                comparison = new Date(a.edited) - new Date(b.edited);
+                comparison = new Date(b.edited) - new Date(a.edited);
                 break;
             case 'title':
                 comparison = a.title.localeCompare(b.title);
                 break;
-            case 'field_type':
-                comparison = a.field_type.localeCompare(b.field_type);
-                break;
             default:
-                break;
-        }
-        // Use created date as a secondary sort to ensure stability
-        if (comparison === 0) {
-            comparison = new Date(a.created) - new Date(b.created);
+                comparison = new Date(b.edited) - new Date(a.edited); // Default to edited
         }
         return comparison;
     });
 };
+
+useEffect(() => {
+    console.log('Applying initial sort by:', sortBy); // Debug statement
+    const sortedChoices = sortChoices(choices, sortBy);
+    setChoices(sortedChoices);
+}, [choices, sortBy]); 
 
 
 const handleTagChange = (choice, newTags) => {
@@ -348,40 +347,21 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
 
    
     
-
-
     const fetchChoices = ({ navigateToLastPage = false } = {}) => {
-        apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeFilter}` })
+        const fieldTypeQuery = fieldTypeFilter.length === 0 || fieldTypeFilter.includes('') ? '' : fieldTypeFilter.join(',');
+    
+        apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeQuery}` })
             .then((response) => {
                 const { choices: fetchedChoices, totalPages: updatedTotalPages } = response;
-        
-                const updatedChoices = fetchedChoices.map(choice => {
-                    // Calculate modifiedAt as the edited date if available, otherwise fall back to created date
-                    const modifiedAt = choice.edited || choice.created;
     
-                    if (choice.field_type === 'truefalse') {
-                        return {
-                            ...choice,
-                            modifiedAt,
-                            true_label: choice.options?.find(option => option.value === '1')?.label || 'True',
-                            false_label: choice.options?.find(option => option.value === '0')?.label || 'False'
-                        };
-                    }
-    
-                    // Ensure all options are marked as disabled when fetched
-                    const updatedOptions = (choice.options || []).map(option => ({
+                const updatedChoices = fetchedChoices.map(choice => ({
+                    ...choice,
+                    modifiedAt: choice.edited || choice.created,
+                    options: (choice.options || []).map(option => ({
                         ...option,
-                        disabled: true // Disable all options
-                    }));
-    
-                    return {
-                        ...choice,
-                        options: updatedOptions,
-                        created: choice.created,
-                        edited: choice.edited,
-                        modifiedAt // Store modifiedAt as the most recent date
-                    };
-                });
+                        disabled: true
+                    }))
+                }));
     
                 // Apply sorting before setting state
                 setChoices(sortChoices(updatedChoices, sortBy));
@@ -389,23 +369,14 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                 if (navigateToLastPage) {
                     setCurrentPage(updatedTotalPages); // Navigate to the last page
                 }
-    
-                if (currentPage >= updatedTotalPages) {
-                    setHasMoreChoices(false);
-                }
             })
             .catch((error) => console.error('Error fetching choices:', error));
     };
     
-    
-    
-    
-    
-    // Use fetchChoices in useEffect
+    // Ensure fetchChoices is called when fieldTypeFilter changes
     useEffect(() => {
         fetchChoices();
-    }, [currentPage, sortBy, fieldTypeFilter]);
-    
+    }, [fieldTypeFilter, currentPage, sortBy]);
     
 
     const handleAddChoiceGroup = () => {
@@ -674,26 +645,24 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     };
     
 
-    const [openIndexes, setOpenIndexes] = useState({});
-    
-    const toggleOpen = (index) => {
-        setOpenIndexes((prev) => ({
-            ...prev,
-            [index]: !prev[index],
-        }));
+    const [openCardIds, setOpenCardIds] = useState([]); // Rename to be more specific
+
+    const toggleOpen = (cardId) => {
+        console.log('Toggling open:', cardId); // Debugging line
+        setOpenCardIds(prev => {
+            const isOpen = prev.includes(cardId);
+            return isOpen ? prev.filter(id => id !== cardId) : [cardId]; // Only keep clicked card ID
+        });
     };
+    
 
     // Automatically open the new choice card and highlight it
     useEffect(() => {
         if (newlyAddedChoice) {
-            const newIndex = choices.findIndex((choice) => choice.name === newlyAddedChoice);
-            if (newIndex !== -1) {
-                setOpenIndexes((prev) => ({
-                    ...prev,
-                    [newIndex]: true, // Open the card
-                }));
-
-                // Remove the highlight after 3 seconds
+            const newChoice = choices.find(choice => choice.name === newlyAddedChoice);
+            if (newChoice?.id) {
+                setOpenCardIds(prev => [...prev, newChoice.id]);
+    
                 setTimeout(() => {
                     setNewlyAddedChoice(null);
                 }, 3000);
@@ -701,15 +670,19 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
         }
     }, [newlyAddedChoice, choices]);
 
+    console.log(openCardIds);
+
     return (
         <>
             <MainSettingsPanel
                 choices={choices} // Pass choices instead of trying to group here
                 groupBy={groupBy}
+                sortBy={sortBy}
                 handleGroupByChange={handleGroupByChange}
                 newlyAddedChoice={newlyAddedChoice}
-                openIndexes={openIndexes}
+                openIndexes={openCardIds}
                 toggleOpen={toggleOpen}
+                setFieldTypeFilter={setFieldTypeFilter} // Pass the setter function
                 handleTextChange={handleTextChange}
                 handleToggleChange={handleToggleChange}
                 handleTagChange={handleTagChange}

@@ -6,7 +6,7 @@ const ChoiceCards = ({
     choices,
     groupBy,
     newlyAddedChoice,
-    openIndexes,
+    openIndexes, // Default to empty array
     toggleOpen,
     handleTextChange,
     handleToggleChange,
@@ -17,25 +17,33 @@ const ChoiceCards = ({
     isModalOpen,
     openConfirmDialog,
     formatRelativeTime,
+    sortBy = 'edited',
 }) => {
-    // Group choices based on groupBy prop
-    const groupedChoices = choices.reduce((acc, choice) => {
-        if (groupBy === 'tag') {
-            if (!choice.tags?.length) {
-                if (!acc['Untagged']) acc['Untagged'] = [];
-                acc['Untagged'].push(choice);
-            } else {
-                choice.tags.forEach(tag => {
-                    if (!acc[tag]) acc[tag] = [];
-                    acc[tag].push(choice);
-                });
-            }
-        } else {
-            // group by type
-            const key = choice.field_type || 'Unknown Type';
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(choice);
+
+    console.log('ChoiceCards received sortBy:', sortBy); // Debug statement
+
+    // Sort choices by edited date and then group them
+    const sortedChoices = [...choices].sort((a, b) => {
+        switch(sortBy) {
+            case 'edited':
+                return new Date(b.edited) - new Date(a.edited);
+            case 'created':
+                return new Date(b.created) - new Date(a.created);
+            case 'title':
+                return a.name.localeCompare(b.title);
+            default:
+                return new Date(b.edited) - new Date(a.edited);
         }
+    });
+
+    // Keep existing grouping logic
+    const groupedChoices = sortedChoices.reduce((acc, choice) => {
+        const key = groupBy === 'nothing' ? 'all' : 
+                    groupBy === 'tag' ? (!choice.tags?.length ? 'Untagged' : choice.tags[0]) :
+                    choice.field_type || 'Unknown Type';
+        
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(choice);
         return acc;
     }, {});
 
@@ -43,19 +51,20 @@ const ChoiceCards = ({
         <div>
             {Object.entries(groupedChoices).map(([group, groupChoices]) => (
                 <div key={group} className="choice-group">
-                    <h3 className="group-title">{group}</h3>
-                    {groupChoices.map((choice, index) => (
+                    {group !== 'all' && <h3 className="group-title">{group}</h3>}
+                    {groupChoices.map(choice => (
                         <Card
-                            key={`${group}-${index}`}
+                        key={choice.name}
+                        id={choice.name}
                             style={{
                                 width: '100%',
                                 marginBottom: '1em',
                                 border: newlyAddedChoice === choice.name ? '2px solid #007cba' : 'none',
                                 transition: 'border 0.3s',
                             }}
-                            className={newlyAddedChoice === choice.name ? 'highlight' : ''}
+                            className={newlyAddedChoice === choice.name ? 'highlight' : 'test'}
                         >
-                            <CardHeader onClick={() => toggleOpen(index)}>
+                            <CardHeader onClick={() => toggleOpen(choice.name)}>
                                 <Flex justify="space-between" align="center" gap={2}>
                                     <FlexItem>
                                         <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
@@ -113,7 +122,7 @@ const ChoiceCards = ({
                                 </Flex>
                             </CardHeader>
 
-                            {openIndexes[index] && (
+                            {openIndexes.includes(choice.name) && (
                                 <CardBody>
                                     <ChoiceFields
                                         choice={choice}
@@ -130,7 +139,8 @@ const ChoiceCards = ({
                                         Delete Field
                                     </Button>
                                 </CardBody>
-                            )}
+            )}
+
                         </Card>
                     ))}
                 </div>
@@ -139,9 +149,16 @@ const ChoiceCards = ({
     );
 };
 
+// Add PropTypes validation
 ChoiceCards.propTypes = {
-    groupBy: PropTypes.oneOf(['type', 'tag']).isRequired,
-    // ... other propTypes
+    choices: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        name: PropTypes.string.isRequired,
+    })).isRequired,
+    groupBy: PropTypes.string,
+    newlyAddedChoice: PropTypes.string,
+    openIndexes: PropTypes.array,
+    toggleOpen: PropTypes.func.isRequired
 };
 
 export default ChoiceCards;

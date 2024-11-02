@@ -64,13 +64,19 @@ table {
     .main-panel {
         padding: 1em 1em;
         width: 100%;
+        flex-start: 1;
     }
     .side-panel {
         position: sticky;
-        top: calc(32px + 1em);
+        top: calc(42px + 1em);
+        bottom: 100px;
         max-width: 30%;
         min-width: 20%;
         width: 30%;
+        h1 {
+            margin: 0px;
+            padding: 0px;
+        }
         .components-input-control__container,
         .components-toggle-group-control {
             border-radius: .5em;

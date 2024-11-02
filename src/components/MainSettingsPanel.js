@@ -33,10 +33,11 @@ const MainSettingsPanel = ({
     handleModalSubmit,
     openConfirmDialog,
     formatRelativeTime,
+    setFieldTypeFilter
 }) => {
     // Define the groupBy state and its handler
     const [groupBy, setGroupBy] = useState('nothing'); // Default grouping option
-    const [sortBy, setSortBy] = useState('title'); // or whatever default sort
+    const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
 
     const handleGroupByChange = (newGroupBy) => {
         setGroupBy(newGroupBy);
@@ -73,13 +74,16 @@ const MainSettingsPanel = ({
                         groupBy={groupBy}
                         handleGroupByChange={handleGroupByChange} // Pass the handler
                         sortBy={sortBy}
+                        setFieldTypeFilter={setFieldTypeFilter} // Pass the setter function
+
                     />
                 </FlexItem>
 
                 <FlexBlock>
                     {/* Choice Cards */}
                     <ChoiceCards
-                        choices={sortChoices(choices, sortBy)}
+                        choices={choices}
+                        sortBy={sortBy}
                         groupBy={groupBy}  // Add this line
                         newlyAddedChoice={newlyAddedChoice}
                         openIndexes={openIndexes}
@@ -95,7 +99,6 @@ const MainSettingsPanel = ({
                         formatRelativeTime={formatRelativeTime}
                     />
 
-                    {/* Pagination Buttons */}
                     <Flex justify="flex-start" gap={2}>
                         {currentPage > 1 && (
                             <Button isSecondary onClick={handlePreviousPage}>

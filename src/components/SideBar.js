@@ -92,7 +92,7 @@ const SideBar = ({
     handleSortChange, 
     sortBy, 
     fieldTypeFilter, 
-    handleFieldTypeChange,
+    setFieldTypeFilter, // Accept the setter function
     groupBy,
     handleGroupByChange,
     searchQuery,
@@ -100,6 +100,21 @@ const SideBar = ({
     fields,
     formatRelativeTime
 }) => {
+    const handleFieldTypeChange = (selectedType) => {
+        setFieldTypeFilter(prev => {
+            if (selectedType === '') {
+                return ['']; // Reset filter and set "All Types" as active
+            }
+            if (prev.includes(selectedType)) {
+                const newFilter = prev.filter(type => type !== selectedType);
+                return newFilter.length === 0 ? [''] : newFilter; // If no filters left, set "All Types"
+            }
+            return [...prev.filter(type => type !== ''), selectedType]; // Add type and remove "All Types"
+        });
+    };
+
+
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <SearchComponent 
@@ -109,9 +124,9 @@ const SideBar = ({
 
             <ToggleGroupControl
                 label="Sort by"
-                value='edited'
+                value={sortBy}
                 onChange={handleSortChange}
-                defaultChecked="created"
+                defaultValue="edited"
                 isBlock
                 __nextHasNoMarginBottom
             >
@@ -130,27 +145,26 @@ const SideBar = ({
             </ToggleGroupControl>
 
             <PanelBody icon={filter} title="Filter by Field Type" initialOpen={true}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {[
-                        { label: 'All Types', value: '' },
-                        { label: 'Text', value: 'text' },
-                        { label: 'Select', value: 'select' },
-                        { label: 'Checkbox', value: 'checkbox' },
-                        { label: 'True/False', value: 'truefalse' },
-                        { label: 'Radio', value: 'radio' },
-                        { label: 'Buttons', value: 'buttons' }
-                    ].map((option) => (
-                        <Button
-                            key={option.value}
-                            isPressed={fieldTypeFilter === option.value}
-                            onClick={() => handleFieldTypeChange(option.value)}
-                            className="toggle-button"
-                        >
-                            {option.label}
-                        </Button>
-                    ))}
-                </div>
-            </PanelBody>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                {[
+                    { label: 'All Types', value: '' },
+                    { label: 'Text', value: 'text' },
+                    { label: 'Select', value: 'select' },
+                    { label: 'Checkbox', value: 'checkbox' },
+                    { label: 'True/False', value: 'truefalse' },
+                    { label: 'Radio', value: 'radio' }
+                ].map((option) => (
+                    <Button
+                        key={option.value}
+                        isPressed={fieldTypeFilter.includes(option.value)}
+                        onClick={() => handleFieldTypeChange(option.value)}
+                        className="toggle-button"
+                    >
+                        {option.label}
+                    </Button>
+                ))}
+            </div>
+        </PanelBody>
 
             <PanelBody icon={filter} title="Group by" initialOpen={false}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>

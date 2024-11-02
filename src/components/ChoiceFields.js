@@ -42,8 +42,7 @@ import { TextControl, SelectControl, TextareaControl, ToggleControl, Button } fr
                                 { label: 'Select', value: 'select' },
                                 { label: 'Checkbox', value: 'checkbox' },
                                 { label: 'True/False', value: 'truefalse' },
-                                { label: 'Radio', value: 'radio' },
-                                { label: 'Buttons', value: 'buttons' },
+                                { label: 'Radio', value: 'radio' }
                             ]}
                             onChange={(newValue) => handleTextChange(choice, 'field_type', newValue)} // Update choice's field_type directly
                         />

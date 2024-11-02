@@ -1363,7 +1363,7 @@ function ace_save_options(WP_REST_Request $request) {
 function ace_get_choices(WP_REST_Request $request) {
     $page = (int) $request->get_param('page') ?: 1;
     $per_page = (int) $request->get_param('per_page') ?: 10;
-    $sort_by = $request->get_param('sort') ?: 'created';
+    $sort_by = $request->get_param('sort') ?: 'edited';
     $field_type = $request->get_param('field_type');
     $choice_name = $request->get_param('choice_name'); // New parameter
 
@@ -1378,17 +1378,18 @@ function ace_get_choices(WP_REST_Request $request) {
     );
 
     if ($field_type) {
-        $choices = array_filter($choices, function($choice) use ($field_type) {
-            return $choice['field_type'] === $field_type;
+        $field_types = explode(',', $field_type); // Split the field types by comma
+        $choices = array_filter($choices, function($choice) use ($field_types) {
+            return in_array($choice['field_type'], $field_types);
         });
     }
 
     usort($choices, function($a, $b) use ($sort_by) {
         switch ($sort_by) {
             case 'created':
-                return strtotime($a['created']) - strtotime($b['created']);
+                return strtotime($b['created']) - strtotime($a['created']);
             case 'edited':
-                return strtotime($a['edited']) - strtotime($b['edited']);
+                return strtotime($b['edited']) - strtotime($a['edited']);
             case 'title':
                 return strcmp($a['title'], $b['title']);
             case 'field_type':
