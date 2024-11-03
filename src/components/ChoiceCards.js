@@ -93,94 +93,87 @@ const displayGroupName = (group) => {
     return (
         <div>
             {Object.entries(groupedChoices).map(([group, groupChoices]) => (
-                <div key={group} className="choice-group">
-                    {group !== 'all' && (
-                        <h3 className="group-title">
-                            {displayGroupName(group)}
-                        </h3>
-                    )}
-                    {groupChoices.map(choice => (
-                        <Card
-                        key={choice.name}
-                        id={choice.name}
-                            style={{
-                                width: '100%',
-                                marginBottom: '1em',
-                                border: newlyAddedChoice === choice.name ? '2px solid #007cba' : 'none',
-                                transition: 'border 0.3s',
-                            }}
-                            className={newlyAddedChoice === choice.name ? 'highlight' : 'test'}
-                        >
-                            <CardHeader onClick={() => toggleOpen(choice.name)}>
-                                <Flex justify="space-between" align="center" gap={2}>
-                                    <FlexItem>
-                                        <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
-                                            <span className='icon'>
-                                            <FontAwesomeIcon icon={fieldTypeIcons[choice.field_type] || fieldTypeIcons.default} />
-                                        </span>
-                                            <h2>{choice.title || `Group ${index + 1}`}</h2>
-                                        </Flex>
-                                    </FlexItem>
-
-                                    <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
-                                    {choice.tags && choice.tags.length > 0 && (
-    <Flex align="left" wrap="nowrap" gap={1} style={{ textAlign: 'left', width: 'auto' }}>
-        {choice.tags.map((tagId, idx) => (
-            <span
-                key={idx}
+    <div key={group} className="choice-group">
+        {group !== 'all' && (
+            <h3 className="group-title">
+                {displayGroupName(group)}
+            </h3>
+        )}
+        {groupChoices.map(choice => (
+            <Card
+                key={choice.name}
+                id={choice.name}
+                data-group-id={group} // Pass the group ID as a data attribute
                 style={{
-                    backgroundColor: '#007cba',
-                    color: '#fff',
-                    padding: '2px 6px',
-                    borderRadius: '12px',
-                    fontSize: '0.75em',
-                    whiteSpace: 'nowrap',
+                    width: '100%',
+                    marginBottom: '1em',
+                    border: newlyAddedChoice === choice.name ? '2px solid #007cba' : 'none',
+                    transition: 'border 0.3s',
                 }}
+                className={newlyAddedChoice === choice.name ? 'highlight' : 'test'}
             >
-                {tags[tagId] ? tags[tagId].name : 'Unknown Tag'}
-            </span>
-        ))}
-    </Flex>
-)}
-                                        
-                                        {choice.created && (
-                                            <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }}>
-                                                <Tooltip text={`Created at ${new Date(choice.created).toLocaleString()}`}>
-                                                    <p><strong>Created:</strong> {formatRelativeTime(choice.created)}</p>
-                                                </Tooltip>
-                                                <Tooltip text={`Last edited at ${new Date(choice.edited).toLocaleString()}`}>
-                                                    <p><strong>Updated:</strong> {formatRelativeTime(choice.edited)}</p>
-                                                </Tooltip>
-                                            </div>
-                                        )}
-                                    </Flex>
+                <CardHeader onClick={() => toggleOpen(choice.name, group)}>
+                    <Flex justify="space-between" align="center" gap={2}>
+                        <FlexItem>
+                            <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
+                                <span className='icon'>
+                                    <FontAwesomeIcon icon={fieldTypeIcons[choice.field_type] || fieldTypeIcons.default} />
+                                </span>
+                                <h2>{choice.title || `Group ${index + 1}`}</h2>
+                            </Flex>
+                        </FlexItem>
+                        <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
+                            {choice.tags && choice.tags.length > 0 && (
+                                <Flex align="left" wrap="nowrap" gap={1} style={{ textAlign: 'left', width: 'auto' }}>
+                                    {choice.tags.map((tagId, idx) => (
+                                        <span
+                                            key={idx}
+                                            style={{
+                                                backgroundColor: '#007cba',
+                                                color: '#fff',
+                                                padding: '2px 6px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.75em',
+                                                whiteSpace: 'nowrap',
+                                            }}
+                                        >
+                                            {tags[tagId] ? tags[tagId].name : 'Unknown Tag'}
+                                        </span>
+                                    ))}
                                 </Flex>
-                            </CardHeader>
-
-                            {openIndexes.includes(choice.name) && (
-                                <CardBody>
-                                    <ChoiceFields
-                                        choice={choice}
-                                        handleTextChange={handleTextChange}
-                                        handleToggleChange={handleToggleChange}
-                                        handleTagChange={handleTagChange}
-                                        updateOption={updateOption}
-                                        removeOption={removeOption}
-                                        addOption={addOption}
-                                        isModalOpen={isModalOpen}
-                                        tags={tags}
-                                    />
-                                    
-                                    <Button variant="secondary" isDestructive onClick={() => openConfirmDialog(index, choice.name)}>
-                                        Delete Field
-                                    </Button>
-                                </CardBody>
-            )}
-
-                        </Card>
-                    ))}
-                </div>
-            ))}
+                            )}
+                            {choice.created && (
+                                <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }}>
+                                    <Tooltip text={`Created at ${new Date(choice.created).toLocaleString()}`}>
+                                        <p><strong>Created:</strong> {formatRelativeTime(choice.created)}</p>
+                                    </Tooltip>
+                                    <Tooltip text={`Last edited at ${new Date(choice.edited).toLocaleString()}`}>
+                                        <p><strong>Updated:</strong> {formatRelativeTime(choice.edited)}</p>
+                                    </Tooltip>
+                                </div>
+                            )}
+                        </Flex>
+                    </Flex>
+                </CardHeader>
+                {openIndexes.includes(`${groupBy}-${choice.name}-${group}`) && (
+                    <CardBody>
+                        <ChoiceFields
+                            choice={choice}
+                            handleTextChange={handleTextChange}
+                            handleToggleChange={handleToggleChange}
+                            handleTagChange={handleTagChange}
+                            updateOption={updateOption}
+                            removeOption={removeOption}
+                            addOption={addOption}
+                            isModalOpen={isModalOpen}
+                            tags={tags}
+                        />
+                    </CardBody>
+                )}
+            </Card>
+        ))}
+    </div>
+))}
         </div>
     );
 };

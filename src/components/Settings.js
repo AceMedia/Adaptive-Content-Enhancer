@@ -38,7 +38,7 @@ const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 const [choiceToDelete, setChoiceToDelete] = useState(null);
 const [unsavedChanges, setUnsavedChanges] = useState(false);
 const [newlyAddedChoice, setNewlyAddedChoice] = useState(null); // Track newly added choice
-const [groupBy, setGroupBy] = useState('field_type'); // Default grouping by 'type'
+const [groupBy, setGroupBy] = useState('nothing'); // Default grouping by 'type'
 const [tagFilter, setTagFilter] = useState(['']); // Default to "All Tags"
 const [tags, setTags] = useState([]);
 const [searchQuery, setSearchQuery] = useState(''); // State to store search query
@@ -696,10 +696,19 @@ const handleEditTag = (tag) => {
 
     const [openCardIds, setOpenCardIds] = useState([]); // Rename to be more specific
 
-    const toggleOpen = (cardId) => {
-        setOpenCardIds(prev => {
-            const isOpen = prev.includes(cardId);
-            return isOpen ? prev.filter(id => id !== cardId) : [cardId]; // Only keep clicked card ID
+    const toggleOpen = (cardId, groupId) => {
+        setOpenCardIds((prev) => {
+            console.log('Group By:', groupBy); 
+                // When grouped by tag, only open the clicked card within its specific tag group
+                const uniqueId = `${groupBy}-${cardId}-${groupId || 'default'}`;
+                const isOpen = prev.includes(uniqueId);
+                console.log('Unique ID:', uniqueId);
+                console.log('Is Open:', isOpen);
+                console.log('Previous:', prev);
+                return isOpen 
+                    ? prev.filter(id => id !== uniqueId) // Close if already open
+                    : [uniqueId]; // Only open the clicked instance within its tag group
+
         });
     };
     
@@ -763,6 +772,7 @@ const handleEditTag = (tag) => {
                 setCurrentTag={setCurrentTag}
                 currentTag={currentTag}
                 setTagFilter={setTagFilter}
+                setGroupBy={setGroupBy}
             />
     
     {isConfirmDialogOpen && choiceToDelete && (

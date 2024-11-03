@@ -44,9 +44,10 @@ const MainSettingsPanel = ({
     currentTag,
     handleEditTag,
     setCurrentTag,
+    groupBy,
+    setGroupBy
 }) => {
     // Define the groupBy state and its handler
-    const [groupBy, setGroupBy] = useState('nothing'); // Default grouping option
     const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
 
     const handleGroupByChange = (newGroupBy) => {
