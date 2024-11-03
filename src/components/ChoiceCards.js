@@ -29,6 +29,7 @@ const ChoiceCards = ({
     openConfirmDialog,
     formatRelativeTime,
     sortBy = 'edited',
+    tags
 }) => {
 
 
@@ -40,10 +41,35 @@ const ChoiceCards = ({
         truefalse: faToggleOn,
     };
 
-    
-    // Sort choices by edited date and then group them
-    const sortedChoices = [...choices].sort((a, b) => {
-        switch(sortBy) {
+// Group choices by the specified criteria
+const groupedChoices = choices.reduce((acc, choice) => {
+    if (groupBy === 'nothing') {
+        const key = 'all';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(choice);
+    } else if (groupBy === 'tag') {
+        if (!choice.tags?.length) {
+            const key = 'Untagged';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(choice);
+        } else {
+            choice.tags.forEach(tagId => {
+                if (!acc[tagId]) acc[tagId] = [];
+                acc[tagId].push(choice);
+            });
+        }
+    } else {
+        const key = choice.field_type || 'Unknown Type';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(choice);
+    }
+    return acc;
+}, {});
+
+// Apply sorting within each group based on the `sortBy` criteria
+Object.keys(groupedChoices).forEach(groupKey => {
+    groupedChoices[groupKey].sort((a, b) => {
+        switch (sortBy) {
             case 'edited':
                 return new Date(b.edited) - new Date(a.edited);
             case 'created':
@@ -54,23 +80,25 @@ const ChoiceCards = ({
                 return new Date(b.edited) - new Date(a.edited);
         }
     });
+});
 
-    // Keep existing grouping logic
-    const groupedChoices = sortedChoices.reduce((acc, choice) => {
-        const key = groupBy === 'nothing' ? 'all' : 
-                    groupBy === 'tag' ? (!choice.tags?.length ? 'Untagged' : choice.tags[0]) :
-                    choice.field_type || 'Unknown Type';
-        
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(choice);
-        return acc;
-    }, {});
+// Map tag IDs to tag names for display
+const displayGroupName = (group) => {
+    if (groupBy === 'tag') {
+        return tags[group]?.name || 'Unknown Tag';
+    }
+    return group;
+};
 
     return (
         <div>
             {Object.entries(groupedChoices).map(([group, groupChoices]) => (
                 <div key={group} className="choice-group">
-                    {group !== 'all' && <h3 className="group-title">{group}</h3>}
+                    {group !== 'all' && (
+                        <h3 className="group-title">
+                            {displayGroupName(group)}
+                        </h3>
+                    )}
                     {groupChoices.map(choice => (
                         <Card
                         key={choice.name}
@@ -95,25 +123,25 @@ const ChoiceCards = ({
                                     </FlexItem>
 
                                     <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
-                                        {choice.tags && choice.tags.length > 0 && (
-                                            <Flex align="left" wrap="nowrap" gap={1} style={{ textAlign: 'left', width: 'auto' }}>
-                                                {choice.tags.map((tag, idx) => (
-                                                    <span
-                                                        key={idx}
-                                                        style={{
-                                                            backgroundColor: '#007cba',
-                                                            color: '#fff',
-                                                            padding: '2px 6px',
-                                                            borderRadius: '12px',
-                                                            fontSize: '0.75em',
-                                                            whiteSpace: 'nowrap',
-                                                        }}
-                                                    >
-                                                        {tag}
-                                                    </span>
-                                                ))}
-                                            </Flex>
-                                        )}
+                                    {choice.tags && choice.tags.length > 0 && (
+    <Flex align="left" wrap="nowrap" gap={1} style={{ textAlign: 'left', width: 'auto' }}>
+        {choice.tags.map((tagId, idx) => (
+            <span
+                key={idx}
+                style={{
+                    backgroundColor: '#007cba',
+                    color: '#fff',
+                    padding: '2px 6px',
+                    borderRadius: '12px',
+                    fontSize: '0.75em',
+                    whiteSpace: 'nowrap',
+                }}
+            >
+                {tags[tagId] ? tags[tagId].name : 'Unknown Tag'}
+            </span>
+        ))}
+    </Flex>
+)}
                                         
                                         {choice.created && (
                                             <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }}>
@@ -140,6 +168,7 @@ const ChoiceCards = ({
                                         removeOption={removeOption}
                                         addOption={addOption}
                                         isModalOpen={isModalOpen}
+                                        tags={tags}
                                     />
                                     
                                     <Button variant="secondary" isDestructive onClick={() => openConfirmDialog(index, choice.name)}>

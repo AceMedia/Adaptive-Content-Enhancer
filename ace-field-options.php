@@ -1335,12 +1335,11 @@ function ace_save_options(WP_REST_Request $request) {
 
         // Add tags processing
         if (isset($choice['tags']) && is_array($choice['tags'])) {
-            $group_data['tags'] = array_map('sanitize_text_field', $choice['tags']);
-
+            $group_data['tags'] = array_map('intval', $choice['tags']); // Store tag IDs as integers
             // Loop through each tag and ensure it is added to the taxonomy
-            foreach ($group_data['tags'] as $tag) {
-                if (!term_exists($tag, 'field_tags')) {
-                    wp_insert_term($tag, 'field_tags');
+            foreach ($group_data['tags'] as $tag_id) {
+                if (!term_exists($tag_id, 'field_tags')) {
+                    wp_insert_term(get_term($tag_id)->name, 'field_tags');
                 }
             }
         } else {
@@ -1354,7 +1353,8 @@ function ace_save_options(WP_REST_Request $request) {
     }
 
     return new WP_REST_Response(array(
-        'success' => 'Fields saved successfully',
+        'success' => true,
+        'message' => 'Fields saved successfully',
         'updated_choices' => $updated_choice_names, // Return the updated names
     ), 200);
 }
@@ -1428,23 +1428,27 @@ function ace_get_choices(WP_REST_Request $request) {
         'taxonomy' => 'field_tags',
         'hide_empty' => false
     ));
-
-    // Map tags with descriptions
+    
+    // Map tags with descriptions and IDs
     $tags_with_descriptions = [];
     foreach ($tags as $tag) {
-        $tags_with_descriptions[$tag->name] = $tag->description;
+        $tags_with_descriptions[$tag->term_id] = [
+            'name' => $tag->name,
+            'description' => $tag->description
+        ];
     }
-
-    // Add tag descriptions to each choice
+    
+    // Add tag descriptions and IDs to each choice
     $response_data = [
         'choices' => array_map(function($choice) use ($tags_with_descriptions) {
             $choice['tags_with_descriptions'] = [];
             if (isset($choice['tags'])) {
-                foreach ($choice['tags'] as $tag) {
-                    if (isset($tags_with_descriptions[$tag])) {
+                foreach ($choice['tags'] as $tag_id) {
+                    if (isset($tags_with_descriptions[$tag_id])) {
                         $choice['tags_with_descriptions'][] = [
-                            'name' => $tag,
-                            'description' => $tags_with_descriptions[$tag]
+                            'id' => $tag_id,
+                            'name' => $tags_with_descriptions[$tag_id]['name'],
+                            'description' => $tags_with_descriptions[$tag_id]['description']
                         ];
                     }
                 }

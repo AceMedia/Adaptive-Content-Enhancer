@@ -43,6 +43,9 @@ const [tagFilter, setTagFilter] = useState(['']); // Default to "All Tags"
 const [tags, setTags] = useState([]);
 const [searchQuery, setSearchQuery] = useState(''); // State to store search query
 
+const [currentTag, setCurrentTag] = useState(null); // State for the current tag being edited
+const [isEditingTag, setIsEditingTag] = useState(false); // State to determine if we are editing a tag
+
 
 const handleSearchChange = (query) => {
     setSearchQuery(query);
@@ -94,21 +97,22 @@ useEffect(() => {
 }, [choices, sortBy]); 
 
 
-const handleTagChange = (choice, newTags) => {
+const handleTagChange = (choice, newTagIds) => {
     if (isModalOpen) {
         setNewChoice((prevNewChoice) => ({
             ...prevNewChoice,
-            tags: newTags,
+            tags: newTagIds,
         }));
     } else {
         setChoices((prevChoices) => {
+            console.log('Setting tags:', newTagIds);
             const updatedChoices = [...prevChoices];
             const choiceIndex = updatedChoices.findIndex(
                 (c) => c.name === choice.name
             );
 
             if (choiceIndex !== -1) {
-                updatedChoices[choiceIndex].tags = newTags;
+                updatedChoices[choiceIndex].tags = newTagIds;
                 markAsChanged(choice.name); // Mark as changed
             }
 
@@ -191,8 +195,6 @@ const handleTextChange = (choice, field, newValue) => {
 
 
 
-
-
 const handleSave = () => {
     const payload = {
         choices: choices
@@ -207,7 +209,7 @@ const handleSave = () => {
                     value: option.value, // Only set disabled once saved, not before
                 })) : [],
                 show_in_rest: choice.show_in_rest ? 1 : 0,
-                tags: choice.tags,
+                tags: choice.tags, // Ensure tags are saved as IDs
                 created: choice.created,
                 edited: new Date().toISOString(),
             })),
@@ -223,25 +225,21 @@ const handleSave = () => {
         body: JSON.stringify(payload),
     }).then((response) => {
         if (response.success) {
-            const updatedChoiceNames = payload.choices.map(choice => choice.name);
-            // Re-fetch and ensure options are disabled only after successful save
-            refreshUpdatedChoices(updatedChoiceNames);
-
-            // Refresh the current page to reflect updates without changing position
-            fetchChoices({ currentPage });
-
+            // Handle successful save
             setChangedChoices([]); // Reset changed choices
-            return { success: true };
+            fetchChoices(); // Refresh choices
+            setUnsavedChanges(false); // Reset unsaved changes
+            console.log('Save successful:', response.message);
+            return { success: true }; // Return success response
         } else {
-            console.error('Error:', response.error);
-            return { success: false };
+            console.error('Error saving choices:', response.error);
+            return { success: false }; // Return failure response
         }
     }).catch((error) => {
-        console.error('Error saving settings:', error);
-        return { success: false };
+        console.error('Error saving choices:', error);
+        return { success: false }; // Return failure response
     });
 };
-
 
 
     
@@ -384,17 +382,58 @@ const fetchChoices = ({ navigateToLastPage = false } = {}) => {
         .catch((error) => console.error('Error fetching choices:', error));
 };
 
-// Ensure fetchChoices is called when fieldTypeFilter, tagFilter, or searchQuery changes
 useEffect(() => {
     fetchChoices();
 }, [fieldTypeFilter, tagFilter, searchQuery, currentPage, sortBy]);
+
     
 
-    const handleAddChoiceGroup = () => {
+const handleAddChoiceGroup = () => {
+    setIsEditingTag(false);
+    setIsModalOpen(true);
+};
+
+const handleEditTag = (tag) => {
+        const updatedTag = {
+            id: tag.id || 'default-id',
+            label: tag.label || 'Default Label',
+            description: tag.description || 'Default Description'
+        };
+        console.log('Setting currentTag:', updatedTag);
+        setCurrentTag(updatedTag);
+        setIsEditingTag(true);
         setIsModalOpen(true);
     };
 
     const handleModalSubmit = () => {
+        if (isEditingTag) {
+            // Handle saving the updated tag
+            const updatedTag = {
+                id: currentTag.id,
+                name: currentTag.label,
+                description: currentTag.description,
+            };
+    
+            apiFetch({
+                path: `/wp/v2/field_tags/${updatedTag.id}`,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedTag),
+            }).then((response) => {
+                if (response.id) {
+                    setIsModalOpen(false);
+                    setCurrentTag(null);
+                    setIsEditingTag(false);
+                    fetchChoices(); // Refresh choices to reflect the updated tag
+                } else {
+                    console.error('Error updating tag:', response);
+                }
+            }).catch((error) => {
+                console.error('Error updating tag:', error);
+            });
+        } else {
         const newTitle = newChoice.title || `Group ${choices.length + 1}`;
         const newChoiceData = {
             name: newChoice.name,
@@ -433,6 +472,7 @@ useEffect(() => {
             console.error('Error saving new group:', error);
             alert('An error occurred. Please try again.');
         });
+    }
     };
     
     
@@ -718,6 +758,11 @@ useEffect(() => {
                 formatRelativeTime={formatRelativeTime}
                 searchQuery={searchQuery}
                 handleSearchChange={handleSearchChange} 
+                isEditingTag={isEditingTag}
+                handleEditTag={handleEditTag}
+                setCurrentTag={setCurrentTag}
+                currentTag={currentTag}
+                setTagFilter={setTagFilter}
             />
     
     {isConfirmDialogOpen && choiceToDelete && (

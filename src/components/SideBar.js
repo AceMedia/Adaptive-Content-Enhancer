@@ -12,7 +12,7 @@ import { Icon, filter, info, formatCapitalize } from '@wordpress/icons';
 
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faCircleQuestion, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faCircleQuestion, faGlobe, faSort } from '@fortawesome/free-solid-svg-icons';
 
 
 
@@ -33,7 +33,7 @@ const SearchComponent = ({ searchQuery, handleSearchChange }) => {
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search..."
-            style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+            style={{ width: '100%', marginBottom: '0px' }}
         />
     );
 };
@@ -49,6 +49,7 @@ const FieldSettingsOverview = ({ fields, formatRelativeTime, groupBy }) => {
 
     // Update recentFields based on sorting
     const updateRecentFields = () => {
+        console.log(fields);
         const updatedRecentFields = fields
             .filter((field) => field.edited || field.created)
             .sort((a, b) => new Date(b.edited || b.created) - new Date(a.edited || a.created))
@@ -69,7 +70,7 @@ const FieldSettingsOverview = ({ fields, formatRelativeTime, groupBy }) => {
                     <FontAwesomeIcon icon={faCircleQuestion} />Overview
                 </span>
             } 
-            initialOpen={true}
+            initialOpen={false}
             onToggle={() => setIsOpen(!isOpen)} // Update isOpen state on toggle
         >
             <div style={{ marginBottom: '15px' }}>
@@ -121,6 +122,9 @@ const SideBar = ({
     handleGroupByChange,
     fields,
     formatRelativeTime,
+    handleEditTag,
+    currentTag,
+    setCurrentTag,
 }) => {
     const handleFieldTypeChange = (selectedType) => {
         setFieldTypeFilter(prev => {
@@ -157,6 +161,13 @@ const SideBar = ({
                 handleSearchChange={handleSearchChange} 
             />
 
+
+<PanelBody title={
+                                <span>
+                                    <FontAwesomeIcon icon={faSort} />Sorting
+                                </span>
+                            } initialOpen={false}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <ToggleGroupControl
                 label="Sort by"
                 value={sortBy}
@@ -178,32 +189,39 @@ const SideBar = ({
                     label="Name" 
                 />
             </ToggleGroupControl>
+</div>
+</PanelBody>
 
 
-
-            <PanelBody title={
-                                <span>
-                                    <FontAwesomeIcon icon={faLayerGroup} />Grouping
-                                </span>
-                            } initialOpen={false}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {[
-                        { label: 'Nothing', value: 'nothing' },
-                        { label: 'Type', value: 'type' },
-                        { label: 'Tag', value: 'tag' }
-                    ].map((option) => (
-                        <Button
-                            key={option.value}
-                            isPressed={groupBy === option.value}
-                            onClick={() => handleGroupByChange(option.value)}
-                            className="toggle-button"
-                        >
-                        
-                            {option.label}
-                        </Button>
-                    ))}
-                </div>
-            </PanelBody>
+<PanelBody title={
+    <span>
+        <FontAwesomeIcon icon={faLayerGroup} />Grouping
+    </span>
+} initialOpen={false}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        <ToggleGroupControl
+            label="Group by"
+            value={groupBy}
+            onChange={handleGroupByChange}
+            defaultValue="nothing"
+            isBlock
+            __nextHasNoMarginBottom
+        >
+            <ToggleGroupControlOption 
+                value="nothing" 
+                label="None" 
+            />
+            <ToggleGroupControlOption 
+                value="type" 
+                label="Type" 
+            />
+            <ToggleGroupControlOption 
+                value="tag" 
+                label="Tag" 
+            />
+        </ToggleGroupControl>
+    </div>
+</PanelBody>
 
             
             <PanelBody title={
@@ -235,14 +253,18 @@ const SideBar = ({
 
 
         <PanelBody title={
-                                <span>
-                                    <FontAwesomeIcon icon={faTags} />Filter by Field Tags
-                                </span>
-                            } initialOpen={false}>
+                <span>
+                    <FontAwesomeIcon icon={faTags} />Filter by Field Tags
+                </span>
+            } initialOpen={false}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     {[
                         { label: 'All Tags', value: '' },
-                        ...Object.keys(tags).map(tag => ({ label: tag, value: tag }))
+                        ...Object.keys(tags).map(tagId => ({
+                            label: tags[tagId].name,
+                            value: tagId, // Use the tag ID
+                            description: tags[tagId].description // Include the tag description
+                        }))
                     ].map((option) => (
                         <Button
                             key={option.value}
@@ -250,12 +272,25 @@ const SideBar = ({
                             onClick={() => handleTagChange(option.value)}
                             className="toggle-button"
                         >
-                            {option.label}
+                            <span className="field-tag-color"></span>{option.label}
+                            <span 
+                                className="field-tag-count" 
+                                onClick={(e) => {
+                                    e.stopPropagation(); // Prevent triggering the parent button
+                                    handleEditTag({
+                                        id: option.value,
+                                        label: option.label,
+                                        description: option.description
+                                    });
+                                    console.log(option.value);
+                                }}
+                            >
+                                Edit
+                            </span>
                         </Button>
                     ))}
                 </div>
             </PanelBody>
-
 
             <FieldSettingsOverview 
                 fields={fields} 
@@ -286,7 +321,7 @@ SideBar.propTypes = {
         })
     ).isRequired,
     formatRelativeTime: PropTypes.func.isRequired,
+    handleEditTag: PropTypes.func.isRequired // Add handleEditTag prop type
 };
-
 
 export default SideBar;

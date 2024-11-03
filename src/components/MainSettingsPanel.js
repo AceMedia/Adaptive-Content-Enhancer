@@ -1,5 +1,5 @@
 import { useState } from '@wordpress/element';
-import { Button, Modal, Flex, FlexBlock, FlexItem } from '@wordpress/components';
+import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl } from '@wordpress/components';
 import SideBar from './SideBar';
 import ChoiceCards from './ChoiceCards'; // Adjust path as necessary
 import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
@@ -40,6 +40,10 @@ const MainSettingsPanel = ({
     tags, 
     searchQuery,
     handleSearchChange,
+    isEditingTag,
+    currentTag,
+    handleEditTag,
+    setCurrentTag,
 }) => {
     // Define the groupBy state and its handler
     const [groupBy, setGroupBy] = useState('nothing'); // Default grouping option
@@ -66,6 +70,7 @@ const MainSettingsPanel = ({
         });
     };
 
+
     return (
         <>
             <Flex gap={6} className="main-panel">
@@ -85,6 +90,10 @@ const MainSettingsPanel = ({
                         formatRelativeTime={formatRelativeTime}
                         searchQuery={searchQuery}
                         handleSearchChange={handleSearchChange} 
+                        isEditingTag={isEditingTag}
+                        handleEditTag={handleEditTag}
+                        setCurrentTag={setCurrentTag}
+                        currentTag={currentTag}
                     />
                 </FlexItem>
 
@@ -106,6 +115,7 @@ const MainSettingsPanel = ({
                         isModalOpen={isModalOpen}
                         openConfirmDialog={openConfirmDialog}
                         formatRelativeTime={formatRelativeTime}
+                        tags={tags}
                     />
 
                     <Flex justify="flex-start" gap={2}>
@@ -135,28 +145,43 @@ const MainSettingsPanel = ({
 
             {/* Modal for adding a new choice group */}
             {isModalOpen && (
-                <Modal
-                    title="Add New Choice Group"
-                    onRequestClose={() => setIsModalOpen(false)}
-                    size="large"
-                    focusOnMount="firstContentElement"
-                >
-                    <ChoiceFields 
-                        choice={newChoice}
-                        handleTextChange={handleTextChange}
-                        handleToggleChange={handleToggleChange}
-                        handleTagChange={handleTagChange}
-                        updateOption={updateOption}
-                        removeOption={removeOption}
-                        addOption={addOption}
-                        isModalOpen={isModalOpen}
-                        openConfirmDialog={openConfirmDialog}
-                    />
-                    <Button isPrimary variant="primary" onClick={handleModalSubmit}>
-                        Add Group
-                    </Button>
-                </Modal>
-            )}
+    <Modal
+        title={isEditingTag ? "Edit Tag" : "Add New Choice Group"}
+        onRequestClose={() => setIsModalOpen(false)}
+        size="large"
+        focusOnMount="firstContentElement"
+    >
+        {isEditingTag ? (
+             <>
+             <TextControl
+                 label="Tag Name"
+                 value={currentTag ? currentTag.label : ''}
+                 onChange={(value) => setCurrentTag({ ...currentTag, label: value })}
+             />
+             <TextControl
+                 label="Tag Description"
+                 value={currentTag ? currentTag.description : ''}
+                 onChange={(value) => setCurrentTag({ ...currentTag, description: value })}
+             />
+         </>
+        ) : (
+            <ChoiceFields 
+                choice={newChoice}
+                handleTextChange={handleTextChange}
+                handleToggleChange={handleToggleChange}
+                handleTagChange={handleTagChange}
+                updateOption={updateOption}
+                removeOption={removeOption}
+                addOption={addOption}
+                isModalOpen={isModalOpen}
+                openConfirmDialog={openConfirmDialog}
+            />
+        )}
+        <Button isPrimary variant="primary" onClick={handleModalSubmit}>
+            {isEditingTag ? "Save Tag" : "Add Group"}
+        </Button>
+    </Modal>
+)}
         </>
     );
 };
