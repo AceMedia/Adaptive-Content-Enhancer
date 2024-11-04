@@ -5,6 +5,8 @@ import ChoiceCards from './ChoiceCards'; // Adjust path as necessary
 import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
 import SaveBar from './SaveBar/SaveBar'; // Adjust the path as needed
 import SettingsHeader from './SettingsHeader';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEye, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown } from '@fortawesome/free-solid-svg-icons';
 
 
 const MainSettingsPanel = ({
@@ -52,9 +54,27 @@ const MainSettingsPanel = ({
     setButtonText,
     buttonText,
     setMessage,
+    totalFields,
+    handleBulkDelete,
+    selectedChoices,
+    handleChoiceSelect,
+    selectedTags,
+    handleTagSelect,
+    quickEdit,
+    setQuickEdit
 }) => {
     // Define the groupBy state and its handler
     const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
+
+
+    const fieldTypeIcons = {
+        text: faFont,
+        checkbox: faCheckSquare,
+        select: faSquareCaretDown,
+        radio: faCircleDot,
+        truefalse: faToggleOn,
+    };
+
 
     const handleGroupByChange = (newGroupBy) => {
         setGroupBy(newGroupBy);
@@ -78,7 +98,7 @@ const MainSettingsPanel = ({
     };
 
 
-    const [color, setColor] = useState(currentTag?.meta?.color || '#000');
+    const [color, setColor] = useState(currentTag?.meta?.color || '');
 
     useEffect(() => {
         if (currentTag?.meta?.color) {
@@ -99,6 +119,10 @@ const MainSettingsPanel = ({
             },
         }));
     };
+
+
+    const visibleFields = choices.filter(field => field); // Adjust this filter as needed
+
 
     return (
         <>
@@ -123,11 +147,37 @@ const MainSettingsPanel = ({
                         handleEditTag={handleEditTag}
                         setCurrentTag={setCurrentTag}
                         currentTag={currentTag}
+                        totalFields={totalFields} 
+
+                quickEdit={quickEdit}
+                setQuickEdit={setQuickEdit}
+                handleBulkDelete={handleBulkDelete}
+                selectedTags={selectedTags} // Pass the selectedTags
+                handleTagSelect={handleTagSelect}
                     />
                 </FlexItem>
 
-                <FlexBlock style={{ alignSelf: 'flex-start' }} >
+                <FlexBlock>
                     {/* Choice Cards */}
+
+                    {choices.length !== 0 && (
+                    <div style={{ marginBottom: '15px' }} className='currently-viewing'>
+                <strong>                            <FontAwesomeIcon icon={faEye} style={{ marginRight: '5px' }} />
+                Viewing:</strong> {visibleFields.length} of {totalFields}
+                <ul className='visible-types'>
+    {Object.entries(visibleFields.reduce((acc, field) => {
+        acc[field.field_type] = (acc[field.field_type] || 0) + 1;
+        return acc;
+    }, {})).map(([type, count]) => (
+        <li key={type}>
+            <FontAwesomeIcon icon={fieldTypeIcons[type] || faGlobe} style={{ marginRight: '5px' }} />
+            {type.charAt(0).toUpperCase() + type.slice(1)}: <strong>{count}</strong>
+        </li>
+    ))}
+</ul>
+            </div>
+        )}
+
                     <ChoiceCards
                         choices={choices}
                         sortBy={sortBy}
@@ -145,6 +195,12 @@ const MainSettingsPanel = ({
                         openConfirmDialog={openConfirmDialog}
                         formatRelativeTime={formatRelativeTime}
                         tags={tags}
+                        quickEdit={quickEdit}
+                        setQuickEdit={setQuickEdit}
+                        handleBulkDelete={handleBulkDelete}
+                        selectedChoices={selectedChoices} // Pass selectedChoices
+                        handleChoiceSelect={handleChoiceSelect} 
+                        handleAddChoiceGroup={handleAddChoiceGroup}
                     />
 
                     <Flex justify="flex-start" gap={2}>

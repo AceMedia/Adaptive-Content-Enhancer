@@ -3,6 +3,7 @@ $background-color: #f1f5f9;
 $white: #ffffff;
 $red: #ff0000;
 $green: #28a745;
+$slate: #e2e8f0;
 
 @use '../../components/SaveBar/SaveBar';
 
@@ -26,12 +27,20 @@ table {
 }
 
 #ace-settings-root {
-    margin: 0px -20px;
+    margin: -10px -20px 0px -22px;
     * {
         box-sizing: border-box;
     }
     > .main-panel  {
         padding: 0px;
+        min-height: calc(100vh - 32px);
+        align-items: stretch;
+        justify-items: stretch;
+        > div { // Targeting direct child elements
+        align-items: stretch;
+        justify-items: stretch;
+        flex-grow: 1;
+        }
     }
 
 
@@ -63,9 +72,8 @@ table {
     }
 
     .main-panel {
-        padding: 1em 1em;
+        padding: 1em 1em 6em;
         width: 100%;
-        flex-start: 1;
     }
     .side-panel {
         position: sticky;
@@ -86,13 +94,18 @@ table {
             padding: 16px 16px 16px 16px;
             svg {
                 opacity: .5;
+                position: absolute;
+                left: 25px;
+                top: 50%;
+                transform: translate3d(-50%, -50%, 0);
             }
             &:hover {
                 background: rgba(248, 250, 252, 1);
             }
             &.is-pressed {
-                background: #e2e8f0;
-                color:#000 !important;
+                background: $slate;
+                font-weight: bold;
+                color: black;
                 svg {
                     opacity: 1;
                 }
@@ -116,8 +129,12 @@ table {
             border-radius: .5em;
         }
         .components-toggle-group-control {
+            border: 1px solid rgb(203, 213, 225);
+            outline: none !important;
+            box-shadow: none !important;
             > div > div > div {
                border-radius: .4em !important;
+               background: $green;
             }
         }
         .components-panel__body {
@@ -262,7 +279,7 @@ label {
 }
 
 .custom-select-toggle:hover {
-    background-color: #e2e8f0; /* Adjust for hover */
+    background-color: $slate; /* Adjust for hover */
     cursor: pointer;
 }
 
@@ -276,9 +293,32 @@ label {
     padding: 0.5rem 1rem;
 }
 
+.components-panel__body-title {
+button {
+    font-size: 1.2em !important;
+    color: #999;
+}
+}
+
+.components-button:hover:not(:disabled, [aria-disabled="true"]), .components-button[aria-expanded="true"] {
+    color: black;
+}
+
+.components-panel__body-toggle.components-button:focus,
+.components-button.is-pressed:focus:not(:disabled),
+.components-button:focus:not(:disabled) {
+    box-shadow: none;
+}
+
+.components-button, .components-button[aria-expanded="false"] {
+    color: #444;
+}
 
 .components-panel__body.is-opened > .components-panel__body-title {
     margin: 0px;
+    button {
+        background: $slate;
+    }
     .components-panel__icon {
         flex: none;
         float: left;
@@ -328,13 +368,40 @@ label {
     box-shadow: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
 }
 
+.components-button.toggle-button {
+    position: relative;
+    padding-left: 42px !important;
+}
+
 .field-tag-color {
     border-radius: 50px;
     display: inline-block;
-    height: 20px;
-    width: 20px;
-    background: #336699;
+    height: 10px;
+    width: 10px;
+    background: conic-gradient(
+        from 180deg,
+        rgba(255, 0, 0, 1) 0%,
+        rgba(255, 154, 0, 1) 10%,
+        rgba(208, 222, 33, 1) 20%,
+        rgba(79, 220, 74, 1) 30%,
+        rgba(63, 218, 216, 1) 40%,
+        rgba(47, 201, 226, 1) 50%,
+        rgba(28, 127, 238, 1) 60%,
+        rgba(95, 21, 242, 1) 70%,
+        rgba(186, 12, 248, 1) 80%,
+        rgba(251, 7, 217, 1) 90%,
+        rgba(255, 0, 0, 1) 100%
+    );
     margin-right: .5em;
+    position: absolute;
+    left: 25px;
+    top: 50%;
+    transform: translate3d(-50%, -50%, 0);
+}
+
+.is-pressed .field-tag-color {
+    width: 16px;
+    height: 16px;
 }
 
 .field-tag-count {
@@ -346,4 +413,59 @@ label {
 .components-button.toggle-button {
     display: inline-flex;
     align-items: center;
+}
+
+
+.components-toggle-group-control-option-base[data-active-item="true"] {
+    div {
+        font-weight: bold;
+    }
+}
+
+.currently-viewing {
+    font-size: 1em;
+    opacity: .5;
+    svg {
+        transform: scale(1.2);
+    }
+    ul {
+        display: inline;
+        float: right;
+        margin: 0px;
+        padding: 0px;
+        list-style: none;
+        li {
+            display: inline;
+            padding: 0px;
+            margin: 0px 0px 0px 1.5em;
+        }
+    }
+}
+
+#wpbody-content {
+    padding-bottom:  0px !important;
+}
+
+
+.components-flex-block {
+    display: flex !important;
+    flex-direction: column !important; /* Assuming this is the desired full height */
+    flex-grow: 1 !important;
+}
+
+.components-flex-block > .currently-viewing {
+    /* This element will take only the height it needs */
+    flex-shrink: 0; /* Prevent shrinking so it keeps its natural height */
+}
+
+.components-flex-block > .no-choices {
+    /* This element will take up the remaining space */
+    flex-grow: 1; /* Make this element expand to fill the remaining space */
+    display: flex; /* Optional: if you want to center content within this element */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    flex-direction: column;
+    background-color: $slate;
+    padding: 2em;
+    border-radius: .5em;
 }

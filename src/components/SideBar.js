@@ -39,72 +39,8 @@ const SearchComponent = ({ searchQuery, handleSearchChange }) => {
 };
 
 
-const FieldSettingsOverview = ({ fields, formatRelativeTime, groupBy }) => {
-
- 
 
 
-    const [isOpen, setIsOpen] = useState(false);
-    const [recentFields, setRecentFields] = useState([]);
-
-    // Update recentFields based on sorting
-    const updateRecentFields = () => {
-        console.log(fields);
-        const updatedRecentFields = fields
-            .filter((field) => field.edited || field.created)
-            .sort((a, b) => new Date(b.edited || b.created) - new Date(a.edited || a.created))
-            .slice(0, 5);
-        setRecentFields(updatedRecentFields);
-    };
-
-    useEffect(() => {
-        if (isOpen) {
-            updateRecentFields();
-        }
-    }, [isOpen, fields]); // Depend on `isOpen` and `fields` to update when needed
-
-    return (
-        <PanelBody 
-            title={
-                <span>
-                    <FontAwesomeIcon icon={faCircleQuestion} />Overview
-                </span>
-            } 
-            initialOpen={false}
-            onToggle={() => setIsOpen(!isOpen)} // Update isOpen state on toggle
-        >
-            <div style={{ marginBottom: '15px' }}>
-                <strong>Total Fields:</strong> {fields.length}
-                <ul style={{ listStyle: 'none', padding: 0, marginTop: '5px' }}>
-                    {Object.entries(fields.reduce((acc, field) => {
-                        acc[field.field_type] = (acc[field.field_type] || 0) + 1;
-                        return acc;
-                    }, {})).map(([type, count]) => (
-                        <li key={type} style={{ fontSize: '0.9em' }}>
-                            {type.charAt(0).toUpperCase() + type.slice(1)}: {count}
-                        </li>
-                    ))}
-                </ul>
-            </div>
-
-
-            <div>
-                <strong>Recently Modified:</strong>
-                <ul style={{ listStyle: 'none', padding: 0, marginTop: '5px' }}>
-                    {recentFields.map((field) => {
-                        const dateToFormat = field.edited || field.created;
-                        const formattedDate = formatRelativeTime(dateToFormat);
-                        return (
-                            <li key={field.name} style={{ fontSize: '0.9em', marginBottom: '5px' }}>
-                                {field.name} - {formattedDate || 'No date available'}
-                            </li>
-                        );
-                    })}
-                </ul>
-            </div>
-        </PanelBody>
-    );
-};
 
 
 
@@ -125,6 +61,13 @@ const SideBar = ({
     handleEditTag,
     currentTag,
     setCurrentTag,
+    totalFields,
+    quickEdit,
+    setQuickEdit,
+    handleBulkDelete,
+    selectedTags,
+    setSelectedTags,
+    handleTagSelect
 }) => {
     const handleFieldTypeChange = (selectedType) => {
         setFieldTypeFilter(prev => {
@@ -138,6 +81,8 @@ const SideBar = ({
             return [...prev.filter(type => type !== ''), selectedType]; // Add type and remove "All Types"
         });
     };
+
+
 
     const handleTagChange = (selectedTag) => {
         setTagFilter(prev => {
@@ -160,6 +105,38 @@ const SideBar = ({
                 searchQuery={searchQuery} 
                 handleSearchChange={handleSearchChange} 
             />
+
+
+
+<PanelBody title={
+    <span>
+        <FontAwesomeIcon icon={faLayerGroup} />Grouping
+    </span>
+} initialOpen={false}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        <ToggleGroupControl
+            label="Group by"
+            value={groupBy}
+            onChange={handleGroupByChange}
+            defaultValue="nothing"
+            isBlock
+            __nextHasNoMarginBottom
+        >
+            <ToggleGroupControlOption 
+                value="nothing" 
+                label="None" 
+            />
+            <ToggleGroupControlOption 
+                value="type" 
+                label="Type" 
+            />
+            <ToggleGroupControlOption 
+                value="tag" 
+                label="Tag" 
+            />
+        </ToggleGroupControl>
+    </div>
+</PanelBody>
 
 
 <PanelBody title={
@@ -193,36 +170,6 @@ const SideBar = ({
 </PanelBody>
 
 
-<PanelBody title={
-    <span>
-        <FontAwesomeIcon icon={faLayerGroup} />Grouping
-    </span>
-} initialOpen={false}>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <ToggleGroupControl
-            label="Group by"
-            value={groupBy}
-            onChange={handleGroupByChange}
-            defaultValue="nothing"
-            isBlock
-            __nextHasNoMarginBottom
-        >
-            <ToggleGroupControlOption 
-                value="nothing" 
-                label="None" 
-            />
-            <ToggleGroupControlOption 
-                value="type" 
-                label="Type" 
-            />
-            <ToggleGroupControlOption 
-                value="tag" 
-                label="Tag" 
-            />
-        </ToggleGroupControl>
-    </div>
-</PanelBody>
-
             
             <PanelBody title={
                                 <span>
@@ -252,59 +199,104 @@ const SideBar = ({
         </PanelBody>
 
 
-        <PanelBody title={
-                <span>
-                    <FontAwesomeIcon icon={faTags} />Filter by Field Tags
-                </span>
-            } initialOpen={false}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {[
-                        { label: 'All Tags', value: '' },
-                        ...Object.keys(tags).map(tagId => ({
-                            label: tags[tagId].name,
-                            value: tagId, // Use the tag ID
-                            description: tags[tagId].description,
-                            meta: {
-                                color: tags[tagId].meta?.color?.[0] || '#000' // Ensure a default color if color is missing
-                            }
-                        }))
-                    ].map((option) => (
-                        <Button
-                            key={option.value}
-                            isPressed={tagFilter.includes(option.value)}
-                            onClick={() => handleTagChange(option.value)}
-                            className="toggle-button"
-                        >
-                           <span
-                                className="field-tag-color"
-                                style={{ backgroundColor: option.meta?.color || '#000' }} // Use the color value from the meta object
-                            ></span> {option.label}{option.meta?.color}
-                            <span 
-                                className="field-tag-count" 
-                                onClick={(e) => {
-                                    e.stopPropagation(); // Prevent triggering the parent button
-                                    handleEditTag({
-                                        id: option.value,
-                                        label: option.label,
-                                        description: option.description,
-                                        meta: {
-                                            color: option.meta?.color || '#000',
-                                        }
-                                    });
-                                    console.log(option.meta?.color);
-                                }}
-                            >
-                                Edit
-                            </span>
-                        </Button>
-                    ))}
-                </div>
-            </PanelBody>
+        <PanelBody
+    title={
+        <span>
+            <FontAwesomeIcon icon={faTags} />Filter by Field Tags
+        </span>
+    }
+    initialOpen={false}
+>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        {[
+            { label: 'All Tags', value: '' },
+            ...Object.keys(tags).map(tagId => ({
+                label: tags[tagId].name,
+                value: tagId, // Use the tag ID
+                description: tags[tagId].description,
+                meta: {
+                    color: tags[tagId].meta?.color?.[0] || '#000' // Ensure a default color if color is missing
+                }
+            }))
+        ].map((option) => (
+            <Button
+                key={option.value}
+                isPressed={tagFilter.includes(option.value)}
+                onClick={() => handleTagChange(option.value)}
+                className="toggle-button"
+                style={{ color: option.meta?.color || '#000' }}
+            >
+                <span
+                    className="field-tag-color"
+                    style={{ background: option.meta?.color || '' }} // Use the color value from the meta object
+                ></span> {option.label}
 
-            <FieldSettingsOverview 
-                fields={fields} 
-                formatRelativeTime={formatRelativeTime}
+                {/* Only show the Edit button if it's not the "All Tags" option */}
+                {option.value && (
+                    <span
+                        className="field-tag-count"
+                        onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the parent button
+                            handleEditTag({
+                                id: option.value,
+                                label: option.label,
+                                description: option.description,
+                                meta: {
+                                    color: option.meta?.color || '#000',
+                                }
+                            });
+                            console.log(option.meta?.color);
+                        }}
+                    >
+                        Edit
+                    </span>
+                )}
+            {quickEdit === 'true' && (
+                <input
+                    type="checkbox"
+                    checked={selectedTags.includes(option.value)}
+                    onChange={() => handleTagSelect(option.value)}
+                />
+            )}
+            </Button>
+        ))}
+    </div>
+</PanelBody>
+
+<PanelBody title={
+    <span>
+        <FontAwesomeIcon icon={faCircleQuestion} />Quick Edit
+    </span>
+} initialOpen={false}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        <ToggleGroupControl
+            label="Enable Quick Edit"
+            value={quickEdit}
+            onChange={setQuickEdit}
+            defaultValue='off' 
+            isBlock
+            __nextHasNoMarginBottom
+        >
+            <ToggleGroupControlOption 
+                value="off" 
+                label="Off" 
             />
+            <ToggleGroupControlOption 
+                value="true" 
+                label="On" 
+            />
+        </ToggleGroupControl>
+        {quickEdit}
+        {quickEdit === 'true' && (
+    <Button isDestructive onClick={handleBulkDelete}>
+        Delete Selected
+    </Button>
+)}
+
+    </div>
+</PanelBody>
+
+
         </div>
     );
 };

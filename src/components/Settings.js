@@ -48,10 +48,16 @@ const [isEditingTag, setIsEditingTag] = useState(false); // State to determine i
 const [elapsedTime, setElapsedTime] = useState(0); // Define elapsedTime state
 const [buttonText, setButtonText] = useState('Save Settings'); // Default button text
 const [intervalId, setIntervalId] = useState(null); // Define intervalId state
-
+const [itemsToDelete, setItemsToDelete] = useState({ choices: [], tags: [] });
 const saveText = "Save Settings"; // Define saveText
 const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false); // Track auto-save setting
+const [totalFields, setTotalFields] = useState(0);
 
+const [quickEdit, setQuickEdit] = useState('false'); // Initialize quickEdit state
+
+
+const [isBulkDeleteConfirmDialogOpen, setIsBulkDeleteConfirmDialogOpen] = useState(false);
+const [bulkDeleteConfirmMessage, setBulkDeleteConfirmMessage] = useState('');
 
 const throttle = (func, delay) => {
     let timeoutId;
@@ -164,6 +170,104 @@ const getDefaultOptions = () => {
         { label: '', value: '', disabled: false },
         { label: '', value: '', disabled: false },
     ];
+};
+
+
+
+const [selectedChoices, setSelectedChoices] = useState([]);
+const [selectedTags, setSelectedTags] = useState([])
+
+
+const handleBulkDelete = () => {
+    const confirmDelete = window.confirm(`Are you sure you want to delete these items? This action cannot be undone!`);
+    if (confirmDelete) {
+        setItemsToDelete({ choices: selectedChoices, tags: selectedTags });
+    }
+};
+
+
+useEffect(() => {
+    if (itemsToDelete.choices.length > 0 || itemsToDelete.tags.length > 0) {
+        confirmBulkDelete();
+    }
+}, [itemsToDelete]);
+
+const confirmBulkDelete = () => {
+    console.log('Bulk deletion started');
+    console.log('Selected choices:', itemsToDelete.choices);
+    console.log('Selected tags:', itemsToDelete.tags);
+    
+    // Delete selected choices
+    const deleteChoicePromises = itemsToDelete.choices.map(choice => {
+        if (!choice.name) {
+            console.error('Choice does not have a name:', choice);
+            return Promise.resolve(); // Skip this choice
+        }
+
+        const processedGroupName = createLowercaseUnderscored(choice.name);
+        const optionName = 'choices_' + processedGroupName;
+
+        console.log('Deleting choice:', choice.name);
+
+        return apiFetch({
+            path: '/ace/v1/delete-option',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ option_name: optionName, _wpnonce: aceAjax.nonce })
+        })
+        .then((response) => {
+            if (!response.success) {
+                console.error(`Failed to delete choice ${choice.name}:`, response.error);
+            }
+        })
+        .catch((error) => console.error(`Error deleting choice ${choice.name}:`, error));
+    });
+
+    // Delete selected tags
+    const deleteTagPromises = itemsToDelete.tags.map(tag => {
+        return apiFetch({
+            path: `/wp/v2/field_tags/${tag}?force=true`, // Add force=true to the URL
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ _wpnonce: aceAjax.nonce })
+        })
+        .then((response) => {
+            if (!response.deleted) {
+                console.error(`Failed to delete tag ${tag.name}:`, response.error);
+            }
+        })
+        .catch((error) => console.error(`Error deleting tag ${tag.name}:`, error));
+    });
+
+    // Wait for all deletions to complete
+    Promise.all([...deleteChoicePromises, ...deleteTagPromises])
+        .then(() => {
+            // Clear selections after deletion
+            setSelectedChoices([]);
+            setSelectedTags([]);
+            // Refresh choices and tags to reflect changes
+            fetchChoices();
+            console.log('Bulk deletion completed');
+        })
+        .catch(error => console.error('Error during bulk deletion:', error))
+        .finally(() => setIsBulkDeleteConfirmDialogOpen(false));
+};
+
+
+const handleTagSelect = (tagId) => {
+    setSelectedTags(prevSelectedTags =>
+        prevSelectedTags.includes(tagId)
+            ? prevSelectedTags.filter(id => id !== tagId)
+            : [...prevSelectedTags, tagId]
+    );
+};
+
+const handleChoiceSelect = (choiceName) => {
+    setSelectedChoices(prevSelectedChoices =>
+        prevSelectedChoices.includes(choiceName)
+            ? prevSelectedChoices.filter(name => name !== choiceName)
+            : [...prevSelectedChoices, choiceName]
+    );
 };
 
 
@@ -405,7 +509,7 @@ const fetchChoices = ({ navigateToLastPage = false } = {}) => {
 
     apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeQuery}&tags=${tagQuery}${searchQueryParam}` })
         .then((response) => {
-            const { choices: fetchedChoices, totalPages: updatedTotalPages, tags: fetchedTags } = response;
+            const { choices: fetchedChoices, totalPages: updatedTotalPages, tags: fetchedTags, totalChoices } = response;
 
             const updatedChoices = fetchedChoices.map(choice => ({
                 ...choice,
@@ -420,6 +524,8 @@ const fetchChoices = ({ navigateToLastPage = false } = {}) => {
             setChoices(sortChoices(updatedChoices, sortBy));
             setTotalPages(updatedTotalPages);
             setTags(fetchedTags); // Set the fetched tags
+            setTotalFields(totalChoices);
+            console.log(totalChoices); // Update total fields count from API
             if (navigateToLastPage) {
                 setCurrentPage(updatedTotalPages); // Navigate to the last page
             }
@@ -545,16 +651,20 @@ const handleEditTag = (tag) => {
     };
     
 
-    const openConfirmDialog = (index, groupName) => {
-        const confirmDelete = window.confirm(`Are you sure you want to delete ${groupName}? This action cannot be undone!`);
+    const openConfirmDialog = (choiceName) => {
+        const confirmDelete = window.confirm(`Are you sure you want to delete ${choiceName}? This action cannot be undone!`);
         if (confirmDelete) {
-            handleConfirmDelete(index, groupName);
+            handleConfirmDelete(choiceName);
         }
     };
     
-    const handleConfirmDelete = (index, groupName) => {
+    const handleConfirmDelete = (choiceName) => {
+        if (!choiceName) {
+            console.error("Choice name is undefined or null.");
+            return;
+        }
     
-        const processedGroupName = createLowercaseUnderscored(groupName);
+        const processedGroupName = createLowercaseUnderscored(choiceName);
         const optionName = 'choices_' + processedGroupName;
     
         apiFetch({
@@ -565,7 +675,9 @@ const handleEditTag = (tag) => {
         })
         .then((response) => {
             if (response.success) {
-                setChoices((prevChoices) => prevChoices.filter((_, i) => i !== index));
+                setChoices((prevChoices) => 
+                    prevChoices.filter((choice) => choice.name !== choiceName)
+                );
             } else {
                 console.error('Failed to remove group:', response.error);
             }
@@ -574,11 +686,11 @@ const handleEditTag = (tag) => {
     };
     
     
+    
     const handleCancelDelete = () => {
         setIsConfirmDialogOpen(false);
         setChoiceToDelete(null);
     };
-    
 
     
 
@@ -789,6 +901,7 @@ const handleEditTag = (tag) => {
             <MainSettingsPanel
                 choices={choices} // Pass choices instead of trying to group here
                 groupBy={groupBy}
+                totalFields={totalFields} 
                 sortBy={sortBy}
                 handleGroupByChange={handleGroupByChange}
                 newlyAddedChoice={newlyAddedChoice}
@@ -835,8 +948,15 @@ const handleEditTag = (tag) => {
                 buttonText={buttonText}
                 setButtonText={setButtonText}
                 setMessage={setMessage}
+                handleBulkDelete={handleBulkDelete}
+                selectedChoices={selectedChoices} // Pass selectedChoices
+                handleChoiceSelect={handleChoiceSelect} 
+                selectedTags={selectedTags} // Pass selectedTags
+                handleTagSelect={handleTagSelect}
+                quickEdit={quickEdit}
+                setQuickEdit={setQuickEdit}
             />
-    
+
     {isConfirmDialogOpen && choiceToDelete && (
                 <ConfirmDialog
                     isOpen={isConfirmDialogOpen}
@@ -846,6 +966,26 @@ const handleEditTag = (tag) => {
                     cancelButtonText="Cancel"
                 >
                     Are you sure you want to delete <strong>{choiceToDelete.groupName}</strong>? This action cannot be undone!
+                </ConfirmDialog>
+            )}
+
+{isBulkDeleteConfirmDialogOpen && (
+                <ConfirmDialog
+                    isOpen={isBulkDeleteConfirmDialogOpen}
+                    onConfirm={confirmBulkDelete}
+                    onCancel={() => setIsBulkDeleteConfirmDialogOpen(false)}
+                    confirmButtonText="Yes, Delete"
+                    cancelButtonText="Cancel"
+                >
+                    <p>{bulkDeleteConfirmMessage}</p>
+                    <ul>
+                        {itemsToDelete.choices.map(choice => (
+                            <li key={choice.name}>{choice.name}</li>
+                        ))}
+                        {itemsToDelete.tags.map(tag => (
+                            <li key={tag.id}>{tag.name}</li>
+                        ))}
+                    </ul>
                 </ConfirmDialog>
             )}
         </>

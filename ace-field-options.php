@@ -1359,34 +1359,37 @@ function ace_save_options(WP_REST_Request $request) {
     ), 200);
 }
 
-
 function ace_get_choices(WP_REST_Request $request) {
     $page = (int) $request->get_param('page') ?: 1;
     $per_page = (int) $request->get_param('per_page') ?: 10;
     $sort_by = $request->get_param('sort') ?: 'edited';
     $field_type = $request->get_param('field_type');
     $tags = $request->get_param('tags');
-    $search_query = $request->get_param('search_query'); // New parameter
+    $search_query = $request->get_param('search_query');
 
     $offset = ($page - 1) * $per_page;
 
-    $choices = array_merge(
+    // Step 1: Fetch all choices to determine total count before any filtering
+    $all_choices = array_merge(
         apply_filters('filter_wp_options_by_field_type', null, 'text'),
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
         apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio')
     );
+    $total_choices = count($all_choices); // Total count of all choices without filters
 
+    // Step 2: Apply filters if specified
+    $choices = $all_choices;
     if ($field_type) {
-        $field_types = explode(',', $field_type); // Split the field types by comma
+        $field_types = explode(',', $field_type);
         $choices = array_filter($choices, function($choice) use ($field_types) {
             return in_array($choice['field_type'], $field_types);
         });
     }
 
     if ($tags) {
-        $tag_list = explode(',', $tags); // Split the tags by comma
+        $tag_list = explode(',', $tags);
         $choices = array_filter($choices, function($choice) use ($tag_list) {
             return isset($choice['tags']) && array_intersect($choice['tags'], $tag_list);
         });
@@ -1397,13 +1400,11 @@ function ace_get_choices(WP_REST_Request $request) {
             $search_query = strtolower($search_query);
             return strpos(strtolower($choice['name']), $search_query) !== false ||
                    strpos(strtolower($choice['field_type']), $search_query) !== false ||
-                   (isset($choice['description']) && strpos(strtolower($choice['description']), $search_query) !== false) ||
-                   (isset($choice['tags']) && array_filter($choice['tags'], function($tag) use ($search_query) {
-                       return strpos(strtolower($tag), $search_query) !== false;
-                   }));
+                   (isset($choice['description']) && strpos(strtolower($choice['description']), $search_query) !== false);
         });
     }
 
+    // Step 3: Sort and paginate the filtered choices
     usort($choices, function($a, $b) use ($sort_by) {
         switch ($sort_by) {
             case 'created':
@@ -1419,17 +1420,15 @@ function ace_get_choices(WP_REST_Request $request) {
         }
     });
 
-    $total_choices = count($choices);
     $paginated_choices = array_slice($choices, $offset, $per_page);
-    $total_pages = ceil($total_choices / $per_page);
+    $total_pages = ceil(count($choices) / $per_page);
 
-    // Fetch all tags from 'field_tags' taxonomy
+    // Fetch all tags and include them in the response
     $tags = get_terms(array(
         'taxonomy' => 'field_tags',
         'hide_empty' => false
     ));
     
-    // Map tags with descriptions and IDs
     $tags_with_descriptions = [];
     foreach ($tags as $tag) {
         $tags_with_descriptions[$tag->term_id] = [
@@ -1439,7 +1438,6 @@ function ace_get_choices(WP_REST_Request $request) {
         ];
     }
     
-    // Add tag descriptions and IDs to each choice
     $response_data = [
         'choices' => array_map(function($choice) use ($tags_with_descriptions) {
             $choice['tags_with_descriptions'] = [];
@@ -1457,11 +1455,13 @@ function ace_get_choices(WP_REST_Request $request) {
             return $choice;
         }, $paginated_choices),
         'totalPages' => $total_pages,
+        'totalChoices' => $total_choices, // Add total choices regardless of filters
         'tags' => $tags_with_descriptions // Include tags in the response
     ];
 
     return new WP_REST_Response($response_data, 200);
 }
+
 
 add_action('rest_api_init', function () {
     register_rest_route('ace/v1', '/get-choices', array(
