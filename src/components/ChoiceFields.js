@@ -112,11 +112,11 @@ const ChoiceFields = ({
                                 onChange={(value) => updateOption(choice, option, 'label', value)}
                             />
                                <TextControl
-                placeholder="Option Value"
-                value={option.value}
-                disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
-                    onChange={(value) => updateOption(choice, option, 'value', value)}
-            />
+                                    placeholder="Option Value"
+                                    value={option.value}
+                                    disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
+                                    onChange={(value) => updateOption(choice, option, 'value', value)}
+                                />
                             <Button
                                 isDestructive
                                 onClick={() => removeOption(choice, option)}

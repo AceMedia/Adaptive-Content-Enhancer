@@ -42,11 +42,14 @@ const [groupBy, setGroupBy] = useState('nothing'); // Default grouping by 'type'
 const [tagFilter, setTagFilter] = useState(['']); // Default to "All Tags"
 const [tags, setTags] = useState([]);
 const [searchQuery, setSearchQuery] = useState(''); // State to store search query
-
+const [message, setMessage] = useState(''); // Define message state
 const [currentTag, setCurrentTag] = useState(null); // State for the current tag being edited
 const [isEditingTag, setIsEditingTag] = useState(false); // State to determine if we are editing a tag
+const [elapsedTime, setElapsedTime] = useState(0); // Define elapsedTime state
+const [buttonText, setButtonText] = useState('Save Settings'); // Default button text
+const [intervalId, setIntervalId] = useState(null); // Define intervalId state
 
-
+const saveText = "Save Settings"; // Define saveText
 const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false); // Track auto-save setting
 
 
@@ -204,8 +207,9 @@ const handleTextChange = (choice, field, newValue) => {
 
             return updatedChoices;
         });
-
+        console.log('Auto-save enabled:', isAutoSaveEnabled);
         if (isAutoSaveEnabled) {
+            console.log('Auto-saving...');
             throttle(handleSave, 2000)(); // Throttle the save function for text inputs
         }
     }
@@ -213,8 +217,10 @@ const handleTextChange = (choice, field, newValue) => {
 
 
 
+const handleSave = (isAutoSave = false) => {
+    setButtonText('Saving...'); // Change button text
+    setMessage(''); // Reset message visibility for the saving process
 
-const handleSave = () => {
     const payload = {
         choices: choices
             .filter(choice => changedChoices.includes(choice.name))
@@ -250,16 +256,35 @@ const handleSave = () => {
             fetchChoices(); // Refresh choices
             setUnsavedChanges(false); // Reset unsaved changes
             console.log('Save successful:', response.message);
+            setMessage('Time since last saved'); // Always show time since last saved
+
+            // Start the timer for elapsed time
+            const id = setInterval(() => {
+                setElapsedTime((prev) => prev + 1);
+            }, 1000);
+            setIntervalId(id);
+
+            // Change button text to "Fields Saved" for 3 seconds
+            console.log('Changing button text...');
+            setButtonText('Fields Saved');
+            setTimeout(() => {
+                console.log('Resetting button text...');
+                setButtonText(saveText); // Reset to original text
+            }, 3000);
+
             return { success: true }; // Return success response
         } else {
             console.error('Error saving choices:', response.error);
+            setButtonText('Failed!'); // Change button text on failure
             return { success: false }; // Return failure response
         }
     }).catch((error) => {
         console.error('Error saving choices:', error);
+        setButtonText('Failed!'); // Handle error
         return { success: false }; // Return failure response
     });
 };
+
 
 
     
@@ -629,6 +654,7 @@ const handleEditTag = (tag) => {
             });
     
             if (isAutoSaveEnabled) {
+                console.log('Auto-save enabled:', newValue);
                 handleSave(); // Trigger the save function immediately for dropdowns and other inputs
             }
         }
@@ -798,6 +824,11 @@ const handleEditTag = (tag) => {
                 setTagFilter={setTagFilter}
                 setGroupBy={setGroupBy}
                 setNewChoice={setNewChoice}
+                setIsAutoSaveEnabled={setIsAutoSaveEnabled}
+                isAutoSaveEnabled={isAutoSaveEnabled}
+                buttonText={buttonText}
+                setButtonText={setButtonText}
+                setMessage={setMessage}
             />
     
     {isConfirmDialogOpen && choiceToDelete && (

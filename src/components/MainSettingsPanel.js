@@ -46,7 +46,12 @@ const MainSettingsPanel = ({
     setCurrentTag,
     groupBy,
     setGroupBy,
-    setNewChoice
+    setIsAutoSaveEnabled,
+    isAutoSaveEnabled,
+    setNewChoice,
+    setButtonText,
+    buttonText,
+    setMessage,
 }) => {
     // Define the groupBy state and its handler
     const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
@@ -135,11 +140,16 @@ const MainSettingsPanel = ({
                 </FlexBlock>
             </Flex>
 
-            <SaveBar 
-                onSave={handleSave} 
-                setUnsavedChanges={setUnsavedChanges} 
-                unsavedChanges={unsavedChanges}
-            >
+            <SaveBar
+    onSave={handleSave}
+    setUnsavedChanges={setUnsavedChanges}
+    unsavedChanges={unsavedChanges}
+    isAutoSaveEnabled={isAutoSaveEnabled} // Pass the state to SaveBar
+    setIsAutoSaveEnabled={setIsAutoSaveEnabled} // Pass the function to SaveBar
+    buttonText={unsavedChanges ? 'Save Changes' : 'Saved'}
+    setButtonText={setButtonText}
+    setMessage={setMessage}
+>
                 <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup} icon="plus">
                     Add New Field
                 </Button>

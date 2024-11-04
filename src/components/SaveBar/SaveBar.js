@@ -2,13 +2,11 @@ import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
 import { Button, Flex, FlexItem, ToggleControl } from '@wordpress/components';
 
-const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText = "Save Settings" }) => {
-    const [buttonText, setButtonText] = useState(saveText);
+const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText = "Save Settings", isAutoSaveEnabled, setIsAutoSaveEnabled, buttonText, setMessage }) => {
     const [isSuccess, setIsSuccess] = useState(false);
-    const [message, setMessage] = useState(''); // Manage message state
+    const [message, setMessageState] = useState(''); // Manage message state
     const [elapsedTime, setElapsedTime] = useState(0);
     const [intervalId, setIntervalId] = useState(null);
-    const [isLiveSaveEnabled, setIsLiveSaveEnabled] = useState(false); // Track live save state
 
     // Function to update the fixed position
     function updateFixedPosition() {
@@ -57,36 +55,7 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
     }, [message]);
 
     const handleClick = () => {
-        if (typeof onSave === 'function') {
-            setButtonText('Saving...'); // Change button text
-            setMessage(''); // Reset message visibility for the saving process
-
-            onSave().then(response => {
-                if (response.success) {
-                    setButtonText('Saved!'); // Change button text on success
-                    setIsSuccess(true);
-                    setUnsavedChanges(false); // Reset unsaved changes state
-                    setElapsedTime(0); // Reset elapsed time
-                    setMessage('Time since last saved'); // Show time since last saved
-
-                    // Start the timer for elapsed time
-                    const id = setInterval(() => {
-                        setElapsedTime((prev) => prev + 1);
-                    }, 1000);
-                    setIntervalId(id);
-
-                    // Clear the message after success but keep it visible
-                    setTimeout(() => {
-                        setButtonText(saveText); // Reset to original text
-                    }, 2500);
-                } else {
-                    // Handle failure if needed
-                    setButtonText('Failed!'); // Change button text on failure
-                }
-            }).catch(() => {
-                setButtonText('Failed!'); // Handle error
-            });
-        }
+        onSave(false, setMessageState); // Pass setMessageState to onSave
     };
 
     const formatElapsedTime = (seconds) => {
@@ -110,10 +79,14 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
                             <ToggleControl
                                 label="Live Save"
                                 className="ace-save-bar-toggle-control"
-                                checked={isLiveSaveEnabled}
+                                checked={isAutoSaveEnabled}
                                 onChange={(isChecked) => {
-                                    setIsLiveSaveEnabled(isChecked);
-                                    setMessage(isChecked ? 'Live Save Enabled' : 'Live Save Disabled');
+                                    console.log('Toggle changed:', isChecked); // Debugging
+                                    setIsAutoSaveEnabled(isChecked);
+                                    setMessageState(isChecked ? 'Live Save Enabled' : 'Live Save Disabled');
+                                    setTimeout(() => {
+                                        setMessageState('');
+                                    }, 2000); // Clear the message after 2 seconds
                                 }}
                             />
                         </div>
@@ -122,7 +95,7 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
                             onClick={handleClick}
                             className={`wp-saving-button ${unsavedChanges ? 'enabled' : ''} ${isSuccess ? 'saved' : ''}`}
                             aria-label={buttonText}
-                            disabled={!unsavedChanges || isLiveSaveEnabled} // Start disabled on load
+                            disabled={!unsavedChanges || isAutoSaveEnabled} // Start disabled on load
                         >
                             <span className="dashicons dashicons-update"></span> {buttonText}
                         </Button>
@@ -137,7 +110,10 @@ SaveBar.propTypes = {
     children: PropTypes.node,
     onSave: PropTypes.func.isRequired,
     setUnsavedChanges: PropTypes.func.isRequired,
-    unsavedChanges: PropTypes.bool.isRequired, // Added this line
+    unsavedChanges: PropTypes.bool.isRequired,
+    isAutoSaveEnabled: PropTypes.bool.isRequired, // Added this line
+    setIsAutoSaveEnabled: PropTypes.func.isRequired, // Added this line
+    setMessage: PropTypes.func.isRequired, // Added this line
 };
 
 export default SaveBar;
