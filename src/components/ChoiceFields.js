@@ -10,6 +10,7 @@ const ChoiceFields = ({
     removeOption, 
     addOption, 
     isModalOpen,
+    setNewChoice,
     tags // Receive the tags object
 }) => {
     // Convert tags object to options for react-select
@@ -17,6 +18,10 @@ const ChoiceFields = ({
         value: tagId,
         label: tags[tagId].name
     }));
+
+    function createLowercaseUnderscored(string) {
+        return string.toLowerCase().replace(/\s+/g, '_');
+    }
 
     // Convert tag IDs to react-select format
     const selectedTags = choice.tags ? choice.tags.map(tagId => ({
@@ -96,7 +101,7 @@ const ChoiceFields = ({
                 </div>
             )}
 
-            {choice.field_type !== 'text' && (
+{choice.field_type !== 'text' && (
                 <div style={{ marginTop: '16px' }}>
                     <strong>Options:</strong>
                     {choice.options.map((option, optionIndex) => (
@@ -106,11 +111,12 @@ const ChoiceFields = ({
                                 value={option.label}
                                 onChange={(value) => updateOption(choice, option, 'label', value)}
                             />
-                            <TextControl
-                                placeholder="Option Value"
-                                value={option.value}
-                                onChange={(value) => updateOption(choice, option, 'value', value)}
-                            />
+                               <TextControl
+                placeholder="Option Value"
+                value={option.value}
+                disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
+                    onChange={(value) => updateOption(choice, option, 'value', value)}
+            />
                             <Button
                                 isDestructive
                                 onClick={() => removeOption(choice, option)}

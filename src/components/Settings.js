@@ -47,6 +47,21 @@ const [currentTag, setCurrentTag] = useState(null); // State for the current tag
 const [isEditingTag, setIsEditingTag] = useState(false); // State to determine if we are editing a tag
 
 
+const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false); // Track auto-save setting
+
+
+const throttle = (func, delay) => {
+    let timeoutId;
+    return (...args) => {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => {
+            func(...args);
+        }, delay);
+    };
+};
+
 const handleSearchChange = (query) => {
     setSearchQuery(query);
 };
@@ -189,6 +204,10 @@ const handleTextChange = (choice, field, newValue) => {
 
             return updatedChoices;
         });
+
+        if (isAutoSaveEnabled) {
+            throttle(handleSave, 2000)(); // Throttle the save function for text inputs
+        }
     }
 };
 
@@ -207,6 +226,7 @@ const handleSave = () => {
                 options: choice.options ? choice.options.map(option => ({
                     label: option.label,
                     value: option.value, // Only set disabled once saved, not before
+                    saved: true // Mark the option as saved
                 })) : [],
                 show_in_rest: choice.show_in_rest ? 1 : 0,
                 tags: choice.tags, // Ensure tags are saved as IDs
@@ -587,7 +607,6 @@ const handleEditTag = (tag) => {
     
     
 
-
     const handleToggleChange = (choice, newValue) => {
         if (isModalOpen) {
             setNewChoice((prevNewChoice) => ({
@@ -608,6 +627,10 @@ const handleEditTag = (tag) => {
     
                 return updatedChoices;
             });
+    
+            if (isAutoSaveEnabled) {
+                handleSave(); // Trigger the save function immediately for dropdowns and other inputs
+            }
         }
     };
     
@@ -615,22 +638,23 @@ const handleEditTag = (tag) => {
     const addOption = (choice) => {
         const newOption = { label: '', value: '', isNew: true, disabled: false }; // Default to not disabled
     
-        if (choice) {
-            const updatedChoices = choices.map(c => {
-                if (c.name === choice.name) {
-                    return {
-                        ...c,
-                        options: [...c.options, newOption]
-                    };
-                }
-                return c;
-            });
-            setChoices(updatedChoices);
-        } else if (isModalOpen) {
-            setNewChoice(prev => ({
-                ...prev,
-                options: [...prev.options, newOption]
+        if (isModalOpen) {
+            setNewChoice((prevNewChoice) => ({
+                ...prevNewChoice,
+                options: [...prevNewChoice.options, newOption]
             }));
+        } else {
+            setChoices((prevChoices) => {
+                const updatedChoices = [...prevChoices];
+                const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
+    
+                if (choiceIndex !== -1) {
+                    updatedChoices[choiceIndex].options.push(newOption);
+                    markAsChanged(choice.name); // Mark as changed
+                }
+    
+                return updatedChoices;
+            });
         }
     };
     
@@ -773,6 +797,7 @@ const handleEditTag = (tag) => {
                 currentTag={currentTag}
                 setTagFilter={setTagFilter}
                 setGroupBy={setGroupBy}
+                setNewChoice={setNewChoice}
             />
     
     {isConfirmDialogOpen && choiceToDelete && (

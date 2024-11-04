@@ -45,7 +45,8 @@ const MainSettingsPanel = ({
     handleEditTag,
     setCurrentTag,
     groupBy,
-    setGroupBy
+    setGroupBy,
+    setNewChoice
 }) => {
     // Define the groupBy state and its handler
     const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
@@ -176,6 +177,8 @@ const MainSettingsPanel = ({
                 addOption={addOption}
                 isModalOpen={isModalOpen}
                 openConfirmDialog={openConfirmDialog}
+                tags={tags}
+                setNewChoice={setNewChoice}
             />
         )}
         <Button isPrimary variant="primary" onClick={handleModalSubmit}>
