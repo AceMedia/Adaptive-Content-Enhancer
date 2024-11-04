@@ -1,5 +1,9 @@
 import { TextControl, SelectControl, TextareaControl, ToggleControl, Button } from '@wordpress/components';
-import Select from 'react-select';
+import Creatable from 'react-select/creatable';
+
+
+import apiFetch from '@wordpress/api-fetch';
+
 
 const ChoiceFields = ({ 
     choice, 
@@ -11,13 +15,19 @@ const ChoiceFields = ({
     addOption, 
     isModalOpen,
     setNewChoice,
-    tags // Receive the tags object
+    currentTag,
+    tags, // Receive the tags object
+    setTags,
+    getRandomColor,
+    customStyles,
 }) => {
     // Convert tags object to options for react-select
     const tagOptions = Object.keys(tags).map(tagId => ({
         value: tagId,
-        label: tags[tagId].name
+        label: tags[tagId].name,
+        meta: { color: tags[tagId].meta.color } // Ensure color is passed here
     }));
+
 
     function createLowercaseUnderscored(string) {
         return string.toLowerCase().replace(/\s+/g, '_');
@@ -26,7 +36,8 @@ const ChoiceFields = ({
     // Convert tag IDs to react-select format
     const selectedTags = choice.tags ? choice.tags.map(tagId => ({
         value: tagId,
-        label: tags[tagId]?.name || 'Unknown Tag'
+        label: tags[tagId]?.name || 'Unknown Tag',
+        meta: { color: tags[tagId]?.meta?.color || getRandomColor() } // Set color for existing tags as well
     })) : [];
 
     return (
@@ -76,17 +87,72 @@ const ChoiceFields = ({
                 onChange={(newValue) => handleToggleChange(choice, newValue)}
             />
 
-            <Select
+            <Creatable
                 isMulti
                 options={tagOptions}
                 value={selectedTags}
-                onChange={(selectedOptions) => {
-                    const tagIds = selectedOptions.map(option => option.value);
-                    handleTagChange(choice, tagIds);
+                className='ace-tag-select'                
+                styles={customStyles} // Apply custom styles to display tag color
+                onChange={(selectedOptions, actionMeta) => {
+                    if (actionMeta.action === 'create-option') {
+                        const temporaryTagId = `temp-${Date.now()}`;
+                        const randomColor = getRandomColor();
+                        const newTag = { name: actionMeta.option.label, description: '', meta: { color: randomColor } };
+                        const temporaryTag = { value: temporaryTagId, label: newTag.name, meta: { color: randomColor } };
+
+                        // Optimistically update tag options and selected tags
+                        const updatedTagOptions = [...tagOptions, temporaryTag];
+                        const updatedSelectedTags = [...selectedTags, temporaryTag];
+                        setTags((prevTags) => ({
+                            ...prevTags,
+                            [temporaryTagId]: { name: newTag.name, description: '', meta: { color: randomColor } },
+                        }));
+                        handleTagChange(choice, updatedSelectedTags.map(tag => tag.value));
+                        setNewChoice((prevNewChoice) => ({
+                            ...prevNewChoice,
+                            tags: updatedSelectedTags.map(tag => tag.value),
+                        }));
+
+                        // Proceed with the API call
+                        apiFetch({
+                            path: '/wp/v2/field_tags',
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(newTag),
+                        })
+                            .then((response) => {
+                                if (response.id) {
+                                    const createdTag = { value: response.id, label: response.name, meta: { color: randomColor } };
+                                    // Update tags to replace temporary tag with the saved tag
+                                    setTags((prevTags) => {
+                                        const { [temporaryTagId]: removed, ...restTags } = prevTags;
+                                        return {
+                                            ...restTags,
+                                            [response.id]: { name: response.name, description: '', meta: { color: randomColor } },
+                                        };
+                                    });
+                                    handleTagChange(choice, [...updatedSelectedTags.filter(tag => tag.value !== temporaryTagId), createdTag].map(tag => tag.value));
+                                } else {
+                                    console.error('Error creating tag:', response);
+                                }
+                            })
+                            .catch((error) => {
+                                console.error('Error creating tag:', error);
+                                // Optionally handle error by removing the temporary tag
+                                setTags((prevTags) => {
+                                    const { [temporaryTagId]: removed, ...restTags } = prevTags;
+                                    return restTags;
+                                });
+                            });
+                    } else {
+                        const tagIds = selectedOptions.map(option => option.value);
+                        handleTagChange(choice, tagIds);
+                    }
                 }}
                 placeholder="Select or create tags..."
             />
-
             {/* Display tags and descriptions */}
             {choice.tags_with_descriptions && choice.tags_with_descriptions.length > 0 && (
                 <div style={{ marginTop: '16px' }}>
@@ -101,7 +167,7 @@ const ChoiceFields = ({
                 </div>
             )}
 
-{choice.field_type !== 'text' && (
+            {choice.field_type !== 'text' && (
                 <div style={{ marginTop: '16px' }}>
                     <strong>Options:</strong>
                     {choice.options.map((option, optionIndex) => (
@@ -111,12 +177,12 @@ const ChoiceFields = ({
                                 value={option.label}
                                 onChange={(value) => updateOption(choice, option, 'label', value)}
                             />
-                               <TextControl
-                                    placeholder="Option Value"
-                                    value={option.value}
-                                    disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
-                                    onChange={(value) => updateOption(choice, option, 'value', value)}
-                                />
+                            <TextControl
+                                placeholder="Option Value"
+                                value={option.value}
+                                disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
+                                onChange={(value) => updateOption(choice, option, 'value', value)}
+                            />
                             <Button
                                 isDestructive
                                 onClick={() => removeOption(choice, option)}
@@ -138,3 +204,5 @@ const ChoiceFields = ({
 };
 
 export default ChoiceFields;
+
+

@@ -28,6 +28,11 @@ const ChoiceCards = ({
     handleChoiceSelect,
     onAddCard,
     handleAddChoiceGroup,
+    currentTag,
+    setNewChoice,
+    setTags,
+    getRandomColor,
+    customStyles,
 }) => {
 
     const fieldTypeIcons = {
@@ -131,7 +136,7 @@ const ChoiceCards = ({
                                             <span className='icon'>
                                                 <FontAwesomeIcon icon={fieldTypeIcons[choice.field_type] || fieldTypeIcons.default} />
                                             </span>
-                                            <h2>{choice.title || `Group ${index + 1}`}</h2>
+                                            <h2>{choice.title || ``}</h2>
 
                                             {quickEdit === 'true' && (
                                                 <input
@@ -143,25 +148,26 @@ const ChoiceCards = ({
                                         </Flex>
                                     </FlexItem>
                                     <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
-                                        {choice.tags && choice.tags.length > 0 && (
-                                            <Flex align="left" wrap="nowrap" gap={1} style={{ textAlign: 'left', width: 'auto' }}>
-                                                {choice.tags.map((tagId, idx) => (
-                                                    <span
-                                                        key={idx}
-                                                        style={{
-                                                            backgroundColor: tags[tagId]?.meta?.color?.[0] || '#007cba', // Use the color value from the meta object
-                                                            color: '#fff',
-                                                            padding: '2px 6px',
-                                                            borderRadius: '12px',
-                                                            fontSize: '0.75em',
-                                                            whiteSpace: 'nowrap',
-                                                        }}
-                                                    >
-                                                        {tags[tagId] ? tags[tagId].name : 'Unknown Tag'}
-                                                    </span>
-                                                ))}
-                                            </Flex>
-                                        )}
+                                    {choice.tags && choice.tags.length > 0 && (
+                            <Flex align="left" wrap="nowrap" gap={1} className="card-tags" style={{ textAlign: 'left', width: 'auto' }}>
+                                {choice.tags.map((tagId, idx) => (
+                                    <span
+                                        key={idx}
+                                        className='tag'
+                                        style={{
+                                            backgroundColor: tags[tagId]?.meta?.color || '#007cba', // Use updated color from tags
+                                            color: '#fff',
+                                            padding: '2px 6px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75em',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {tags[tagId] ? tags[tagId].name : 'Unknown Tag'}
+                                    </span>
+                                ))}
+                            </Flex>
+                        )}
                                         {choice.created && (
                                             <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }}>
                                                 <Tooltip text={`Created at ${new Date(choice.created).toLocaleString()}`}>
@@ -187,6 +193,11 @@ const ChoiceCards = ({
                                         addOption={addOption}
                                         isModalOpen={isModalOpen}
                                         tags={tags}
+                                        currentTag={currentTag}
+                                        setNewChoice={setNewChoice}
+                                        setTags={setTags}
+                                        getRandomColor={getRandomColor}
+                                        customStyles={customStyles}
                                     />
                                     <Button variant="secondary" isDestructive onClick={() => openConfirmDialog(choice.name)}>
                                         Delete Field

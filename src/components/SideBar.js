@@ -3,16 +3,18 @@ import {
     __experimentalToggleGroupControlOption as ToggleGroupControlOption,
     PanelBody,
     Button,
-    TextControl
+    TextControl,
+    ToggleControl
 } from '@wordpress/components';
 import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
 import { Icon, filter, info, formatCapitalize } from '@wordpress/icons';
+import Select from 'react-select';
 
 
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faCircleQuestion, faGlobe, faSort } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faCircleQuestion, faGlobe, faSort } from '@fortawesome/free-solid-svg-icons';
 
 
 
@@ -28,6 +30,7 @@ const fieldTypeIcons = {
 
 const SearchComponent = ({ searchQuery, handleSearchChange }) => {
     return (
+        <div className='search-holder'>
         <input
             type="text"
             value={searchQuery}
@@ -35,10 +38,10 @@ const SearchComponent = ({ searchQuery, handleSearchChange }) => {
             placeholder="Search..."
             style={{ width: '100%', marginBottom: '0px' }}
         />
+    <span className="dashicons dashicons-search" style={{ marginLeft: '5px' }}></span>
+    </div>
     );
 };
-
-
 
 
 
@@ -67,7 +70,9 @@ const SideBar = ({
     handleBulkDelete,
     selectedTags,
     setSelectedTags,
-    handleTagSelect
+    handleTagSelect,
+    getRandomColor,
+    customStyles,
 }) => {
     const handleFieldTypeChange = (selectedType) => {
         setFieldTypeFilter(prev => {
@@ -81,6 +86,13 @@ const SideBar = ({
             return [...prev.filter(type => type !== ''), selectedType]; // Add type and remove "All Types"
         });
     };
+
+
+
+const tagOptions = Object.keys(tags).map(tagId => ({
+    value: tagId,
+    label: tags[tagId].name
+}));
 
 
 
@@ -202,7 +214,7 @@ const SideBar = ({
         <PanelBody
     title={
         <span>
-            <FontAwesomeIcon icon={faTags} />Filter by Field Tags
+            <FontAwesomeIcon icon={faTags} /> Filter by Field Tags
         </span>
     }
     initialOpen={false}
@@ -215,7 +227,7 @@ const SideBar = ({
                 value: tagId, // Use the tag ID
                 description: tags[tagId].description,
                 meta: {
-                    color: tags[tagId].meta?.color?.[0] || '#000' // Ensure a default color if color is missing
+                    color: tags[tagId].meta?.color || '#000' // Use the dynamic color from tags, defaulting to black if missing
                 }
             }))
         ].map((option) => (
@@ -224,12 +236,17 @@ const SideBar = ({
                 isPressed={tagFilter.includes(option.value)}
                 onClick={() => handleTagChange(option.value)}
                 className="toggle-button"
-                style={{ color: option.meta?.color || '#000' }}
+                style={{
+                    color: option.meta?.color || '#000' // Safely access color with fallback
+                }}
             >
                 <span
                     className="field-tag-color"
-                    style={{ background: option.meta?.color || '' }} // Use the color value from the meta object
-                ></span> {option.label}
+                    style={{
+                        background: option.meta?.color || '#000' // Safely use background color with fallback
+                    }}
+                ></span>
+                {option.label}
 
                 {/* Only show the Edit button if it's not the "All Tags" option */}
                 {option.value && (
@@ -242,58 +259,60 @@ const SideBar = ({
                                 label: option.label,
                                 description: option.description,
                                 meta: {
-                                    color: option.meta?.color || '#000',
+                                    color: option.meta?.color || '#000', // Fallback color if meta is missing
                                 }
                             });
-                            console.log(option.meta?.color);
                         }}
                     >
                         Edit
                     </span>
                 )}
-            {quickEdit === 'true' && (
-                <input
-                    type="checkbox"
-                    checked={selectedTags.includes(option.value)}
-                    onChange={() => handleTagSelect(option.value)}
-                />
-            )}
+                {quickEdit === 'true' && option.value && (
+                    <input
+                        type="checkbox"
+                        checked={selectedTags.includes(option.value)}
+                        onChange={() => handleTagSelect(option.value)}
+                    />
+                )}
             </Button>
         ))}
     </div>
 </PanelBody>
 
-<PanelBody title={
-    <span>
-        <FontAwesomeIcon icon={faCircleQuestion} />Quick Edit
-    </span>
-} initialOpen={false}>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <ToggleGroupControl
-            label="Enable Quick Edit"
-            value={quickEdit}
-            onChange={setQuickEdit}
-            defaultValue='off' 
-            isBlock
-            __nextHasNoMarginBottom
-        >
-            <ToggleGroupControlOption 
-                value="off" 
-                label="Off" 
-            />
-            <ToggleGroupControlOption 
-                value="true" 
-                label="On" 
-            />
-        </ToggleGroupControl>
-        {quickEdit}
-        {quickEdit === 'true' && (
-    <Button isDestructive onClick={handleBulkDelete}>
-        Delete Selected
-    </Button>
-)}
 
-    </div>
+<PanelBody 
+    className='bulk-panel'
+    title={
+        <span>
+            <FontAwesomeIcon icon={faEdit} /> Bulk Actions
+            <ToggleControl
+                checked={quickEdit === 'true'}
+                onChange={(value) => setQuickEdit(value ? 'true' : 'off')}
+                style={{ marginLeft: '10px' }}
+            />
+        </span>
+    }
+    initialOpen={false}
+    onToggle={(open) => setQuickEdit(open ? 'true' : 'off')} // Automatically enable "Quick Edit" when panel is opened
+>
+    {quickEdit === 'true' && (
+        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <Button isDestructive isPrimary onClick={handleBulkDelete}>
+                Delete Selected
+            </Button>
+            
+            <Select
+                isMulti
+                options={tagOptions}
+                value={selectedTags}
+                onChange={(selectedOptions) => {
+                    const tagIds = selectedOptions.map(option => option.value);
+                    handleTagChange(choice, tagIds);
+                }}
+                placeholder="Select or create tags..."
+            />
+        </div>
+    )}
 </PanelBody>
 
 

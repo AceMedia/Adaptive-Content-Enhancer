@@ -121,6 +121,35 @@ useEffect(() => {
 }, [choices, sortBy]); 
 
 
+const getRandomColor = () => {
+    const letters = '345678'; // Use values that are in the mid-range for richer colors
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * letters.length)];
+    }
+    return color;
+};
+
+
+const customStyles = {
+    multiValue: (styles, { data }) => ({
+        ...styles,
+        backgroundColor: data.meta?.color || data.color || '#007cba', // Fallback to default if color is missing
+    }),
+    multiValueLabel: (styles) => ({
+        ...styles,
+        color: '#fff', // Text color for contrast
+    }),
+    multiValueRemove: (styles) => ({
+        ...styles,
+        color: '#fff',
+        ':hover': {
+            backgroundColor: '#ff6961', // Slightly darker color on hover for remove button
+            color: '#fff',
+        },
+    }),
+};
+
 const handleTagChange = (choice, newTagIds) => {
     if (isModalOpen) {
         setNewChoice((prevNewChoice) => ({
@@ -955,6 +984,9 @@ const handleEditTag = (tag) => {
                 handleTagSelect={handleTagSelect}
                 quickEdit={quickEdit}
                 setQuickEdit={setQuickEdit}
+                setTags={setTags}
+                getRandomColor={getRandomColor}
+                customStyles={customStyles}
             />
 
     {isConfirmDialogOpen && choiceToDelete && (

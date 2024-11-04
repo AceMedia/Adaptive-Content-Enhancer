@@ -61,7 +61,10 @@ const MainSettingsPanel = ({
     selectedTags,
     handleTagSelect,
     quickEdit,
-    setQuickEdit
+    setQuickEdit,
+    setTags,
+    customStyles,
+    getRandomColor,
 }) => {
     // Define the groupBy state and its handler
     const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
@@ -154,6 +157,8 @@ const MainSettingsPanel = ({
                 handleBulkDelete={handleBulkDelete}
                 selectedTags={selectedTags} // Pass the selectedTags
                 handleTagSelect={handleTagSelect}
+                getRandomColor={getRandomColor}
+                customStyles={customStyles}
                     />
                 </FlexItem>
 
@@ -195,26 +200,33 @@ const MainSettingsPanel = ({
                         openConfirmDialog={openConfirmDialog}
                         formatRelativeTime={formatRelativeTime}
                         tags={tags}
+                        currentTag={currentTag}
                         quickEdit={quickEdit}
                         setQuickEdit={setQuickEdit}
                         handleBulkDelete={handleBulkDelete}
                         selectedChoices={selectedChoices} // Pass selectedChoices
                         handleChoiceSelect={handleChoiceSelect} 
                         handleAddChoiceGroup={handleAddChoiceGroup}
+                        setNewChoice={setNewChoice}
+                        setTags={setTags}
+                        getRandomColor={getRandomColor}
+                        customStyles={customStyles}
                     />
 
-                    <Flex justify="flex-start" gap={2}>
-                        {currentPage > 1 && (
-                            <Button isSecondary onClick={handlePreviousPage}>
-                                Previous
-                            </Button>
-                        )}
-                        {currentPage < totalPages && (
-                            <Button isSecondary onClick={handleNextPage}>
-                                Next
-                            </Button>
-                        )}
-                    </Flex>
+                    {totalPages > 1 && (
+                        <Flex justify="flex-start" gap={2}>
+                            {currentPage > 1 && (
+                                <Button isSecondary onClick={handlePreviousPage}>
+                                    Previous
+                                </Button>
+                            )}
+                            {currentPage < totalPages && (
+                                <Button isSecondary onClick={handleNextPage}>
+                                    Next
+                                </Button>
+                            )}
+                        </Flex>
+                    )}
                 </FlexBlock>
             </Flex>
 
@@ -231,6 +243,10 @@ const MainSettingsPanel = ({
                 <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup} icon="plus">
                     Add New Field
                 </Button>
+
+
+
+                
             </SaveBar>
 
             {/* Modal for adding a new choice group */}
@@ -273,6 +289,8 @@ const MainSettingsPanel = ({
                 openConfirmDialog={openConfirmDialog}
                 tags={tags}
                 setNewChoice={setNewChoice}
+                getRandomColor={getRandomColor}
+                customStyles={customStyles}
             />
         )}
         <Button isPrimary variant="primary" onClick={handleModalSubmit}>

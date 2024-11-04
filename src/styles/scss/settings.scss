@@ -44,12 +44,17 @@ table {
     }
 
 
-    .settings-header{
+    .settings-header > div {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        justify-content: space-between;
         h1 {
             color:$primary-color;
             font-weight: 600;
             word-spacing: -10px;
             text-transform: uppercase;
+            display: inline;
             span {
                 text-transform: none;
                 font-style: italic;
@@ -63,11 +68,12 @@ table {
             }
         }
         .description {
+            display: inline-block;
             font-size: 1em;
-            margin-bottom: 1em;
-            font-family: serif;
-            color: black;
-            font-style: italic;
+            line-height: 30px;
+            font-weight: bold;
+            margin: 0px 0px 0px 10px;
+            color: #336699;
         }
     }
 
@@ -77,6 +83,7 @@ table {
     }
     .side-panel {
         position: sticky;
+        align-self: normal;
         top: calc(42px + 1em);
         bottom: 100px;
         max-width: 30%;
@@ -160,6 +167,9 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1), 0 1px 2px -1px rgba(0, 0, 0, .1) !important;
     border-radius: .5em !important;
     border: 1px solid rgb(203, 213, 225) !important;
+    &:last-child {
+        margin-bottom: 0px !important;
+    }
     .components-card__header {
         position: relative;
         overflow: hidden;
@@ -167,6 +177,9 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
         p, h2 {
             margin: 0px;
             font-size: 1em;
+        }
+        h2 {
+            font-size: 1.4em;
         }
         .icon {
             margin-left: -.5em;
@@ -362,10 +375,27 @@ button {
     }
 }
 
-.side-panel > div > input {
-    border: 1px solid rgb(203, 213, 225);
-    padding: .5em 1em !important;
-    box-shadow: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
+.side-panel div.search-holder  {
+    position: relative;
+    input {
+        border: 1px solid rgb(203, 213, 225);
+        border-radius:.5em !important;
+        padding: .5em 1em .5em 3em !important;
+        box-shadow: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
+    }
+    span {
+        position: absolute;
+        top: 50%;
+        left: 5px;
+        z-index: 99;
+        height: 30px;
+        width: 30px;
+        transform: translateY(-50%);
+        &::before {
+            font-size: 26px;
+            line-height: 30px;
+        }
+    }
 }
 
 .components-button.toggle-button {
@@ -447,25 +477,150 @@ button {
 }
 
 
-.components-flex-block {
+.main-panel > .components-flex-block {
     display: flex !important;
     flex-direction: column !important; /* Assuming this is the desired full height */
     flex-grow: 1 !important;
+    > div:not(.currently-viewing) {
+    background-color: $slate;
+    padding: 1.5em;
+    border-radius: .5em;
+    }
 }
 
-.components-flex-block > .currently-viewing {
+.main-panel > .components-flex-block > .currently-viewing {
     /* This element will take only the height it needs */
     flex-shrink: 0; /* Prevent shrinking so it keeps its natural height */
 }
 
-.components-flex-block > .no-choices {
+.main-panel > .components-flex-block > .no-choices {
     /* This element will take up the remaining space */
     flex-grow: 1; /* Make this element expand to fill the remaining space */
     display: flex; /* Optional: if you want to center content within this element */
     justify-content: center; /* Center horizontally */
     align-items: center; /* Center vertically */
     flex-direction: column;
-    background-color: $slate;
-    padding: 2em;
-    border-radius: .5em;
 }
+
+
+.card-tags,
+.ace-tag-select {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex-wrap: wrap;
+    > span.tag,
+    > div:nth-child(3) > div:first-child > div:not(:last-child) {
+        color: #fff;
+        line-height: 1;
+        white-space: nowrap;
+        line-height: 26px;
+        text-decoration: none;
+        position: relative;
+        box-shadow: none;
+        transition: background-color 0.2s, color 0.2s;
+        border-radius: 0px 2px 2px 0px !important;
+        padding: 0px 1em 0px 20px !important;
+        text-align: left;
+        &:is(div) {
+            padding-right: 31px !important;
+        }
+        > div {
+            display: inline-block;
+            padding: 0px;
+            &[role="button"] {
+                cursor: pointer;
+                position: absolute;
+                right: 0px;
+                top: 0px;
+                height: 100%;
+                width: 26px;
+                svg {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate3d(-50%, -50%, 0);
+                }
+            }
+        }
+        &::before {
+            content: '';
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: none;
+            height: 5px;
+            width: 5px;
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0px;
+            border-bottom: 13px solid white;
+            border-right: 10px solid transparent;
+            border-top: 13px solid white;
+            transition: border-left-color 0.2s;
+        }
+
+        &:hover {
+            background-color: crimson;
+            color: #fff;
+
+            &::after {
+                border-left-color: crimson;
+            }
+        }
+    }
+    > div:nth-child(3) > div:first-child > div:last-child {
+        margin: 0px 0px 0px 1em !important;
+        padding: 0px !important;
+        input {
+            min-height: 24px !important;
+            line-height: 24px !important;
+            padding: 0px !important;
+            box-sizing: content-box;
+            margin: 0px !important; 
+        }
+    }
+}
+
+
+
+
+.components-card-header:hover .card-tags {
+    span {
+        &::before {
+            background: #f8fafc;
+        }
+
+        &::after {
+            border-bottom: 13px solid #f8fafc;
+            border-top: 13px solid #f8fafc;
+        }
+    }
+}
+
+
+.bulk-panel {
+    h2 {
+        button {
+            span:first-child svg {
+                display: none !important;
+            }
+            .components-base-control {
+                position: absolute;
+                right: 1em;
+                top: 50%;
+                transform: translateY(-50%);
+                padding: 0px;
+                margin: 0px;
+            }
+        }
+    }
+}
+
