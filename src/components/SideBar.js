@@ -263,7 +263,10 @@ const SideBar = ({
                         ...Object.keys(tags).map(tagId => ({
                             label: tags[tagId].name,
                             value: tagId, // Use the tag ID
-                            description: tags[tagId].description // Include the tag description
+                            description: tags[tagId].description,
+                            meta: {
+                                color: tags[tagId].meta?.color?.[0] || '#000' // Ensure a default color if color is missing
+                            }
                         }))
                     ].map((option) => (
                         <Button
@@ -272,7 +275,10 @@ const SideBar = ({
                             onClick={() => handleTagChange(option.value)}
                             className="toggle-button"
                         >
-                            <span className="field-tag-color"></span>{option.label}
+                           <span
+                                className="field-tag-color"
+                                style={{ backgroundColor: option.meta?.color || '#000' }} // Use the color value from the meta object
+                            ></span> {option.label}{option.meta?.color}
                             <span 
                                 className="field-tag-count" 
                                 onClick={(e) => {
@@ -280,9 +286,12 @@ const SideBar = ({
                                     handleEditTag({
                                         id: option.value,
                                         label: option.label,
-                                        description: option.description
+                                        description: option.description,
+                                        meta: {
+                                            color: option.meta?.color || '#000',
+                                        }
                                     });
-                                    console.log(option.value);
+                                    console.log(option.meta?.color);
                                 }}
                             >
                                 Edit

@@ -1,5 +1,5 @@
-import { useState } from '@wordpress/element';
-import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl } from '@wordpress/components';
+import { useState, useEffect } from '@wordpress/element';
+import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl, ColorPicker  } from '@wordpress/components';
 import SideBar from './SideBar';
 import ChoiceCards from './ChoiceCards'; // Adjust path as necessary
 import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
@@ -77,6 +77,28 @@ const MainSettingsPanel = ({
         });
     };
 
+
+    const [color, setColor] = useState(currentTag?.meta?.color || '#000');
+
+    useEffect(() => {
+        if (currentTag?.meta?.color) {
+            setColor(currentTag.meta.color);
+        }
+        console.log('currentTag', currentTag);
+    }, [currentTag]);
+
+    
+    const handleColorChangeComplete = (value) => {
+        setColor(value.hex); // Update local color state
+        setCurrentTag((prevTag) => ({
+            ...prevTag,
+            color: value.hex,
+            meta: {
+                ...prevTag.meta,
+                color: value.hex, // Update meta.color only
+            },
+        }));
+    };
 
     return (
         <>
@@ -174,7 +196,13 @@ const MainSettingsPanel = ({
                  label="Tag Description"
                  value={currentTag ? currentTag.description : ''}
                  onChange={(value) => setCurrentTag({ ...currentTag, description: value })}
-             />
+             />{currentTag?.meta.color || '#000'}
+           
+           <ColorPicker
+    color={color} // Fallback to '#000' if currentTag.color is not set
+    disableAlpha={true} // Set disableAlpha to true to disable the alpha slider
+    onChangeComplete={handleColorChangeComplete}
+/>
          </>
         ) : (
             <ChoiceFields 

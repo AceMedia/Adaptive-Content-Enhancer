@@ -129,7 +129,7 @@ const displayGroupName = (group) => {
                                         <span
                                             key={idx}
                                             style={{
-                                                backgroundColor: '#007cba',
+                                                backgroundColor: tags[tagId]?.meta?.color?.[0] || '#007cba', // Use the color value from the meta object
                                                 color: '#fff',
                                                 padding: '2px 6px',
                                                 borderRadius: '12px',

@@ -1434,7 +1434,8 @@ function ace_get_choices(WP_REST_Request $request) {
     foreach ($tags as $tag) {
         $tags_with_descriptions[$tag->term_id] = [
             'name' => $tag->name,
-            'description' => $tag->description
+            'description' => $tag->description,
+            'meta' => get_term_meta($tag->term_id)  
         ];
     }
     
@@ -1471,7 +1472,6 @@ add_action('rest_api_init', function () {
 });
 
 
-
 function register_field_tags_taxonomy() {
     register_taxonomy(
         'field_tags',
@@ -1487,7 +1487,49 @@ function register_field_tags_taxonomy() {
 }
 add_action('init', 'register_field_tags_taxonomy');
 
+function register_field_tags_meta() {
+    register_meta('term', 'color', array(
+        'type' => 'string',
+        'description' => 'Color associated with the field tag',
+        'single' => true,
+        'sanitize_callback' => 'sanitize_hex_color',
+        'show_in_rest' => true,
+    ));
+}
+add_action('init', 'register_field_tags_meta');
 
+function add_field_tags_meta_box($term) {
+    $color = get_term_meta($term->term_id, 'color', true);
+    ?>
+    <tr class="form-field">
+        <th scope="row" valign="top">
+            <label for="field_tags_color"><?php _e('Color', 'textdomain'); ?></label>
+        </th>
+        <td>
+            <input type="text" name="field_tags_color" id="field_tags_color" value="<?php echo esc_attr($color); ?>" class="color-field" />
+            <p class="description"><?php _e('Select a color for this field tag.', 'textdomain'); ?></p>
+        </td>
+    </tr>
+    <?php
+}
+add_action('field_tags_edit_form_fields', 'add_field_tags_meta_box');
 
+function save_field_tags_meta($term_id) {
+    if (isset($_POST['field_tags_color'])) {
+        $color = sanitize_hex_color($_POST['field_tags_color']);
+        update_term_meta($term_id, 'color', $color);
+    }
+}
+add_action('edited_field_tags', 'save_field_tags_meta', 10, 2);
+add_action('create_field_tags', 'save_field_tags_meta', 10, 2);
+
+function enqueue_color_picker($hook_suffix) {
+    if ($hook_suffix === 'edit-tags.php' || $hook_suffix === 'term.php') {
+        wp_enqueue_style('wp-color-picker');
+        wp_enqueue_script('wp-color-picker');
+        wp_add_inline_script('wp-color-picker', 'jQuery(document).ready(function($){$(".color-field").wpColorPicker();});');
+    }
+}
+add_action('admin_enqueue_scripts', 'enqueue_color_picker');
 
 ?>

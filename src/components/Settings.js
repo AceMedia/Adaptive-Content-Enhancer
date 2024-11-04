@@ -442,7 +442,10 @@ const handleEditTag = (tag) => {
         const updatedTag = {
             id: tag.id || 'default-id',
             label: tag.label || 'Default Label',
-            description: tag.description || 'Default Description'
+            description: tag.description || 'Default Description',
+            meta: {
+                color: tag.meta?.color || '#0073aa' // Default to a blue color  
+            }
         };
         console.log('Setting currentTag:', updatedTag);
         setCurrentTag(updatedTag);
@@ -457,8 +460,11 @@ const handleEditTag = (tag) => {
                 id: currentTag.id,
                 name: currentTag.label,
                 description: currentTag.description,
+                meta: {
+                    color: currentTag.color // Include the color value within a `meta` object
+                }
             };
-    
+        
             apiFetch({
                 path: `/wp/v2/field_tags/${updatedTag.id}`,
                 method: 'POST',
@@ -470,8 +476,8 @@ const handleEditTag = (tag) => {
                 if (response.id) {
                     setIsModalOpen(false);
                     setCurrentTag(null);
-                    setIsEditingTag(false);
-                    fetchChoices(); // Refresh choices to reflect the updated tag
+                    fetchChoices({ navigateToLastPage: true });
+               //     fetchTags(); // Refresh tags to reflect the updated tag
                 } else {
                     console.error('Error updating tag:', response);
                 }
