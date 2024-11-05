@@ -214,7 +214,6 @@ const handleBulkDelete = () => {
     }
 };
 
-
 useEffect(() => {
     if (itemsToDelete.choices.length > 0 || itemsToDelete.tags.length > 0) {
         confirmBulkDelete();
@@ -225,12 +224,13 @@ const confirmBulkDelete = () => {
     
     // Delete selected choices
     const deleteChoicePromises = itemsToDelete.choices.map(choice => {
-        if (!choice.name) {
+        console.log(choice);
+        if (!choice) {
             console.error('Choice does not have a name:', choice);
             return Promise.resolve(); // Skip this choice
         }
 
-        const processedGroupName = createLowercaseUnderscored(choice.name);
+        const processedGroupName = createLowercaseUnderscored(choice);
         const optionName = 'choices_' + processedGroupName;
 
 
@@ -242,10 +242,10 @@ const confirmBulkDelete = () => {
         })
         .then((response) => {
             if (!response.success) {
-                console.error(`Failed to delete choice ${choice.name}:`, response.error);
+                console.error(`Failed to delete choice ${choice}:`, response.error);
             }
         })
-        .catch((error) => console.error(`Error deleting choice ${choice.name}:`, error));
+        .catch((error) => console.error(`Error deleting choice ${choice}:`, error));
     });
 
     // Delete selected tags
@@ -314,7 +314,7 @@ const handleTextChange = (choice, field, newValue) => {
     } else {
         setChoices((prevChoices) => {
             const updatedChoices = [...prevChoices];
-            const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
+            const choiceIndex = updatedChoices.findIndex((c) => c.name === choice);
 
             if (choiceIndex !== -1) {
                 if (field === 'name' && !choice.isNew) {
@@ -330,7 +330,7 @@ const handleTextChange = (choice, field, newValue) => {
                         : getDefaultOptions();
                 }
 
-                markAsChanged(choice.name);
+                markAsChanged(choice);
             }
 
             return updatedChoices;
@@ -789,13 +789,23 @@ const fetchTagDataAndEdit = async (tagId) => {
     };
     
     
-
     const handleToggleChange = (choice, newValue) => {
-        if (isModalOpen) {
-            setNewChoice((prevNewChoice) => ({
-                ...prevNewChoice,
-                show_in_rest: newValue,
-            }));
+        if (choice === 'toggle_all') {
+            // Update bulk-select for all choices based on the newValue
+            setChoices((prevChoices) => {
+                return prevChoices.map((c) => ({
+                    ...c,
+                    isSelected: newValue, // Assuming you're using `isSelected` for bulk select
+                }));
+            });
+            // Update bulk edit state for all choices
+            setSelectedChoices((prevChoices) => {
+                if (newValue) {
+                    return choices.map((c) => c.name); // Select all choices
+                } else {
+                    return []; // Deselect all choices
+                }
+            });
         } else {
             setChoices((prevChoices) => {
                 const updatedChoices = [...prevChoices];
@@ -804,11 +814,19 @@ const fetchTagDataAndEdit = async (tagId) => {
                 );
     
                 if (choiceIndex !== -1) {
-                    updatedChoices[choiceIndex].show_in_rest = newValue;
+                    updatedChoices[choiceIndex].isSelected = newValue;
                     markAsChanged(choice.name); // Mark as changed
                 }
     
                 return updatedChoices;
+            });
+    
+            setSelectedChoices((prevSelectedChoices) => {
+                if (newValue) {
+                    return [...prevSelectedChoices, choice.name]; // Add choice to selected choices
+                } else {
+                    return prevSelectedChoices.filter((name) => name !== choice.name); // Remove choice from selected choices
+                }
             });
     
             if (isAutoSaveEnabled) {
@@ -816,6 +834,7 @@ const fetchTagDataAndEdit = async (tagId) => {
             }
         }
     };
+    
     
 
     const addOption = (choice) => {

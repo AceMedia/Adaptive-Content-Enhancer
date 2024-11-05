@@ -265,6 +265,20 @@ const handleMetaChange = (key, value) => {
                 </FlexItem>
 
                 <FlexBlock>
+
+
+                {quickEdit === 'true' && (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+         <ToggleControl
+            label="Toggle All"
+            checked={choices.every(choice => choice.isSelected)} // Ensure checked reflects all choices
+            onChange={(value) => {
+                handleToggleChange('toggle_all', value); // Use 'toggle_all' as the choice identifier
+            }}
+        />
+    </div>
+)}
+
                     {/* Choice Cards */}
 
                     {choices.length !== 0 && (

@@ -130,14 +130,14 @@ const ChoiceCards = ({
                             className={`${newlyAddedChoice === choice.name ? 'highlight' : ''} ${quickEdit === 'true' ? 'quick-edit' : ''}`}
                         >
 
-                            {quickEdit === 'true' && (
-                                <ToggleControl
-                                    className="bulk-select-field"
-                                    checked={selectedChoices.includes(choice)}
-                                    onChange={() => handleChoiceSelect(choice)}
-                                    style={{ marginLeft: '10px' }}
-                                />
-                            )}
+{quickEdit === 'true' && (
+    <ToggleControl
+        className="bulk-select-field"
+        checked={choice.isSelected} 
+        onChange={(newValue) => handleToggleChange(choice, newValue)}
+        style={{ marginLeft: '10px' }}
+    />
+)}
 
                                            
                             <CardHeader  onClick={(e) => {
