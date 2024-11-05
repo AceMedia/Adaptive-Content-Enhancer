@@ -20,8 +20,79 @@ Key Features:
 - **Enhanced settings management** - Configure options and field groups with an intuitive UI, supported by modular components.
 - **Dynamic data fetching and rendering** - Utilize advanced REST API support to fetch and render content based on custom configurations.
 - **Real-time AJAX processing** - Save and manage field groups and options without page reloads, ensuring a smooth user experience.
-- ~**ACF Field Integration** - Easily import existing ACF setups into WP ACE.~
 - **Extendable functionality** - Developers can extend WP ACE with custom filters and settings for more advanced scenarios.
+- **Role-based access control** - Assign specific roles to field groups to control who can view or edit them.
+- **Post type association** - Associate field groups with specific post types for more granular control.
+- **Tag management** - Create, edit, and assign tags to field groups for better organization and filtering.
+- **Bulk actions** - Perform bulk actions such as deleting multiple field groups at once.
+- **Customizable UI** - Customize the appearance of field groups and options with color pickers and other UI controls.
+- **Auto-save and live save** - Enable auto-save and live save features to ensure changes are saved in real-time.
+- **Pagination and sorting** - Navigate through field groups with pagination and sort them by various criteria.
+- **Search functionality** - Search for field groups and options using a built-in search feature.
+- **Custom hooks** - Utilize custom hooks for fetching choices and saving options to the API.
+- **Customizable styles** - Apply custom styles to field groups and options using SCSS.
+
+---
+
+### API Endpoints
+
+WP ACE provides several custom REST API endpoints to manage field groups and options:
+
+- **GET /ace/v1/get-choices**: Fetches the available choices.
+- **POST /ace/v1/save-options**: Saves new or updated choices.
+- **POST /ace/v1/delete-option**: Deletes a specified choice.
+- **GET /ace/v1/roles**: Fetches the available user roles.
+
+These endpoints facilitate dynamic data fetching and management within the WordPress admin interface.
+
+---
+
+### Components
+
+WP ACE is built with modular React components to ensure a seamless user experience:
+
+- **Settings**: The main component for managing field groups and options.
+- **ChoiceCards**: Displays individual choice cards with options.
+- **SideBar**: Provides filtering and sorting options for the choices.
+- **SaveBar**: Handles saving changes and displaying save status.
+- **MainSettingsPanel**: The primary panel for configuring settings and managing choices.
+
+Each component is designed to be reusable and extendable, allowing for easy customization and enhancement.
+
+---
+
+### State Management
+
+WP ACE uses React hooks for state management:
+
+- **useState**: Manages local state within components.
+- **useEffect**: Handles side effects, such as fetching data from the API.
+- **useReducer**: (If applicable) Manages complex state logic.
+
+State is lifted to the highest necessary level to ensure data consistency across components.
+
+---
+
+### Custom Hooks
+
+WP ACE includes custom hooks to encapsulate reusable logic:
+
+- **useFetchChoices**: Fetches choices from the API and manages loading state.
+- **useSaveChoice**: Handles saving a choice to the API and updating local state.
+
+These hooks simplify component logic and promote code reuse.
+
+---
+
+### Build and Development
+
+To build and develop WP ACE, follow these steps:
+
+1. **Install Dependencies**: Run `npm install` to install the necessary dependencies.
+2. **Build the Project**: Use `npm run build` to build the project for production.
+3. **Start Development Server**: Use `npm run start` to start the development server with live reloading.
+
+The project uses Webpack for bundling and Babel for transpiling modern JavaScript.
 
 ---
 
