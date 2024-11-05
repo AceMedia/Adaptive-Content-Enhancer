@@ -805,7 +805,7 @@ function ace_field_options_acf_settings_page_html() {
 
                                 if (!empty($acf_field_data['post_content']['choices'])) {
                                     $choices = $acf_field_data['post_content']['choices'];
-                                    echo 'Choices: <ul>';
+                                    echo 'Fields <ul>';
                                     foreach ($choices as $value => $label) {
                                         echo '<li>' . esc_html($label) . ' (' . esc_html($value) . ')</li>';
                                     }
@@ -917,7 +917,7 @@ function handle_acf_import_submission() {
             // Fetch the corresponding group name (post_excerpt)
             $group_name = isset($_POST['acf_group_names'][$index]) ? sanitize_text_field($_POST['acf_group_names'][$index]) : '';
 
-            error_log('Deserialized Choices: ' . print_r($choices, true));
+            error_log('Deserialized Fields ' . print_r($choices, true));
 
             if ($choices && is_array($choices) && !empty($group_name)) {
                 // Prepare the group data in the required format

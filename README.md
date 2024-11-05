@@ -77,7 +77,7 @@ State is lifted to the highest necessary level to ensure data consistency across
 
 WP ACE includes custom hooks to encapsulate reusable logic:
 
-- **useFetchChoices**: Fetches choices from the API and manages loading state.
+- **useFetchFields**: Fetches choices from the API and manages loading state.
 - **useSaveChoice**: Handles saving a choice to the API and updating local state.
 
 These hooks simplify component logic and promote code reuse.
@@ -100,44 +100,44 @@ The project uses Webpack for bundling and Babel for transpiling modern JavaScrip
 
 1. Upload the plugin files to the `/wp-content/plugins/wp-adaptive-content-enhancer` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
-3. Navigate to the 'Choices' ~and 'ACF Import'~ menu under 'Settings' to configure field groups ~and import ACF fields~.
+3. Navigate to the 'Fields' ~and 'ACF Import'~ menu under 'Settings' to configure field groups ~and import ACF fields~.
 
 ---
 
 ### Frequently Asked Questions
 
 **Q: How do I add a new dropdown group or true/false field?**
-A: Navigate to the 'Choices' settings page in the admin panel. Here you can create, edit, or delete field groups, including options for dropdowns, checkboxes, and true/false toggles.
+A: Navigate to the 'Fields' settings page in the admin panel. Here you can create, edit, or delete field groups, including options for dropdowns, checkboxes, and true/false toggles.
 
 **Q: How do I lock down field groups based on user roles?**
-A: When creating or editing a field group, you can assign specific roles to the group. This controls who can view or edit the group. Navigate to the 'Choices' settings page, select a field group, and use the 'Associated Roles' section to assign roles.
+A: When creating or editing a field group, you can assign specific roles to the group. This controls who can view or edit the group. Navigate to the 'Fields' settings page, select a field group, and use the 'Associated Roles' section to assign roles.
 
 **Q: How do I associate field groups with specific post types?**
-A: You can associate field groups with specific post types to control where they appear. Navigate to the 'Choices' settings page, select a field group, and use the 'Associated Post Types' section to assign post types.
+A: You can associate field groups with specific post types to control where they appear. Navigate to the 'Fields' settings page, select a field group, and use the 'Associated Post Types' section to assign post types.
 
 **Q: How do I manage tags for field groups?**
-A: Navigate to the 'Choices' settings page, select a field group, and use the 'Tags' section to assign tags. You can create new tags or select existing ones. Tags help in organizing and filtering field groups.
+A: Navigate to the 'Fields' settings page, select a field group, and use the 'Tags' section to assign tags. You can create new tags or select existing ones. Tags help in organizing and filtering field groups.
 
 **Q: How do I use the bulk edit feature?**
-A: In the 'Choices' settings page, enable 'Quick Edit' mode. You can then select multiple field groups using the checkboxes and perform bulk actions such as deleting selected groups. Use the 'Toggle All' switch to select or deselect all groups at once.
+A: In the 'Fields' settings page, enable 'Quick Edit' mode. You can then select multiple field groups using the checkboxes and perform bulk actions such as deleting selected groups. Use the 'Toggle All' switch to select or deselect all groups at once.
 
 **Q: Does WP ACE support AJAX-based updates?**
 A: Absolutely. WP ACE uses AJAX for real-time management of field groups and options, ensuring seamless updates without reloading the page.
 
 **Q: How do I customize the appearance of field groups?**
-A: You can customize the appearance of field groups using the color picker and other UI controls available in the 'Choices' settings page. This allows you to apply custom styles to field groups and options.
+A: You can customize the appearance of field groups using the color picker and other UI controls available in the 'Fields' settings page. This allows you to apply custom styles to field groups and options.
 
 **Q: How do I enable auto-save and live save features?**
 A: Navigate to the 'Settings' page and enable the auto-save and live save options. This ensures that changes are saved in real-time without the need for manual saving.
 
 **Q: How do I search for field groups and options?**
-A: Use the built-in search feature available in the 'Choices' settings page. Enter your search query in the search bar to find specific field groups and options.
+A: Use the built-in search feature available in the 'Fields' settings page. Enter your search query in the search bar to find specific field groups and options.
 
 **Q: How do I sort and paginate field groups?**
-A: Use the sorting and pagination controls available in the 'Choices' settings page. You can sort field groups by various criteria and navigate through them using the pagination controls.
+A: Use the sorting and pagination controls available in the 'Fields' settings page. You can sort field groups by various criteria and navigate through them using the pagination controls.
 
 **Q: How do I use custom hooks in WP ACE?**
-A: WP ACE includes custom hooks such as useFetchChoices and useSaveChoice to encapsulate reusable logic. These hooks simplify component logic and promote code reuse. Refer to the documentation for detailed usage instructions.
+A: WP ACE includes custom hooks such as useFetchFields and useSaveChoice to encapsulate reusable logic. These hooks simplify component logic and promote code reuse. Refer to the documentation for detailed usage instructions.
 
 **Q: How do I apply custom styles to field groups and options?**
 A: WP ACE allows you to apply custom styles using SCSS. Customize the appearance of field groups and options by modifying the SCSS files included in the plugin.
