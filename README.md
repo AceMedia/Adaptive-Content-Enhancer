@@ -170,7 +170,7 @@ A: WP ACE allows you to apply custom styles using SCSS. Customize the appearance
 - Bug Fixes: Addressed several bugs and issues reported since the initial release, improving overall stability and performance.
 
 
-**0.421.0**
+**0.420.0**
 - Initial release.
 - Added support for custom dropdown, checkbox, radio button, and true/false fields.
 - Integrated REST API support for dynamically fetching and rendering field data.
