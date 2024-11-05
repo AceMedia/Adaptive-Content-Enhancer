@@ -91,7 +91,17 @@ const SideBar = ({
 
     const displayedTags = showAllTags ? Object.keys(tags) : Object.keys(tags).slice(0, 10);
     
-
+    function parseSerializedArray(serializedString) {
+        const regex = /s:\d+:"([^"]+)"/g;
+        let result;
+        const array = [];
+    
+        while ((result = regex.exec(serializedString)) !== null) {
+            array.push(result[1]);
+        }
+    
+        return array;
+    }
 
     const handleTagChange = (selectedTag) => {
         setTagFilter(prev => {
@@ -232,23 +242,34 @@ const SideBar = ({
     initialOpen={false}
 >
     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        {[
-            { label: 'All Tags', value: '' },
-            ...displayedTags.map(tagId => ({
-                label: tags[tagId].name,
-                value: tagId,
-                description: tags[tagId].description,
-                meta: {
-                    color: tags[tagId].meta?.color || '#000'
-                }
-            }))
-        ].map((option) => (
-            <Button
+    {[
+        { label: 'All Tags', value: 'all_tags' },
+        ...displayedTags.map(tagId => ({
+            label: tags[tagId].name,
+            value: tagId,
+            description: tags[tagId].description,
+            meta: {
+                color: tags[tagId].meta?.color || '#000',
+                associated_roles: parseSerializedArray(tags[tagId].meta?.associated_roles || []),
+                post_types: parseSerializedArray(tags[tagId].meta?.post_types || [])
+            }
+        }))
+    ].map((option) => (
+        <Button
             key={option.value}
             isPressed={quickEdit !== 'true' && tagFilter.includes(option.value)}
             onClick={() => {
                 if (quickEdit === 'true') {
-                    handleTagSelect(option.value);
+                    if (option.value === 'all_tags') {
+                        // Toggle all tags if "All Tags" is clicked
+                        if (selectedTags.length === Object.keys(tags).length) {
+                            setSelectedTags([]); // Uncheck all tags if all are already selected
+                        } else {
+                            setSelectedTags(Object.keys(tags)); // Check all tags
+                        }
+                    } else {
+                        handleTagSelect(option.value);
+                    }
                 } else {
                     handleTagChange(option.value);
                 }
@@ -257,8 +278,8 @@ const SideBar = ({
             style={{
                 color: option.meta?.color || '#000',
                 backgroundColor: quickEdit !== 'true' && tagFilter.includes(option.value)
-                    ? hexToRgba(`${option.meta?.color || '#000000'}`, 0.5)  // Darker background for active tags
-                    : hexToRgba(`${option.meta?.color || '#000000'}`, 0.25)    // Lighter background for inactive tags
+                    ? hexToRgba(`${option.meta?.color || '#333'}`, 0.5)  // Darker background for active tags
+                    : hexToRgba(`${option.meta?.color || '#333'}`, 0.25) // Lighter background for inactive tags
             }}
         >
             <span
@@ -267,20 +288,24 @@ const SideBar = ({
                     background: option.meta?.color
                 }}
             ></span>
+            <FontAwesomeIcon icon={faCheckSquare} />
             {option.label}
-        
+
             {/* Show Edit button for each tag */}
-            {quickEdit !== 'true' && option.value && (
+            {quickEdit !== 'true' && option.value && option.value !== 'all_tags' && (
                 <span
                     className="field-tag-count"
                     onClick={(e) => {
                         e.stopPropagation();
+                        console.log('opt:', option);
                         handleEditTag({
                             id: option.value,
                             label: option.label,
                             description: option.description,
                             meta: {
                                 color: option.meta?.color || '#000',
+                                associated_roles: option.meta.associated_roles, // Pass associated roles
+                                post_types: option.meta.post_types            // Pass post types
                             }
                         });
                     }}
@@ -288,29 +313,29 @@ const SideBar = ({
                     Edit
                 </span>
             )}
-        
-            {quickEdit === 'true' && option.value && (
+
+            {quickEdit === 'true' && (
                 <ToggleControl
-                    checked={selectedTags.includes(option.value)}
-                    onChange={() => handleTagSelect(option.value)}
+                    checked={option.value === 'all_tags' ? selectedTags.length === Object.keys(tags).length : selectedTags.includes(option.value)}
+                    onChange={() => {}}
                     style={{ marginLeft: '10px' }}
                     className="tag-toggle"
                 />
             )}
         </Button>
-        
-        ))}
+    ))}
 
-        {/* Show More / Show Less button */}
-        {Object.keys(tags).length > 10 && (
-            <Button
-                onClick={() => setShowAllTags(prevState => !prevState)}
-                className="toggle-button"
-            >
-                {showAllTags ? 'Show Less' : 'Show More'}
-            </Button>
-        )}
-    </div>
+    {/* Show More / Show Less button */}
+    {Object.keys(tags).length > 10 && (
+        <Button
+            onClick={() => setShowAllTags(prevState => !prevState)}
+            className="toggle-button"
+        >
+            {showAllTags ? 'Show Less' : 'Show More'}
+        </Button>
+    )}
+</div>
+
 </PanelBody>
 
 

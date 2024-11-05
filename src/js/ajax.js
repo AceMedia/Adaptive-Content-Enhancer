@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Determine the option name based on field type
                 const optionName = fieldType === 'truefalse' ? 'truefalse_' + groupName : 'choices_' + groupName;
 
-                console.log(optionName);
 
                 // Send AJAX request to delete the group
                 jQuery.ajax({
@@ -26,7 +25,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         option_name: optionName // Pass the correct option name
                     },
                     success: function(response) {
-                        console.log('Response:', response); // Log the response for debugging
                         if (response.success) {
                             // Remove the group from the DOM
                             e.target.closest('tr').remove();

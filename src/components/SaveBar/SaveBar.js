@@ -81,7 +81,6 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
                                 className="ace-save-bar-toggle-control"
                                 checked={isAutoSaveEnabled}
                                 onChange={(isChecked) => {
-                                    console.log('Toggle changed:', isChecked); // Debugging
                                     setIsAutoSaveEnabled(isChecked);
                                     setMessageState(isChecked ? 'Live Save Enabled' : 'Live Save Disabled');
                                     setTimeout(() => {

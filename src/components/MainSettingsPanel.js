@@ -1,5 +1,9 @@
 import { useState, useEffect } from '@wordpress/element';
-import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl, ColorPicker  } from '@wordpress/components';
+import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl, ColorPicker, CheckboxControl, ToggleControl } from '@wordpress/components';
+import { useSelect } from '@wordpress/data';
+import { store as coreDataStore } from '@wordpress/core-data';
+import apiFetch from '@wordpress/api-fetch';
+
 import SideBar from './SideBar';
 import ChoiceCards from './ChoiceCards'; // Adjust path as necessary
 import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
@@ -69,6 +73,7 @@ const MainSettingsPanel = ({
     setTags,
     customStyles,
     getRandomColor,
+    setSelectedTags
 }) => {
     // Define the groupBy state and its handler
     const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
@@ -117,9 +122,15 @@ const MainSettingsPanel = ({
 
     useEffect(() => {
         if (currentTag?.meta?.color) {
-            setColor(currentTag.meta.color);
+            // Check if color is an array
+            if (Array.isArray(currentTag.meta.color)) {
+                setColor(currentTag.meta.color[0] || '#000'); // Set to first element or fallback
+            } else {
+                setColor(currentTag.meta.color || '#000'); // Set directly or fallback
+            }
+        } else {
+            setColor('#000'); // Fallback to default if no color is set
         }
-        console.log('currentTag', currentTag);
     }, [currentTag]);
 
     
@@ -138,6 +149,87 @@ const MainSettingsPanel = ({
 
     const visibleFields = choices.filter(field => field); // Adjust this filter as needed
 
+
+       
+      
+      
+      
+    const [availableRoles, setAvailableRoles] = useState([]);
+    const [availablePostTypes, setAvailablePostTypes] = useState([]);
+
+    // Fetch post types using @wordpress/core-data
+    const postTypes = useSelect((select) =>
+        select(coreDataStore)?.getPostTypes({ per_page: -1 }) || [],
+    []);
+
+    useEffect(() => {
+        // Set available post types once they're fetched
+        if (postTypes.length) {
+            setAvailablePostTypes(
+                postTypes.map((postType) => ({
+                    label: postType.name,
+                    value: postType.slug,
+                }))
+            );
+        }
+    }, [postTypes]);
+
+
+useEffect(() => {
+    const fetchRoles = async () => {
+        try {
+            const rolesData = await apiFetch({
+                path: '/ace/v1/roles',
+                method: 'GET',
+                headers: { 'X-WP-Nonce': aceAjax.nonce }
+            });
+
+            setAvailableRoles(
+                rolesData.map((role) => ({
+                    label: role.name,
+                    value: role.slug,
+                }))
+            );
+        } catch (error) {
+            console.error('Error fetching roles:', error);
+        }
+    };
+
+    fetchRoles();
+}, []);
+
+
+const handleMetaChange = (key, value) => {
+    setCurrentTag((prevTag) => {
+        const { associated_roles = [], post_types = [], color } = prevTag.meta;
+
+        let updatedMeta = { ...prevTag.meta }; // Start with the current meta
+
+        if (key === 'associated_roles') {
+            // Toggle role
+            updatedMeta.associated_roles = associated_roles.includes(value)
+                ? associated_roles.filter((r) => r !== value) // Remove role
+                : [...associated_roles, value]; // Add role
+        } else if (key === 'post_types') {
+            // Toggle post type
+            updatedMeta.post_types = post_types.includes(value)
+                ? post_types.filter((p) => p !== value) // Remove post type
+                : [...post_types, value]; // Add post type
+        } else if (key === 'color') {
+            // Update color
+            updatedMeta.color = value;
+        }
+
+        console.log(updatedMeta); // Debugging log to check the updated meta
+
+        return {
+            ...prevTag,
+            meta: updatedMeta, // Update the meta with the changes
+        };
+    });
+};
+
+      
 
     return (
         <>
@@ -163,7 +255,7 @@ const MainSettingsPanel = ({
                         setCurrentTag={setCurrentTag}
                         currentTag={currentTag}
                         totalFields={totalFields} 
-
+                        setSelectedTags={setSelectedTags}
                 quickEdit={quickEdit}
                 setQuickEdit={setQuickEdit}
                 handleBulkDelete={handleBulkDelete}
@@ -360,6 +452,7 @@ const MainSettingsPanel = ({
     >
         {isEditingTag ? (
              <>
+             {console.log(currentTag)}
              <TextControl
                  label="Tag Name"
                  value={currentTag ? currentTag.label : ''}
@@ -369,12 +462,41 @@ const MainSettingsPanel = ({
                  label="Tag Description"
                  value={currentTag ? currentTag.description : ''}
                  onChange={(value) => setCurrentTag({ ...currentTag, description: value })}
-             />{currentTag?.meta.color || '#000'}
-           
-           <ColorPicker
+             />
+
+
+<h4>Associated Roles</h4>
+<Flex wrap="wrap" gap={4}>
+    {availableRoles.map((role) => (
+        <FlexItem key={role.value} style={{ width: '30%', minWidth: '150px' }}>
+            <ToggleControl
+                label={role.label}
+                checked={Array.isArray(currentTag?.meta?.associated_roles) && currentTag.meta.associated_roles.includes(role.value)}
+                onChange={() => handleMetaChange('associated_roles', role.value)} // Use the unified function
+            />
+        </FlexItem>
+    ))}
+</Flex>
+
+<h4>Associated Post Types</h4>
+<Flex wrap="wrap" gap={4}>
+    {availablePostTypes.map((postType) => (
+        <FlexItem key={postType.value} style={{ width: '30%', minWidth: '150px' }}>
+            <ToggleControl
+                label={postType.label}
+                checked={Array.isArray(currentTag?.meta?.post_types) && currentTag.meta.post_types.includes(postType.value)}
+                onChange={() => handleMetaChange('post_types', postType.value)} // Use the unified function
+            />
+        </FlexItem>
+    ))}
+</Flex>
+
+{currentTag?.meta.color || '#000'} 
+
+<ColorPicker
     color={color} // Fallback to '#000' if currentTag.color is not set
-    disableAlpha={true} // Set disableAlpha to true to disable the alpha slider
-    onChangeComplete={handleColorChangeComplete}
+    disableAlpha={true}
+    onChangeComplete={(colorValue) => handleMetaChange('color', colorValue.hex)} // Use the unified function for color change
 />
          </>
         ) : (

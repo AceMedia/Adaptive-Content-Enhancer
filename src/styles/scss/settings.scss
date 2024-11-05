@@ -101,6 +101,8 @@ table {
         }
         button.toggle-button {
             padding: 16px 16px 16px 16px;
+            outline: none !important;
+            border: none !important;
             svg {
                 opacity: .5;
                 position: absolute;
@@ -111,9 +113,18 @@ table {
             &:hover {
                 background: rgba(248, 250, 252, 1);
             }
-            &.is-pressed {
+            &.is-pressed:not(:first-child) {
                 background: $slate;
                 color: white !important;
+                svg {
+                    opacity: 1;
+                }
+                &:hover {
+                    color: black;
+                }
+            }
+            &.is-pressed:is(:first-child) {
+                background-color: #CCC;
                 svg {
                     opacity: 1;
                 }
@@ -163,14 +174,20 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
 }
 
 
+
+
+
+.components-card{
+&:last-child {
+    margin-bottom: 0px !important;
+}
+}
+
 .components-card,
 .components-modal__frame  {
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1), 0 1px 2px -1px rgba(0, 0, 0, .1) !important;
     border-radius: .5em !important;
     border: 1px solid rgb(203, 213, 225) !important;
-    &:last-child {
-        margin-bottom: 0px !important;
-    }
     .components-card__header {
         position: relative;
         overflow: hidden;
@@ -406,6 +423,21 @@ button {
     padding-left: 42px !important;
     overflow: hidden;
     transition: 1s linear all;
+    .svg-inline--fa {
+        opacity: 0 !important;
+        z-index: 99 !important;
+    }
+    &.is-pressed {
+        .svg-inline--fa {
+            opacity: 1 !important;
+        }
+    }
+    &:first-child .svg-inline--fa {
+        display: none !important;
+    }
+    .components-flex {
+        gap: 0px;
+    }
 }
 
 .field-tag-color {
@@ -432,12 +464,13 @@ button {
     left: 25px;
     top: 50%;
     transform: translate3d(-50%, -50%, 0);
-    transition: 1s ease-in-out all;
+    transition: .25s ease-in-out all;
     z-index: -1;
 }
 
 .is-pressed:not(:first-child) .field-tag-color {
     transform: translate3d(-50%, -50%, 0) scale(120);
+    transition: 1s ease-in-out all;
 }
 
 .is-pressed:is(:first-child) .field-tag-color {
@@ -667,14 +700,7 @@ button {
     input {
         width: 100% !important;
     }
-    .components-form-toggle__input {
-        background-color:  $red  !important; /* Red background color */
-        border-color:  $red  !important; /* Optional: match border to background */
-    }
-    
-    .components-form-toggle.is-checked .components-form-toggle__track::after {
-        background-color: $red !important; /* Ensures checked state remains red */
-    }
+
 }
 
 .components-card.quick-edit {

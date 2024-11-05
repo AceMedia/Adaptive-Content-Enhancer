@@ -33,12 +33,14 @@ const ChoiceFields = ({
         return string.toLowerCase().replace(/\s+/g, '_');
     }
 
-    // Convert tag IDs to react-select format
-    const selectedTags = choice.tags ? choice.tags.map(tagId => ({
-        value: tagId,
-        label: tags[tagId]?.name || 'Unknown Tag',
-        meta: { color: tags[tagId]?.meta?.color || getRandomColor() } // Set color for existing tags as well
-    })) : [];
+    // Convert tag IDs to react-select format, skip if unknown
+    const selectedTags = choice.tags ? choice.tags
+        .filter(tagId => tags[tagId]) // Filter out unknown tags
+        .map(tagId => ({
+            value: tagId,
+            label: tags[tagId].name,
+            meta: { color: tags[tagId].meta.color }
+        })) : [];
 
     return (
         <>

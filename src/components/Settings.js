@@ -222,9 +222,6 @@ useEffect(() => {
 }, [itemsToDelete]);
 
 const confirmBulkDelete = () => {
-    console.log('Bulk deletion started');
-    console.log('Selected choices:', itemsToDelete.choices);
-    console.log('Selected tags:', itemsToDelete.tags);
     
     // Delete selected choices
     const deleteChoicePromises = itemsToDelete.choices.map(choice => {
@@ -236,7 +233,6 @@ const confirmBulkDelete = () => {
         const processedGroupName = createLowercaseUnderscored(choice.name);
         const optionName = 'choices_' + processedGroupName;
 
-        console.log('Deleting choice:', choice.name);
 
         return apiFetch({
             path: '/ace/v1/delete-option',
@@ -276,7 +272,6 @@ const confirmBulkDelete = () => {
             setSelectedTags([]);
             // Refresh choices and tags to reflect changes
             fetchChoices();
-            console.log('Bulk deletion completed');
         })
         .catch(error => console.error('Error during bulk deletion:', error))
         .finally(() => setIsBulkDeleteConfirmDialogOpen(false));
@@ -340,9 +335,7 @@ const handleTextChange = (choice, field, newValue) => {
 
             return updatedChoices;
         });
-        console.log('Auto-save enabled:', isAutoSaveEnabled);
         if (isAutoSaveEnabled) {
-            console.log('Auto-saving...');
             throttle(handleSave, 2000)(); // Throttle the save function for text inputs
         }
     }
@@ -388,7 +381,6 @@ const handleSave = (isAutoSave = false) => {
             setChangedChoices([]); // Reset changed choices
             fetchChoices(); // Refresh choices
             setUnsavedChanges(false); // Reset unsaved changes
-            console.log('Save successful:', response.message);
             setMessage('Time since last saved'); // Always show time since last saved
 
             // Start the timer for elapsed time
@@ -398,10 +390,8 @@ const handleSave = (isAutoSave = false) => {
             setIntervalId(id);
 
             // Change button text to "Fields Saved" for 3 seconds
-            console.log('Changing button text...');
             setButtonText('Fields Saved');
             setTimeout(() => {
-                console.log('Resetting button text...');
                 setButtonText(saveText); // Reset to original text
             }, 3000);
 
@@ -574,32 +564,52 @@ const handleAddChoiceGroup = () => {
 };
 
 const handleEditTag = (tag) => {
-        const updatedTag = {
-            id: tag.id || 'default-id',
-            label: tag.label || 'Default Label',
-            description: tag.description || 'Default Description',
-            meta: {
-                color: tag.meta?.color || '#0073aa' // Default to a blue color  
-            }
-        };
-        console.log('Setting currentTag:', updatedTag);
-        setCurrentTag(updatedTag);
-        setIsEditingTag(true);
-        setIsModalOpen(true);
+    const updatedTag = {
+        id: tag.id || 'default-id',
+        label: tag.label || 'Default Label',  // Ensure to use tag.name if available
+        description: tag.description || 'Default Description',
+        meta: {
+            color: tag.meta?.color || '#0073aa',
+            associated_roles: Array.isArray(tag.meta?.associated_roles) 
+                ? tag.meta.associated_roles 
+                : [], // Ensure it's an array
+            post_types: Array.isArray(tag.meta?.post_types) 
+                ? tag.meta.post_types 
+                : [], // Ensure it's an array
+        }
     };
+    console.log("Updated tag in handleEditTag:", updatedTag); // Debugging log
+    setCurrentTag(updatedTag);
+    setIsEditingTag(true);
+    setIsModalOpen(true);
+};
+
+
+const fetchTagDataAndEdit = async (tagId) => {
+    try {
+        const tag = await apiFetch({ path: `/wp/v2/field_tags/${tagId}` });
+        handleEditTag(tag); // Only call after data is fully fetched
+    } catch (error) {
+        console.error("Error fetching tag data:", error);
+    }
+};
+
+
+
 
     const handleModalSubmit = () => {
         if (isEditingTag) {
-            // Handle saving the updated tag
             const updatedTag = {
                 id: currentTag.id,
                 name: currentTag.label,
                 description: currentTag.description,
                 meta: {
-                    color: currentTag.color // Include the color value within a `meta` object
+                    color: Array.isArray(currentTag.meta.color) ? currentTag.meta.color[0] : currentTag.meta.color,
+                    associated_roles: currentTag.meta.associated_roles || [], // Ensure this is always an array
+                    post_types: currentTag.meta.post_types || [], // Ensure this is always an array
                 }
             };
-        
+    
             apiFetch({
                 path: `/wp/v2/field_tags/${updatedTag.id}`,
                 method: 'POST',
@@ -607,16 +617,17 @@ const handleEditTag = (tag) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(updatedTag),
-            }).then((response) => {
+            })
+            .then(response => {
                 if (response.id) {
                     setIsModalOpen(false);
                     setCurrentTag(null);
                     fetchChoices({ navigateToLastPage: true });
-               //     fetchTags(); // Refresh tags to reflect the updated tag
                 } else {
                     console.error('Error updating tag:', response);
                 }
-            }).catch((error) => {
+            })
+            .catch(error => {
                 console.error('Error updating tag:', error);
             });
         } else {
@@ -801,7 +812,6 @@ const handleEditTag = (tag) => {
             });
     
             if (isAutoSaveEnabled) {
-                console.log('Auto-save enabled:', newValue);
                 handleSave(); // Trigger the save function immediately for dropdowns and other inputs
             }
         }
@@ -895,13 +905,9 @@ const handleEditTag = (tag) => {
 
     const toggleOpen = (cardId, groupId) => {
         setOpenCardIds((prev) => {
-            console.log('Group By:', groupBy); 
                 // When grouped by tag, only open the clicked card within its specific tag group
                 const uniqueId = `${groupBy}-${cardId}-${groupId || 'default'}`;
                 const isOpen = prev.includes(uniqueId);
-                console.log('Unique ID:', uniqueId);
-                console.log('Is Open:', isOpen);
-                console.log('Previous:', prev);
                 return isOpen 
                     ? prev.filter(id => id !== uniqueId) // Close if already open
                     : [uniqueId]; // Only open the clicked instance within its tag group
@@ -967,6 +973,7 @@ const handleEditTag = (tag) => {
                 handleSearchChange={handleSearchChange} 
                 isEditingTag={isEditingTag}
                 handleEditTag={handleEditTag}
+                fetchTagDataAndEdit={fetchTagDataAndEdit}
                 setCurrentTag={setCurrentTag}
                 currentTag={currentTag}
                 setTagFilter={setTagFilter}
@@ -987,6 +994,8 @@ const handleEditTag = (tag) => {
                 setTags={setTags}
                 getRandomColor={getRandomColor}
                 customStyles={customStyles}
+                setSelectedTags={setSelectedTags}
+                aceAjax={aceAjax}
             />
 
     {isConfirmDialogOpen && choiceToDelete && (

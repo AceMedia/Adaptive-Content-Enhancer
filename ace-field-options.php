@@ -1201,41 +1201,65 @@ function conditionally_register_acf_fields_for_current_post() {
 
 
 
+function ace_register_roles_endpoint() {
+    register_rest_route('ace/v1', '/roles', array(
+        'methods' => 'GET',
+        'callback' => 'ace_get_roles',
+        'permission_callback' => function() {
+            return current_user_can('manage_options'); // Adjust permissions as needed
+        },
+    ));
+}
+add_action('rest_api_init', 'ace_register_roles_endpoint');
+
+function ace_get_roles() {
+    // Fetch roles from WordPress
+    global $wp_roles;
+
+    if (!isset($wp_roles)) {
+        $wp_roles = new WP_Roles();
+    }
+
+    $roles = [];
+    foreach ($wp_roles->roles as $role_slug => $role_data) {
+        $roles[] = [
+            'slug' => $role_slug,
+            'name' => $role_data['name'],
+        ];
+    }
+
+    return new WP_REST_Response($roles, 200);
+}
 
 
 
 
 
 
-
-
-
-
-
-// Enqueue React settings page
 function ace_field_options_enqueue_settings_page_scripts() {
     $screen = get_current_screen();
 
+    // Check if we are on the settings page for this plugin
     if ($screen->id === 'toplevel_page_adaptive-content-enhancer') {
         wp_enqueue_script(
             'acemedia-settings-react',
             plugins_url('/assets/js/index.js', __FILE__),
-            array('wp-element', 'wp-components', 'wp-api-fetch', 'jquery'), // Ensure jQuery is included
+            array('wp-element', 'wp-components', 'wp-api-fetch', 'jquery', 'wp-data', 'wp-editor'),
             filemtime(plugin_dir_path(__FILE__) . 'assets/js/index.js'),
             true
         );
-
-
-
-        wp_enqueue_style('wp-block-editor', includes_url('css/dist/block-editor.css'));
 
         wp_localize_script('acemedia-settings-react', 'aceAjax', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('ace_nonce') // Create a nonce for security
         ));
+
+        wp_enqueue_style('wp-block-editor', includes_url('css/dist/block-editor.css'));
     }
 }
 add_action('admin_enqueue_scripts', 'ace_field_options_enqueue_settings_page_scripts');
+
+
 
 
 function adaptive_content_enhancer_choices_page_react() {
@@ -1297,7 +1321,6 @@ function ace_delete_option(WP_REST_Request $request) {
         return new WP_REST_Response(array('error' => 'Failed to delete option'), 500);
     }
 }
-
 function ace_save_options(WP_REST_Request $request) {
     $choices = $request->get_param('choices');
 
@@ -1333,17 +1356,25 @@ function ace_save_options(WP_REST_Request $request) {
             );
         }, $choice['options']) : [];
 
-        // Add tags processing
+        // Process tags
         if (isset($choice['tags']) && is_array($choice['tags'])) {
-            $group_data['tags'] = array_map('intval', $choice['tags']); // Store tag IDs as integers
-            // Loop through each tag and ensure it is added to the taxonomy
-            foreach ($group_data['tags'] as $tag_id) {
-                if (!term_exists($tag_id, 'field_tags')) {
-                    wp_insert_term(get_term($tag_id)->name, 'field_tags');
-                }
-            }
+            $group_data['tags'] = array_map('intval', $choice['tags']);
         } else {
             $group_data['tags'] = [];
+        }
+
+        // Process associated roles
+        if (isset($choice['associated_roles']) && is_array($choice['associated_roles'])) {
+            $group_data['associated_roles'] = array_map('sanitize_text_field', $choice['associated_roles']);
+        } else {
+            $group_data['associated_roles'] = [];
+        }
+
+        // Process post types
+        if (isset($choice['post_types']) && is_array($choice['post_types'])) {
+            $group_data['post_types'] = array_map('sanitize_text_field', $choice['post_types']);
+        } else {
+            $group_data['post_types'] = [];
         }
 
         update_option($option_name, $group_data);
@@ -1369,7 +1400,7 @@ function ace_get_choices(WP_REST_Request $request) {
 
     $offset = ($page - 1) * $per_page;
 
-    // Step 1: Fetch all choices to determine total count before any filtering
+    // Fetch all choices to determine total count before any filtering
     $all_choices = array_merge(
         apply_filters('filter_wp_options_by_field_type', null, 'text'),
         apply_filters('filter_wp_options_by_field_type', null, 'select'),
@@ -1377,9 +1408,9 @@ function ace_get_choices(WP_REST_Request $request) {
         apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
         apply_filters('filter_wp_options_by_field_type', null, 'radio')
     );
-    $total_choices = count($all_choices); // Total count of all choices without filters
+    $total_choices = count($all_choices);
 
-    // Step 2: Apply filters if specified
+    // Apply filters if specified
     $choices = $all_choices;
     if ($field_type) {
         $field_types = explode(',', $field_type);
@@ -1404,7 +1435,7 @@ function ace_get_choices(WP_REST_Request $request) {
         });
     }
 
-    // Step 3: Sort and paginate the filtered choices
+    // Sort and paginate the filtered choices
     usort($choices, function($a, $b) use ($sort_by) {
         switch ($sort_by) {
             case 'created':
@@ -1434,7 +1465,7 @@ function ace_get_choices(WP_REST_Request $request) {
         $tags_with_descriptions[$tag->term_id] = [
             'name' => $tag->name,
             'description' => $tag->description,
-            'meta' => get_term_meta($tag->term_id)  
+            'meta' => get_term_meta($tag->term_id)
         ];
     }
     
@@ -1455,12 +1486,13 @@ function ace_get_choices(WP_REST_Request $request) {
             return $choice;
         }, $paginated_choices),
         'totalPages' => $total_pages,
-        'totalChoices' => $total_choices, // Add total choices regardless of filters
-        'tags' => $tags_with_descriptions // Include tags in the response
+        'totalChoices' => $total_choices,
+        'tags' => $tags_with_descriptions
     ];
 
     return new WP_REST_Response($response_data, 200);
 }
+
 
 
 add_action('rest_api_init', function () {
@@ -1490,16 +1522,40 @@ add_action('init', 'register_field_tags_taxonomy');
 function register_field_tags_meta() {
     register_meta('term', 'color', array(
         'type' => 'string',
-        'description' => 'Color associated with the field tag',
         'single' => true,
         'sanitize_callback' => 'sanitize_hex_color',
         'show_in_rest' => true,
     ));
+    
+    register_meta('term', 'associated_roles', array(
+        'type' => 'array',
+        'single' => true,
+        'show_in_rest' => array(
+            'schema' => array(
+                'type' => 'array',
+                'items' => array('type' => 'string')
+            )
+        ),
+    ));
+
+    register_meta('term', 'post_types', array(
+        'type' => 'array',
+        'single' => true,
+        'show_in_rest' => array(
+            'schema' => array(
+                'type' => 'array',
+                'items' => array('type' => 'string')
+            )
+        ),
+    ));
 }
 add_action('init', 'register_field_tags_meta');
 
+// Meta box for Color, Associated Roles, and Post Types
 function add_field_tags_meta_box($term) {
     $color = get_term_meta($term->term_id, 'color', true);
+    $associated_roles = get_term_meta($term->term_id, 'associated_roles', true);
+    $post_types = get_term_meta($term->term_id, 'post_types', true);
     ?>
     <tr class="form-field">
         <th scope="row" valign="top">
@@ -1510,19 +1566,52 @@ function add_field_tags_meta_box($term) {
             <p class="description"><?php _e('Select a color for this field tag.', 'textdomain'); ?></p>
         </td>
     </tr>
+    <tr class="form-field">
+        <th scope="row" valign="top">
+            <label for="associated_roles"><?php _e('Associated Roles', 'textdomain'); ?></label>
+        </th>
+        <td>
+            <input type="text" name="associated_roles" id="associated_roles" value="<?php echo esc_attr(implode(', ', (array) $associated_roles)); ?>" />
+            <p class="description"><?php _e('Comma-separated list of associated roles.', 'textdomain'); ?></p>
+        </td>
+    </tr>
+    <tr class="form-field">
+        <th scope="row" valign="top">
+            <label for="post_types"><?php _e('Post Types', 'textdomain'); ?></label>
+        </th>
+        <td>
+            <input type="text" name="post_types" id="post_types" value="<?php echo esc_attr(implode(', ', (array) $post_types)); ?>" />
+            <p class="description"><?php _e('Comma-separated list of associated post types.', 'textdomain'); ?></p>
+        </td>
+    </tr>
     <?php
 }
 add_action('field_tags_edit_form_fields', 'add_field_tags_meta_box');
 
+// Save function for Color, Associated Roles, and Post Types
 function save_field_tags_meta($term_id) {
+    // Save color
     if (isset($_POST['field_tags_color'])) {
         $color = sanitize_hex_color($_POST['field_tags_color']);
         update_term_meta($term_id, 'color', $color);
+    }
+
+    // Save associated roles
+    if (isset($_POST['associated_roles'])) {
+        $roles = array_map('sanitize_text_field', explode(',', $_POST['associated_roles']));
+        update_term_meta($term_id, 'associated_roles', $roles);
+    }
+
+    // Save post types
+    if (isset($_POST['post_types'])) {
+        $post_types = array_map('sanitize_text_field', explode(',', $_POST['post_types']));
+        update_term_meta($term_id, 'post_types', $post_types);
     }
 }
 add_action('edited_field_tags', 'save_field_tags_meta', 10, 2);
 add_action('create_field_tags', 'save_field_tags_meta', 10, 2);
 
+// Enqueue color picker in the admin area
 function enqueue_color_picker($hook_suffix) {
     if ($hook_suffix === 'edit-tags.php' || $hook_suffix === 'term.php') {
         wp_enqueue_style('wp-color-picker');
@@ -1531,5 +1620,6 @@ function enqueue_color_picker($hook_suffix) {
     }
 }
 add_action('admin_enqueue_scripts', 'enqueue_color_picker');
+
 
 ?>

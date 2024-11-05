@@ -163,20 +163,22 @@ const ChoiceCards = ({
                                     {choice.tags && choice.tags.length > 0 && (
                             <Flex align="left" wrap="nowrap" gap={1} className="card-tags" style={{ textAlign: 'left', width: 'auto' }}>
                                 {choice.tags.map((tagId, idx) => (
-                                    <span
-                                        key={idx}
-                                        className='tag'
-                                        style={{
-                                            backgroundColor: tags[tagId]?.meta?.color || '#007cba', // Use updated color from tags
-                                            color: '#fff',
-                                            padding: '2px 6px',
-                                            borderRadius: '12px',
-                                            fontSize: '0.75em',
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                    >
-                                        {tags[tagId] ? tags[tagId].name : 'Unknown Tag'}
-                                    </span>
+                                    tags[tagId] && (
+                                        <span
+                                            key={idx}
+                                            className='tag'
+                                            style={{
+                                                backgroundColor: tags[tagId]?.meta?.color || '#007cba', // Use updated color from tags
+                                                color: '#fff',
+                                                padding: '2px 6px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.75em',
+                                                whiteSpace: 'nowrap',
+                                            }}
+                                        >
+                                            {tags[tagId].name}
+                                        </span>
+                                    )
                                 ))}
                             </Flex>
                         )}

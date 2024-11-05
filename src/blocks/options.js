@@ -214,7 +214,6 @@ registerBlockType('adaptive-content-enhancer/option', {
 
 
         const renderTickerText = (text, maxLength = 42) => {
-            console.log('text:', text.length);
             if (text.length > maxLength) {
                 return (
                     <span className="ticker-container">
