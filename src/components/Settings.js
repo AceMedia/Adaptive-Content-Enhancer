@@ -16,7 +16,7 @@ import MainSettingsPanel from './MainSettingsPanel';
 
 
 const AdaptiveContentEnhancer = () => {
-    const [choices, setChoices] = useState([]);
+    const [choices, setFields] = useState([]);
 const [isModalOpen, setIsModalOpen] = useState(false);
 const [newChoice, setNewChoice] = useState({ 
     title: '', 
@@ -27,9 +27,9 @@ const [newChoice, setNewChoice] = useState({
     tags: [] // Add tags property
 });
 
-const [changedChoices, setChangedChoices] = useState([]);
+const [changedFields, setChangedFields] = useState([]);
 const [currentPage, setCurrentPage] = useState(1); // Track the current page of choices
-const [hasMoreChoices, setHasMoreChoices] = useState(true); // Track if there are more choices to load
+const [hasMoreFields, setHasMoreFields] = useState(true); // Track if there are more choices to load
 const choicesPerPage = 99; // Define how many choices to load per page
 const [totalPages, setTotalPages] = useState(1); // Track the total number of pages
 const [sortBy, setSortBy] = useState('edited'); // Default sort by 'created'
@@ -95,7 +95,7 @@ const handleSortChange = (sortMethod) => {
 };
 
 // Apply sorting to the fetched choices
-const sortChoices = (choices, sortBy) => {
+const sortFields = (choices, sortBy) => {
     return choices.sort((a, b) => {
         let comparison = 0;
         switch (sortBy) {
@@ -116,8 +116,8 @@ const sortChoices = (choices, sortBy) => {
 };
 
 useEffect(() => {
-    const sortedChoices = sortChoices(choices, sortBy);
-    setChoices(sortedChoices);
+    const sortedFields = sortFields(choices, sortBy);
+    setFields(sortedFields);
 }, [choices, sortBy]); 
 
 
@@ -157,25 +157,25 @@ const handleTagChange = (choice, newTagIds) => {
             tags: newTagIds,
         }));
     } else {
-        setChoices((prevChoices) => {
+        setFields((prevFields) => {
             console.log('Setting tags:', newTagIds);
-            const updatedChoices = [...prevChoices];
-            const choiceIndex = updatedChoices.findIndex(
+            const updatedFields = [...prevFields];
+            const choiceIndex = updatedFields.findIndex(
                 (c) => c.name === choice.name
             );
 
             if (choiceIndex !== -1) {
-                updatedChoices[choiceIndex].tags = newTagIds;
+                updatedFields[choiceIndex].tags = newTagIds;
                 markAsChanged(choice.name); // Mark as changed
             }
 
-            return updatedChoices;
+            return updatedFields;
         });
     }
 };
 
 const markAsChanged = (choiceName) => {
-    setChangedChoices((prevChanged) => {
+    setChangedFields((prevChanged) => {
         if (!prevChanged.includes(choiceName)) {
             setUnsavedChanges(true); // Correctly indicate there are unsaved changes
             return [...prevChanged, choiceName];
@@ -203,14 +203,14 @@ const getDefaultOptions = () => {
 
 
 
-const [selectedChoices, setSelectedChoices] = useState([]);
+const [selectedFields, setSelectedFields] = useState([]);
 const [selectedTags, setSelectedTags] = useState([])
 
 
 const handleBulkDelete = () => {
     const confirmDelete = window.confirm(`Are you sure you want to delete these items? This action cannot be undone!`);
     if (confirmDelete) {
-        setItemsToDelete({ choices: selectedChoices, tags: selectedTags });
+        setItemsToDelete({ choices: selectedFields, tags: selectedTags });
     }
 };
 
@@ -268,10 +268,10 @@ const confirmBulkDelete = () => {
     Promise.all([...deleteChoicePromises, ...deleteTagPromises])
         .then(() => {
             // Clear selections after deletion
-            setSelectedChoices([]);
+            setSelectedFields([]);
             setSelectedTags([]);
             // Refresh choices and tags to reflect changes
-            fetchChoices();
+            fetchFields();
         })
         .catch(error => console.error('Error during bulk deletion:', error))
         .finally(() => setIsBulkDeleteConfirmDialogOpen(false));
@@ -287,10 +287,10 @@ const handleTagSelect = (tagId) => {
 };
 
 const handleChoiceSelect = (choiceName) => {
-    setSelectedChoices(prevSelectedChoices =>
-        prevSelectedChoices.includes(choiceName)
-            ? prevSelectedChoices.filter(name => name !== choiceName)
-            : [...prevSelectedChoices, choiceName]
+    setSelectedFields(prevSelectedFields =>
+        prevSelectedFields.includes(choiceName)
+            ? prevSelectedFields.filter(name => name !== choiceName)
+            : [...prevSelectedFields, choiceName]
     );
 };
 
@@ -312,20 +312,20 @@ const handleTextChange = (choice, field, newValue) => {
                 : prevNewChoice.options, // Keep existing options if the field isn't 'field_type'
         }));
     } else {
-        setChoices((prevChoices) => {
-            const updatedChoices = [...prevChoices];
-            const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
+        setFields((prevFields) => {
+            const updatedFields = [...prevFields];
+            const choiceIndex = updatedFields.findIndex((c) => c.name === choice.name);
 
             if (choiceIndex !== -1) {
                 if (field === 'name' && !choice.isNew) {
-                    return updatedChoices;
+                    return updatedFields;
                 }
 
-                updatedChoices[choiceIndex][field] = formattedValue;
+                updatedFields[choiceIndex][field] = formattedValue;
 
                 // Update options only if the field is 'field_type'
                 if (field === 'field_type') {
-                    updatedChoices[choiceIndex].options = newValue === 'truefalse'
+                    updatedFields[choiceIndex].options = newValue === 'truefalse'
                         ? getTrueFalseOptions()
                         : getDefaultOptions();
                 }
@@ -333,7 +333,7 @@ const handleTextChange = (choice, field, newValue) => {
                 markAsChanged(choice.name);
             }
 
-            return updatedChoices;
+            return updatedFields;
         });
         console.log('Auto-save enabled:', isAutoSaveEnabled);
         if (isAutoSaveEnabled) {
@@ -351,7 +351,7 @@ const handleSave = (isAutoSave = false) => {
 
     const payload = {
         choices: choices
-            .filter(choice => changedChoices.includes(choice.name))
+            .filter(choice => changedFields.includes(choice.name))
             .map(choice => ({
                 name: choice.name,
                 title: choice.title,
@@ -380,8 +380,8 @@ const handleSave = (isAutoSave = false) => {
     }).then((response) => {
         if (response.success) {
             // Handle successful save
-            setChangedChoices([]); // Reset changed choices
-            fetchChoices(); // Refresh choices
+            setChangedFields([]); // Reset changed choices
+            fetchFields(); // Refresh choices
             setUnsavedChanges(false); // Reset unsaved changes
             setMessage('Time since last saved'); // Always show time since last saved
 
@@ -416,13 +416,13 @@ const handleSave = (isAutoSave = false) => {
     
     
     
-const refreshUpdatedChoices = (updatedChoiceNames) => {
+const refreshUpdatedFields = (updatedChoiceNames) => {
     apiFetch({ path: `/ace/v1/get-choices?names=${updatedChoiceNames.join(',')}` })
         .then((response) => {
-            const { choices: updatedChoices } = response;
+            const { choices: updatedFields } = response;
 
             // Ensure all options are marked as disabled after successful save
-            const updatedChoicesWithDisabledOptions = updatedChoices.map(choice => {
+            const updatedFieldsWithDisabledOptions = updatedFields.map(choice => {
                 const updatedOptions = (choice.options || []).map(option => ({
                     ...option,
                     disabled: true // Disable all options after being saved
@@ -435,9 +435,9 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
             });
 
             // Merge updated choices into the current list without changing order
-            setChoices((prevChoices) => {
-                const updatedChoiceMap = Object.fromEntries(updatedChoicesWithDisabledOptions.map(choice => [choice.name, choice]));
-                return prevChoices.map((choice) => 
+            setFields((prevFields) => {
+                const updatedChoiceMap = Object.fromEntries(updatedFieldsWithDisabledOptions.map(choice => [choice.name, choice]));
+                return prevFields.map((choice) => 
                     updatedChoiceMap[choice.name] ? updatedChoiceMap[choice.name] : choice
                 );
             });
@@ -450,7 +450,7 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     useEffect(() => {
         const interval = setInterval(() => {
             // Force a state update to refresh the relative times
-            setChoices((prevChoices) => [...prevChoices]);
+            setFields((prevFields) => [...prevFields]);
         }, 10000);
     
         // Cleanup interval on component unmount
@@ -460,9 +460,9 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     useEffect(() => {
         apiFetch({ path: `/ace/v1/get-choices?page=${currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeFilter}` })
             .then((response) => {
-                const { choices: fetchedChoices, totalPages } = response;
+                const { choices: fetchedFields, totalPages } = response;
                 
-                const updatedChoices = fetchedChoices.map(choice => {
+                const updatedFields = fetchedFields.map(choice => {
                     if (choice.field_type === 'truefalse') {
                         return {
                             ...choice,
@@ -486,18 +486,18 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
                 });
     
                 // Apply sorting before setting state
-                setChoices(sortChoices(updatedChoices, sortBy));
+                setFields(sortFields(updatedFields, sortBy));
                 setTotalPages(totalPages);
     
                 if (currentPage >= totalPages) {
-                    setHasMoreChoices(false);
+                    setHasMoreFields(false);
                 }
             })
             .catch((error) => console.error('Error fetching choices:', error));
     }, [currentPage, sortBy, fieldTypeFilter]); // Include `fieldTypeFilter` as a dependency
       
     
-    const loadMoreChoices = () => {
+    const loadMoreFields = () => {
         setCurrentPage(prevPage => prevPage + 1);
     };
 
@@ -523,16 +523,16 @@ const refreshUpdatedChoices = (updatedChoiceNames) => {
     
   // In Settings.js
 // In Settings.js
-const fetchChoices = ({ navigateToLastPage = false } = {}) => {
+const fetchFields = ({ navigateToLastPage = false } = {}) => {
     const fieldTypeQuery = fieldTypeFilter.length === 0 || fieldTypeFilter.includes('') ? '' : fieldTypeFilter.join(',');
     const tagQuery = tagFilter.length === 0 || tagFilter.includes('') ? '' : tagFilter.join(',');
     const searchQueryParam = searchQuery.length >= 3 ? `&search_query=${searchQuery}` : '';
 
     apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeQuery}&tags=${tagQuery}${searchQueryParam}` })
         .then((response) => {
-            const { choices: fetchedChoices, totalPages: updatedTotalPages, tags: fetchedTags, totalChoices } = response;
+            const { choices: fetchedFields, totalPages: updatedTotalPages, tags: fetchedTags, totalFields } = response;
 
-            const updatedChoices = fetchedChoices.map(choice => ({
+            const updatedFields = fetchedFields.map(choice => ({
                 ...choice,
                 modifiedAt: choice.edited || choice.created,
                 options: (choice.options || []).map(option => ({
@@ -542,11 +542,11 @@ const fetchChoices = ({ navigateToLastPage = false } = {}) => {
             }));
 
             // Apply sorting before setting state
-            setChoices(sortChoices(updatedChoices, sortBy));
+            setFields(sortFields(updatedFields, sortBy));
             setTotalPages(updatedTotalPages);
             setTags(fetchedTags); // Set the fetched tags
-            setTotalFields(totalChoices);
-            console.log(totalChoices); // Update total fields count from API
+            setTotalFields(totalFields);
+            console.log(totalFields); // Update total fields count from API
             if (navigateToLastPage) {
                 setCurrentPage(updatedTotalPages); // Navigate to the last page
             }
@@ -555,7 +555,7 @@ const fetchChoices = ({ navigateToLastPage = false } = {}) => {
 };
 
 useEffect(() => {
-    fetchChoices();
+    fetchFields();
 }, [fieldTypeFilter, tagFilter, searchQuery, currentPage, sortBy]);
 
     
@@ -624,7 +624,7 @@ const fetchTagDataAndEdit = async (tagId) => {
                 if (response.id) {
                     setIsModalOpen(false);
                     setCurrentTag(null);
-                    fetchChoices({ navigateToLastPage: true });
+                    fetchFields({ navigateToLastPage: true });
                 } else {
                     console.error('Error updating tag:', response);
                 }
@@ -662,7 +662,7 @@ const fetchTagDataAndEdit = async (tagId) => {
                 setIsModalOpen(false);
                 resetNewChoice();
                 setNewlyAddedChoice(newChoiceData.name); // Store the name of the new choice
-                fetchChoices({ navigateToLastPage: true });
+                fetchFields({ navigateToLastPage: true });
             } else {
                 console.error('Error saving new group:', response.error);
                 alert('Failed to save the new group. Please try again.');
@@ -717,8 +717,8 @@ const fetchTagDataAndEdit = async (tagId) => {
         })
         .then((response) => {
             if (response.success) {
-                setChoices((prevChoices) => 
-                    prevChoices.filter((choice) => choice.name !== choiceName)
+                setFields((prevFields) => 
+                    prevFields.filter((choice) => choice.name !== choiceName)
                 );
             } else {
                 console.error('Failed to remove group:', response.error);
@@ -758,17 +758,17 @@ const fetchTagDataAndEdit = async (tagId) => {
                 return { ...prevNewChoice, options: updatedOptions };
             });
         } else {
-            setChoices((prevChoices) => {
-                const updatedChoices = [...prevChoices];
-                const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
+            setFields((prevFields) => {
+                const updatedFields = [...prevFields];
+                const choiceIndex = updatedFields.findIndex((c) => c.name === choice.name);
     
                 if (choiceIndex !== -1) {
-                    const optionIndex = updatedChoices[choiceIndex].options.findIndex(
+                    const optionIndex = updatedFields[choiceIndex].options.findIndex(
                         (opt) => opt === option
                     );
     
                     if (optionIndex !== -1) {
-                        const updatedOption = { ...updatedChoices[choiceIndex].options[optionIndex] };
+                        const updatedOption = { ...updatedFields[choiceIndex].options[optionIndex] };
     
                         // Only allow label updates, and never update `value` for `truefalse`
                         if (field === 'label') {
@@ -781,11 +781,11 @@ const fetchTagDataAndEdit = async (tagId) => {
                             updatedOption.value = createLowercaseUnderscored(value);
                         }
     
-                        updatedChoices[choiceIndex].options[optionIndex] = updatedOption;
+                        updatedFields[choiceIndex].options[optionIndex] = updatedOption;
                         markAsChanged(choice.name); // Mark as changed
                     }
                 }
-                return updatedChoices;
+                return updatedFields;
             });
         }
     };
@@ -794,14 +794,14 @@ const fetchTagDataAndEdit = async (tagId) => {
     const handleToggleChange = (choice, newValue) => {
         if (choice === 'toggle_all') {
             // Update bulk-select for all choices based on the newValue
-            setChoices((prevChoices) => {
-                return prevChoices.map((c) => ({
+            setFields((prevFields) => {
+                return prevFields.map((c) => ({
                     ...c,
                     isSelected: newValue, // Assuming you're using `isSelected` for bulk select
                 }));
             });
             // Update bulk edit state for all choices
-            setSelectedChoices((prevChoices) => {
+            setSelectedFields((prevFields) => {
                 if (newValue) {
                     return choices.map((c) => c.name); // Select all choices
                 } else {
@@ -809,25 +809,25 @@ const fetchTagDataAndEdit = async (tagId) => {
                 }
             });
         } else {
-            setChoices((prevChoices) => {
-                const updatedChoices = [...prevChoices];
-                const choiceIndex = updatedChoices.findIndex(
+            setFields((prevFields) => {
+                const updatedFields = [...prevFields];
+                const choiceIndex = updatedFields.findIndex(
                     (c) => c.name === choice.name
                 );
     
                 if (choiceIndex !== -1) {
-                    updatedChoices[choiceIndex].isSelected = newValue;
+                    updatedFields[choiceIndex].isSelected = newValue;
                     markAsChanged(choice.name); // Mark as changed
                 }
     
-                return updatedChoices;
+                return updatedFields;
             });
     
-            setSelectedChoices((prevSelectedChoices) => {
+            setSelectedFields((prevSelectedFields) => {
                 if (newValue) {
-                    return [...prevSelectedChoices, choice.name]; // Add choice to selected choices
+                    return [...prevSelectedFields, choice.name]; // Add choice to selected choices
                 } else {
-                    return prevSelectedChoices.filter((name) => name !== choice.name); // Remove choice from selected choices
+                    return prevSelectedFields.filter((name) => name !== choice.name); // Remove choice from selected choices
                 }
             });
     
@@ -848,16 +848,16 @@ const fetchTagDataAndEdit = async (tagId) => {
                 options: [...prevNewChoice.options, newOption]
             }));
         } else {
-            setChoices((prevChoices) => {
-                const updatedChoices = [...prevChoices];
-                const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
+            setFields((prevFields) => {
+                const updatedFields = [...prevFields];
+                const choiceIndex = updatedFields.findIndex((c) => c.name === choice.name);
     
                 if (choiceIndex !== -1) {
-                    updatedChoices[choiceIndex].options.push(newOption);
+                    updatedFields[choiceIndex].options.push(newOption);
                     markAsChanged(choice.name); // Mark as changed
                 }
     
-                return updatedChoices;
+                return updatedFields;
             });
         }
     };
@@ -875,7 +875,7 @@ const fetchTagDataAndEdit = async (tagId) => {
                 };
             });
         } else {
-        const updatedChoices = choices.map(c => {
+        const updatedFields = choices.map(c => {
             if (c.name === choice.name) {
                 // Filter out the option to be removed
                 const updatedOptions = c.options.filter(opt => opt.label !== option.label);
@@ -890,7 +890,7 @@ const fetchTagDataAndEdit = async (tagId) => {
             }
             return c;
         });
-        setChoices(updatedChoices);
+        setFields(updatedFields);
     }
     };
 
@@ -1005,7 +1005,7 @@ const fetchTagDataAndEdit = async (tagId) => {
                 setButtonText={setButtonText}
                 setMessage={setMessage}
                 handleBulkDelete={handleBulkDelete}
-                selectedChoices={selectedChoices} // Pass selectedChoices
+                selectedFields={selectedFields} // Pass selectedFields
                 handleChoiceSelect={handleChoiceSelect} 
                 selectedTags={selectedTags} // Pass selectedTags
                 handleTagSelect={handleTagSelect}

@@ -150,32 +150,32 @@ registerBlockType('adaptive-content-enhancer/option', {
 
         // Handle dropdown change, updating meta and syncing across all instances
         // Handle dropdown change, updating meta and syncing across all instances
-        const handleChoicesChange = (newValue, isChecked = true) => {
+        const handleFieldsChange = (newValue, isChecked = true) => {
             const selectedFieldData = availableGroups.find(field => field.name === selectedGroup);
             if (!selectedFieldData) return;
         
             if (selectedFieldType === 'checkbox') {
                 // Ensure choiceValue is an array for checkboxes
-                let updatedChoices = Array.isArray(choiceValue) ? [...choiceValue] : [];
+                let updatedFields = Array.isArray(choiceValue) ? [...choiceValue] : [];
         
                 // Add or remove the value based on the checked state
                 if (isChecked) {
-                    if (!updatedChoices.includes(newValue)) {
-                        updatedChoices.push(newValue);
+                    if (!updatedFields.includes(newValue)) {
+                        updatedFields.push(newValue);
                     }
                 } else {
-                    updatedChoices = updatedChoices.filter(value => value !== newValue);
+                    updatedFields = updatedFields.filter(value => value !== newValue);
                 }
         
                 // Save the updated choices to meta and block attributes
                 setMetaValue({
                     ...metaValue,
-                    [metaKey]: updatedChoices,
+                    [metaKey]: updatedFields,
                 });
                 setAttributes({
-                    choiceValue: updatedChoices,
+                    choiceValue: updatedFields,
                     choiceLabel: groupOptions
-                        .filter(option => updatedChoices.includes(option.value))
+                        .filter(option => updatedFields.includes(option.value))
                         .map(option => option.label)
                         .join(', '),
                 });
@@ -231,18 +231,18 @@ registerBlockType('adaptive-content-enhancer/option', {
             
             switch (selectedFieldType) {
                 case 'checkbox':
-                    let cleanChoices = [];
+                    let cleanFields = [];
 
                     // Attempt to parse as JSON if it's a string representation of an array
                     try {
-                        cleanChoices = JSON.parse(metaValue[selectedGroup]);
+                        cleanFields = JSON.parse(metaValue[selectedGroup]);
                     } catch (e) {
                         console.warn("Failed to parse metaValue as JSON:", e);
-                        cleanChoices = metaValue[selectedGroup];
+                        cleanFields = metaValue[selectedGroup];
                     }
                 
-                    // Make sure cleanChoices is an array and log for verification
-                    cleanChoices = Array.isArray(cleanChoices) ? cleanChoices : [];
+                    // Make sure cleanFields is an array and log for verification
+                    cleanFields = Array.isArray(cleanFields) ? cleanFields : [];
 
 
     return groupOptions.map((option, index) => (
@@ -250,7 +250,7 @@ registerBlockType('adaptive-content-enhancer/option', {
             key={index}
             label={option.label}
             checked={Array.isArray(choiceValue) && choiceValue.includes(option.value)}
-            onChange={(isChecked) => handleChoicesChange(option.value, isChecked)}
+            onChange={(isChecked) => handleFieldsChange(option.value, isChecked)}
         />
     ));
                 case 'radio':
@@ -261,7 +261,7 @@ registerBlockType('adaptive-content-enhancer/option', {
                                 label: option.label,
                                 value: option.value
                             }))}
-                            onChange={(newValue) => handleChoicesChange(newValue)}
+                            onChange={(newValue) => handleFieldsChange(newValue)}
                         />
                     );
                 case 'truefalse':
@@ -269,7 +269,7 @@ registerBlockType('adaptive-content-enhancer/option', {
                         <ToggleControl
     label={trueFalseLabel || "Toggle Option"}
     checked={trueFalseValue} // Now it directly reflects the boolean value
-    onChange={(newValue) => handleChoicesChange(newValue)}
+    onChange={(newValue) => handleFieldsChange(newValue)}
 />
 
                     );
@@ -296,7 +296,7 @@ registerBlockType('adaptive-content-enhancer/option', {
                                         style: { fontSize: '1em', color: '#000' },
                                     }))
                                 ]}
-                                onChange={({ selectedItem }) => handleChoicesChange(selectedItem.key)}
+                                onChange={({ selectedItem }) => handleFieldsChange(selectedItem.key)}
                             />
                         </>
                     );
@@ -314,7 +314,7 @@ const toolbarControls = (
         popoverProps={{ position: 'bottom center' }}
         controls={groupOptions.map((option) => ({
             title: truncateText(option.label),
-            onClick: () => handleChoicesChange(option.value),
+            onClick: () => handleFieldsChange(option.value),
             isActive: choiceValue === option.value,
         }))}
     />

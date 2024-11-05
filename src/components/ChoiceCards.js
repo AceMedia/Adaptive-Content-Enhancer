@@ -24,7 +24,7 @@ const ChoiceCards = ({
     tags,
     quickEdit,
     setQuickEdit,
-    selectedChoices,
+    selectedFields,
     handleChoiceSelect,
     onAddCard,
     handleAddChoiceGroup,
@@ -56,7 +56,7 @@ const ChoiceCards = ({
     }
 
     // Group choices by the specified criteria
-    const groupedChoices = choices.reduce((acc, choice) => {
+    const groupedFields = choices.reduce((acc, choice) => {
         if (groupBy === 'nothing') {
             const key = 'all';
             if (!acc[key]) acc[key] = [];
@@ -81,8 +81,8 @@ const ChoiceCards = ({
     }, {});
 
     // Apply sorting within each group based on the `sortBy` criteria
-    Object.keys(groupedChoices).forEach(groupKey => {
-        groupedChoices[groupKey].sort((a, b) => {
+    Object.keys(groupedFields).forEach(groupKey => {
+        groupedFields[groupKey].sort((a, b) => {
             switch (sortBy) {
                 case 'edited':
                     return new Date(b.edited) - new Date(a.edited);
@@ -109,14 +109,14 @@ const ChoiceCards = ({
     if (choices.length != 0) {
     return (
         <div>
-            {Object.entries(groupedChoices).map(([group, groupChoices]) => (
+            {Object.entries(groupedFields).map(([group, groupFields]) => (
                 <div key={group} className="choice-group">
                     {group !== 'all' && (
                         <h3 className="group-title">
                             {displayGroupName(group)}
                         </h3>
                     )}
-                    {groupChoices.map(choice => (
+                    {groupFields.map(choice => (
                         <Card
                             key={choice.name}
                             id={choice.name}

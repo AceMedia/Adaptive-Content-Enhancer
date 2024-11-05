@@ -62,7 +62,7 @@ const MainSettingsPanel = ({
     setMessage,
     totalFields,
     handleBulkDelete,
-    selectedChoices,
+    selectedFields,
     handleChoiceSelect,
     selectedTags,
     handleTagSelect,
@@ -102,7 +102,7 @@ const MainSettingsPanel = ({
         setSortBy(value);
     };
 
-    const sortChoices = (choices, sortBy) => {
+    const sortFields = (choices, sortBy) => {
         return [...choices].sort((a, b) => {
             switch(sortBy) {
                 case 'edited':
@@ -320,7 +320,7 @@ const handleMetaChange = (key, value) => {
                         quickEdit={quickEdit}
                         setQuickEdit={setQuickEdit}
                         handleBulkDelete={handleBulkDelete}
-                        selectedChoices={selectedChoices} // Pass selectedChoices
+                        selectedFields={selectedFields} // Pass selectedFields
                         handleChoiceSelect={handleChoiceSelect} 
                         handleAddChoiceGroup={handleAddChoiceGroup}
                         setNewChoice={setNewChoice}
@@ -529,7 +529,7 @@ const handleMetaChange = (key, value) => {
             />
         )}
         <Button isPrimary variant="primary" onClick={handleModalSubmit}>
-            {isEditingTag ? "Save Tag" : "Add Group"}
+            {isEditingTag ? "Save Tag" : "Add Field"}
         </Button>
     </Modal>
 )}
