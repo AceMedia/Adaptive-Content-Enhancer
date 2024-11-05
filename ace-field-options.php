@@ -134,11 +134,10 @@ function acefields_register_dynamic_meta_and_bindings() {
     // Define a mapping of field types to how they should be treated
     $field_types = [
         'text' => 'string',
-        'select' => 'string',
+        'select' => 'array',
         'truefalse' => 'boolean',
         'checkbox' => 'array', // Set to 'array' for checkboxes
-        'radio' => 'string',
-        'buttons' => 'string',
+        'radio' => 'array',
     ];
 
     // Loop over each field type and register its meta fields and associated block bindings sources
@@ -155,9 +154,7 @@ function acefields_register_dynamic_meta_and_bindings() {
                 $sanitize_callback = 'acefields_sanitize_serialized_meta';
 
                 // Define schema for array items if field type is checkbox
-                $schema = ($type === 'checkbox') 
-                    ? ['type' => 'array', 'items' => ['type' => 'string']] 
-                    : ['type' => $meta_type];
+                $schema = ['type' => $meta_type];
 
                 // Register each field as a post meta field
                 register_meta(
@@ -180,6 +177,12 @@ function acefields_register_dynamic_meta_and_bindings() {
 
 // Custom sanitize function for serialized meta data
 function acefields_sanitize_serialized_meta($meta_value) {
+    
+    if ($meta_value === null) {
+        return ''; // Or return an appropriate default value
+    }
+    
+    
     // Return arrays and objects as they are to avoid double encoding
     if (is_array($meta_value) || is_object($meta_value)) {
         return $meta_value;
@@ -1130,7 +1133,7 @@ function ace_map_acf_to_rest_type($acf_type) {
     return $mapping[$acf_type] ?? 'string'; // Default to 'string' if no mapping found
 }
 
-add_action('rest_api_init', 'conditionally_register_acf_fields_for_current_post');
+//add_action('rest_api_init', 'conditionally_register_acf_fields_for_current_post');
 
 function conditionally_register_acf_fields_for_current_post() {
     // Only run this inside the WordPress admin and the post editor screen.
@@ -1185,15 +1188,15 @@ function conditionally_register_acf_fields_for_current_post() {
     }
 
     // Register the test field
-    register_post_meta(
-        'post',
-        'test',
-        array(
-            'show_in_rest'      => true,
-            'single'            => true,
-            'type'              => 'string', // Type should be string, even though we might store serialized arrays
-        )
-    );
+    // register_post_meta(
+    //     'post',
+    //     'test',
+    //     array(
+    //         'show_in_rest'      => true,
+    //         'single'            => true,
+    //         'type'              => 'string', // Type should be string, even though we might store serialized arrays
+    //     )
+    // );
 }
 
 
@@ -1486,7 +1489,7 @@ function ace_get_choices(WP_REST_Request $request) {
             return $choice;
         }, $paginated_choices),
         'totalPages' => $total_pages,
-        'totalChoices' => $total_choices,
+        'totalFields' => $total_choices,
         'tags' => $tags_with_descriptions
     ];
 
