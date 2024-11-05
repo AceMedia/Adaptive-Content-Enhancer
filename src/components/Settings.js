@@ -314,7 +314,7 @@ const handleTextChange = (choice, field, newValue) => {
     } else {
         setChoices((prevChoices) => {
             const updatedChoices = [...prevChoices];
-            const choiceIndex = updatedChoices.findIndex((c) => c.name === choice);
+            const choiceIndex = updatedChoices.findIndex((c) => c.name === choice.name);
 
             if (choiceIndex !== -1) {
                 if (field === 'name' && !choice.isNew) {
@@ -330,12 +330,14 @@ const handleTextChange = (choice, field, newValue) => {
                         : getDefaultOptions();
                 }
 
-                markAsChanged(choice);
+                markAsChanged(choice.name);
             }
 
             return updatedChoices;
         });
+        console.log('Auto-save enabled:', isAutoSaveEnabled);
         if (isAutoSaveEnabled) {
+            console.log('Auto-saving...');
             throttle(handleSave, 2000)(); // Throttle the save function for text inputs
         }
     }
