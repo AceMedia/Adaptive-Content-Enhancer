@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardBody, Button, Flex, FlexItem, Tooltip } from '@wordpress/components';
+import { Card, CardHeader, CardBody, Button, Flex, FlexItem, Tooltip, ToggleControl } from '@wordpress/components';
 import ChoiceFields from './ChoiceFields';
 import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
@@ -127,9 +127,27 @@ const ChoiceCards = ({
                                 border: newlyAddedChoice === choice.name ? '2px solid #007cba' : 'none',
                                 transition: 'border 0.3s',
                             }}
-                            className={newlyAddedChoice === choice.name ? 'highlight' : 'test'}
+                            className={`${newlyAddedChoice === choice.name ? 'highlight' : ''} ${quickEdit === 'true' ? 'quick-edit' : ''}`}
                         >
-                            <CardHeader onClick={() => toggleOpen(choice.name, group)}>
+
+                            {quickEdit === 'true' && (
+                                <ToggleControl
+                                    className="bulk-select-field"
+                                    checked={selectedChoices.includes(choice)}
+                                    onChange={() => handleChoiceSelect(choice)}
+                                    style={{ marginLeft: '10px' }}
+                                />
+                            )}
+
+                                           
+                            <CardHeader  onClick={(e) => {
+            e.stopPropagation();
+            if (quickEdit === 'true') {
+                handleChoiceSelect(choice); // Toggle selection in Quick Edit mode
+            } else {
+                toggleOpen(choice.name, group); // Open/close card normally if not in Quick Edit
+            }
+        }}>
                                 <Flex justify="space-between" align="center" gap={2}>
                                     <FlexItem>
                                         <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
@@ -138,13 +156,7 @@ const ChoiceCards = ({
                                             </span>
                                             <h2>{choice.title || ``}</h2>
 
-                                            {quickEdit === 'true' && (
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedChoices.includes(choice)}
-                                                    onChange={() => { console.log(choice); handleChoiceSelect(choice); }}
-                                                />
-                                            )}
+                                           
                                         </Flex>
                                     </FlexItem>
                                     <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
@@ -181,7 +193,7 @@ const ChoiceCards = ({
                                     </Flex>
                                 </Flex>
                             </CardHeader>
-                            {openIndexes.includes(`${groupBy}-${choice.name}-${group}`) && (
+                            {quickEdit !='true' && openIndexes.includes(`${groupBy}-${choice.name}-${group}`) && (
                                 <CardBody>
                                     <ChoiceFields
                                         choice={choice}

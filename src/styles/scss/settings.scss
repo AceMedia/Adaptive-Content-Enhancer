@@ -78,15 +78,17 @@ table {
     }
 
     .main-panel {
-        padding: 1em 1em 6em;
+        padding: 0px 0px 63px 0px;
         width: 100%;
+        gap: 0px;
     }
     .side-panel {
         position: sticky;
-        align-self: normal;
+        align-self: normal !important;
         top: calc(42px + 1em);
         bottom: 100px;
         max-width: 30%;
+        padding: 1.5em;
         min-width: 20%;
         width: 30%;
         .components-base-control__label {
@@ -111,8 +113,7 @@ table {
             }
             &.is-pressed {
                 background: $slate;
-                font-weight: bold;
-                color: black;
+                color: white !important;
                 svg {
                     opacity: 1;
                 }
@@ -185,7 +186,7 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
             margin-left: -.5em;
             margin-right: 5px;
             background: rgba(248, 250, 252, 1);
-            border-right: 1px solid #e5e7eb;
+            border-right:  1px solid rgb(203, 213, 225) !important;
             height: 100%;
             width: auto;
             padding: 0px;
@@ -198,6 +199,7 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
             width: 40px;
             text-align: center;
             align-items: center;
+            border-radius: .5em 0px 0px .5em !important;
             svg {
                 padding: 0px;
                 margin: 0px;
@@ -216,6 +218,7 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
         &:hover {
             background: rgba(248, 250, 252, 1);
             cursor: pointer;
+            border-radius: .5em;
         }
     }
 
@@ -401,6 +404,8 @@ button {
 .components-button.toggle-button {
     position: relative;
     padding-left: 42px !important;
+    overflow: hidden;
+    transition: 1s linear all;
 }
 
 .field-tag-color {
@@ -427,22 +432,47 @@ button {
     left: 25px;
     top: 50%;
     transform: translate3d(-50%, -50%, 0);
+    transition: 1s ease-in-out all;
+    z-index: -1;
 }
 
-.is-pressed .field-tag-color {
-    width: 16px;
-    height: 16px;
+.is-pressed:not(:first-child) .field-tag-color {
+    transform: translate3d(-50%, -50%, 0) scale(120);
 }
+
+.is-pressed:is(:first-child) .field-tag-color {
+    transform: translate3d(-50%, -50%, 0) scale(1.5);
+    z-index: 999;
+}
+
 
 .field-tag-count {
-    margin-left: auto;
-    display: block;
-    font-size: .8em;
+    position: absolute;
+  right: -40px;
+  top: 1px;
+  height: calc(100% - 2px);
+  display: flex; /* Use flexbox */
+  align-items: center; /* Center items vertically */
+  justify-content: center; /* Center items horizontally if needed */
+  font-size: 0.8em;
+  padding: 0.5em 1em;
+  background: rgba(255, 255, 255, 0.25);
+  color: black;
+  transition: 0.25s ease-in-out all;
+  border-radius: 0px .5em .5em 0px;
+    &:hover {
+        background:rgb(255,255,255,.5);
+    }
 }
 
 .components-button.toggle-button {
     display: inline-flex;
     align-items: center;
+    &:hover {
+        .field-tag-count {
+            right: 1px;
+        }
+    }
 }
 
 
@@ -481,9 +511,9 @@ button {
     display: flex !important;
     flex-direction: column !important; /* Assuming this is the desired full height */
     flex-grow: 1 !important;
-    > div:not(.currently-viewing) {
     background-color: $slate;
     padding: 1.5em;
+    > div:not(.currently-viewing) {
     border-radius: .5em;
     }
 }
@@ -624,3 +654,42 @@ button {
     }
 }
 
+.bulk-select-field {
+    position: absolute;
+    left: 0px;
+    top: 50%;
+    left: -3em;
+    display: inline-block;
+    width: 20px !important;
+    height: 20px !important;
+    transform: translateY(-50%);
+    z-index: 999;
+    input {
+        width: 100% !important;
+    }
+    .components-form-toggle__input {
+        background-color:  $red  !important; /* Red background color */
+        border-color:  $red  !important; /* Optional: match border to background */
+    }
+    
+    .components-form-toggle.is-checked .components-form-toggle__track::after {
+        background-color: $red !important; /* Ensures checked state remains red */
+    }
+}
+
+.components-card.quick-edit {
+    margin-left: 3em;
+
+
+}
+
+
+
+.tag-toggle {
+    position: absolute;
+    right: 1em;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 999;
+    pointer-events: none;
+}

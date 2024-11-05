@@ -17,7 +17,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faCircleQuestion, faGlobe, faSort } from '@fortawesome/free-solid-svg-icons';
 
 
-
 const fieldTypeIcons = {
     text: faFont,
     checkbox: faCheckSquare,
@@ -88,12 +87,10 @@ const SideBar = ({
     };
 
 
+    const [showAllTags, setShowAllTags] = useState(false);
 
-const tagOptions = Object.keys(tags).map(tagId => ({
-    value: tagId,
-    label: tags[tagId].name
-}));
-
+    const displayedTags = showAllTags ? Object.keys(tags) : Object.keys(tags).slice(0, 10);
+    
 
 
     const handleTagChange = (selectedTag) => {
@@ -109,7 +106,22 @@ const tagOptions = Object.keys(tags).map(tagId => ({
         });
     };
 
+    function hexToRgba(hex, alpha = 1) {
+        hex = hex.replace(/^#/, '');
+    
+        let r = parseInt(hex.substring(0, 2), 16);
+        let g = parseInt(hex.substring(2, 4), 16);
+        let b = parseInt(hex.substring(4, 6), 16);
+    
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
 
+
+    const darkenColor = (hex, amount = 0.2) => {
+        const [r, g, b] = hex.match(/\w\w/g).map(x => parseInt(x, 16));
+        return `rgba(${Math.max(0, r - r * amount)}, ${Math.max(0, g - g * amount)}, ${Math.max(0, b - b * amount)}, 1)`;
+    };
+    
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -222,60 +234,82 @@ const tagOptions = Object.keys(tags).map(tagId => ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
         {[
             { label: 'All Tags', value: '' },
-            ...Object.keys(tags).map(tagId => ({
+            ...displayedTags.map(tagId => ({
                 label: tags[tagId].name,
-                value: tagId, // Use the tag ID
+                value: tagId,
                 description: tags[tagId].description,
                 meta: {
-                    color: tags[tagId].meta?.color || '#000' // Use the dynamic color from tags, defaulting to black if missing
+                    color: tags[tagId].meta?.color || '#000'
                 }
             }))
         ].map((option) => (
             <Button
-                key={option.value}
-                isPressed={tagFilter.includes(option.value)}
-                onClick={() => handleTagChange(option.value)}
-                className="toggle-button"
+            key={option.value}
+            isPressed={quickEdit !== 'true' && tagFilter.includes(option.value)}
+            onClick={() => {
+                if (quickEdit === 'true') {
+                    handleTagSelect(option.value);
+                } else {
+                    handleTagChange(option.value);
+                }
+            }}
+            className="toggle-button"
+            style={{
+                color: option.meta?.color || '#000',
+                backgroundColor: quickEdit !== 'true' && tagFilter.includes(option.value)
+                    ? hexToRgba(`${option.meta?.color || '#000000'}`, 0.5)  // Darker background for active tags
+                    : hexToRgba(`${option.meta?.color || '#000000'}`, 0.25)    // Lighter background for inactive tags
+            }}
+        >
+            <span
+                className="field-tag-color"
                 style={{
-                    color: option.meta?.color || '#000' // Safely access color with fallback
+                    background: option.meta?.color
                 }}
-            >
+            ></span>
+            {option.label}
+        
+            {/* Show Edit button for each tag */}
+            {quickEdit !== 'true' && option.value && (
                 <span
-                    className="field-tag-color"
-                    style={{
-                        background: option.meta?.color || '#000' // Safely use background color with fallback
+                    className="field-tag-count"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditTag({
+                            id: option.value,
+                            label: option.label,
+                            description: option.description,
+                            meta: {
+                                color: option.meta?.color || '#000',
+                            }
+                        });
                     }}
-                ></span>
-                {option.label}
-
-                {/* Only show the Edit button if it's not the "All Tags" option */}
-                {option.value && (
-                    <span
-                        className="field-tag-count"
-                        onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the parent button
-                            handleEditTag({
-                                id: option.value,
-                                label: option.label,
-                                description: option.description,
-                                meta: {
-                                    color: option.meta?.color || '#000', // Fallback color if meta is missing
-                                }
-                            });
-                        }}
-                    >
-                        Edit
-                    </span>
-                )}
-                {quickEdit === 'true' && option.value && (
-                    <input
-                        type="checkbox"
-                        checked={selectedTags.includes(option.value)}
-                        onChange={() => handleTagSelect(option.value)}
-                    />
-                )}
-            </Button>
+                >
+                    Edit
+                </span>
+            )}
+        
+            {quickEdit === 'true' && option.value && (
+                <ToggleControl
+                    checked={selectedTags.includes(option.value)}
+                    onChange={() => handleTagSelect(option.value)}
+                    style={{ marginLeft: '10px' }}
+                    className="tag-toggle"
+                />
+            )}
+        </Button>
+        
         ))}
+
+        {/* Show More / Show Less button */}
+        {Object.keys(tags).length > 10 && (
+            <Button
+                onClick={() => setShowAllTags(prevState => !prevState)}
+                className="toggle-button"
+            >
+                {showAllTags ? 'Show Less' : 'Show More'}
+            </Button>
+        )}
     </div>
 </PanelBody>
 
@@ -295,24 +329,7 @@ const tagOptions = Object.keys(tags).map(tagId => ({
     initialOpen={false}
     onToggle={(open) => setQuickEdit(open ? 'true' : 'off')} // Automatically enable "Quick Edit" when panel is opened
 >
-    {quickEdit === 'true' && (
-        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <Button isDestructive isPrimary onClick={handleBulkDelete}>
-                Delete Selected
-            </Button>
-            
-            <Select
-                isMulti
-                options={tagOptions}
-                value={selectedTags}
-                onChange={(selectedOptions) => {
-                    const tagIds = selectedOptions.map(option => option.value);
-                    handleTagChange(choice, tagIds);
-                }}
-                placeholder="Select or create tags..."
-            />
-        </div>
-    )}
+   
 </PanelBody>
 
 

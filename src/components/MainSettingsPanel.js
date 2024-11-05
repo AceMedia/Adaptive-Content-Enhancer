@@ -8,6 +8,10 @@ import SettingsHeader from './SettingsHeader';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown } from '@fortawesome/free-solid-svg-icons';
 
+import Select from 'react-select';
+
+import Creatable from 'react-select/creatable';
+
 
 const MainSettingsPanel = ({
     choices,
@@ -68,6 +72,14 @@ const MainSettingsPanel = ({
 }) => {
     // Define the groupBy state and its handler
     const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
+
+
+
+    const tagOptions = Object.keys(tags).map(tagId => ({
+        value: tagId,
+        label: tags[tagId].name
+    }));
+    
 
 
     const fieldTypeIcons = {
@@ -240,13 +252,102 @@ const MainSettingsPanel = ({
     setButtonText={setButtonText}
     setMessage={setMessage}
 >
-                <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup} icon="plus">
-                    Add New Field
-                </Button>
+
+{quickEdit != 'true' && (
+    <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup} icon="plus">
+        Add New Field
+    </Button>
+)}
+
+{quickEdit === 'true' && (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <Button isDestructive isPrimary onClick={handleBulkDelete} icon="trash">
+            Delete Selected
+        </Button>
+        
 
 
+    <label htmlFor="bulk-tag-set">Select or Create Tags</label>
+        <Creatable
+    isMulti
+     menuPlacement="top"
+     id="bulk-tag-set"
+    options={tagOptions}
+    value={selectedTags}
+    className="ace-tag-select"
+    styles={customStyles} // Apply custom styles to display tag color
+    onChange={(selectedOptions, actionMeta) => {
+        if (actionMeta.action === 'create-option') {
+            const temporaryTagId = `temp-${Date.now()}`;
+            const randomColor = getRandomColor();
+            const newTag = { name: actionMeta.option.label, description: '', meta: { color: randomColor } };
+            const temporaryTag = { value: temporaryTagId, label: newTag.name, meta: { color: randomColor } };
 
-                
+            // Optimistically update tag options and selected tags
+            const updatedTagOptions = [...tagOptions, temporaryTag];
+            const updatedSelectedTags = [...selectedTags, temporaryTag];
+            setTags((prevTags) => ({
+                ...prevTags,
+                [temporaryTagId]: { name: newTag.name, description: '', meta: { color: randomColor } },
+            }));
+            handleTagChange(choice, updatedSelectedTags.map(tag => tag.value));
+            setNewChoice((prevNewChoice) => ({
+                ...prevNewChoice,
+                tags: updatedSelectedTags.map(tag => tag.value),
+            }));
+
+            // Proceed with the API call to create a new tag
+            apiFetch({
+                path: '/wp/v2/field_tags',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(newTag),
+            })
+                .then((response) => {
+                    if (response.id) {
+                        const createdTag = { value: response.id, label: response.name, meta: { color: randomColor } };
+
+                        // Update tags to replace temporary tag with the saved tag
+                        setTags((prevTags) => {
+                            const { [temporaryTagId]: removed, ...restTags } = prevTags;
+                            return {
+                                ...restTags,
+                                [response.id]: { name: response.name, description: '', meta: { color: randomColor } },
+                            };
+                        });
+
+                        handleTagChange(
+                            choice,
+                            [
+                                ...updatedSelectedTags.filter((tag) => tag.value !== temporaryTagId),
+                                createdTag,
+                            ].map((tag) => tag.value)
+                        );
+                    } else {
+                        console.error('Error creating tag:', response);
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error creating tag:', error);
+                    // Optionally handle error by removing the temporary tag
+                    setTags((prevTags) => {
+                        const { [temporaryTagId]: removed, ...restTags } = prevTags;
+                        return restTags;
+                    });
+                });
+        } else {
+            // Handle selection of existing tags
+            const tagIds = selectedOptions.map((option) => option.value);
+            handleTagChange(choice, tagIds);
+        }
+    }}
+/>
+
+    </div>
+)}
+
             </SaveBar>
 
             {/* Modal for adding a new choice group */}

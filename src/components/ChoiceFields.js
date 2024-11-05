@@ -87,8 +87,13 @@ const ChoiceFields = ({
                 onChange={(newValue) => handleToggleChange(choice, newValue)}
             />
 
+
+
+
+<label htmlFor="tag-set">Select or Create Tags</label>
             <Creatable
                 isMulti
+                id='tag-set'
                 options={tagOptions}
                 value={selectedTags}
                 className='ace-tag-select'                
@@ -151,7 +156,6 @@ const ChoiceFields = ({
                         handleTagChange(choice, tagIds);
                     }
                 }}
-                placeholder="Select or create tags..."
             />
             {/* Display tags and descriptions */}
             {choice.tags_with_descriptions && choice.tags_with_descriptions.length > 0 && (
