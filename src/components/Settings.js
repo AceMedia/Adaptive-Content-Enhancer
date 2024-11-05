@@ -976,7 +976,6 @@ const fetchTagDataAndEdit = async (tagId) => {
                 fetchTagDataAndEdit={fetchTagDataAndEdit}
                 setCurrentTag={setCurrentTag}
                 currentTag={currentTag}
-                setTagFilter={setTagFilter}
                 setGroupBy={setGroupBy}
                 setNewChoice={setNewChoice}
                 setIsAutoSaveEnabled={setIsAutoSaveEnabled}

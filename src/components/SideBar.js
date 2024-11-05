@@ -3,18 +3,15 @@ import {
     __experimentalToggleGroupControlOption as ToggleGroupControlOption,
     PanelBody,
     Button,
-    TextControl,
     ToggleControl
 } from '@wordpress/components';
 import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
-import { Icon, filter, info, formatCapitalize } from '@wordpress/icons';
-import Select from 'react-select';
 
 
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faCircleQuestion, faGlobe, faSort } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faTags, faFilter, faLayerGroup, faGlobe, faSort } from '@fortawesome/free-solid-svg-icons';
 
 
 const fieldTypeIcons = {
@@ -105,7 +102,7 @@ const SideBar = ({
 
     const handleTagChange = (selectedTag) => {
         setTagFilter(prev => {
-            if (selectedTag === '') {
+            if (selectedTag === 'all_tags') {
                 return ['']; // Reset filter and set "All Tags" as active
             }
             if (prev.includes(selectedTag)) {
