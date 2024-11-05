@@ -2,8 +2,9 @@
 /**
  * Plugin Name: Adaptive Content Enhancer
  * Description: A WordPress block plugin with multiple option groups for dropdowns.
- * Version: 0.420
- * Author: Shane Rounce
+ * Version: 0.421.0
+ * Author: Shane Rounce of Ace Media
+ * 
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

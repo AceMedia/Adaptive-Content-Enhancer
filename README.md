@@ -2,7 +2,7 @@
 Contributors: Shane Rounce  
 Tags: block, custom fields, dynamic content, editor enhancements  
 Tested up to: 6.7  
-Stable tag: 0.420.0  
+Stable tag: 0.421.0  
 License: GPL-2.0-or-later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
 
@@ -154,7 +154,23 @@ A: WP ACE allows you to apply custom styles using SCSS. Customize the appearance
 
 ### Changelog
 
-**0.420.0**
+**0.421.0**
+- Enhanced Role-based Access Control: Improved the ability to assign specific roles to field groups, controlling who can view or edit them.
+- Post Type Association: Added functionality to associate field groups with specific post types for more granular control.
+- Tag Management: Enhanced tag management features, allowing users to create, edit, and assign tags to field groups for better organization and filtering.
+- Bulk Actions: Improved bulk actions functionality, including the ability to delete multiple field groups at once.
+- Customizable UI: Added more UI customization options, including color pickers and other controls to customize the appearance of field groups and options.
+- Auto-save and Live Save: Implemented auto-save and live save features to ensure changes are saved in real-time without manual intervention.
+- Pagination and Sorting: Enhanced pagination and sorting controls to navigate through field groups and sort them by various criteria.
+- Search Functionality: Added a built-in search feature to find specific field groups and options easily.
+- Custom Hooks: Introduced custom hooks such as useFetchChoices and useSaveChoice to encapsulate reusable logic and simplify component development.
+- Customizable Styles: Enabled the application of custom styles to field groups and options using SCSS.
+- Improved Error Handling: Enhanced error handling for meta value updates to prevent issues when saving posts.
+- UI Enhancements: Various UI improvements for a better user experience, including updates to the settings page and editor integration.
+- Bug Fixes: Addressed several bugs and issues reported since the initial release, improving overall stability and performance.
+
+
+**0.421.0**
 - Initial release.
 - Added support for custom dropdown, checkbox, radio button, and true/false fields.
 - Integrated REST API support for dynamically fetching and rendering field data.
