@@ -4,7 +4,7 @@ import { registerBlockType } from '@wordpress/blocks';
 import { useBlockProps, InspectorControls, BlockControls } from '@wordpress/block-editor';
 import { TextControl, CustomSelectControl, PanelBody, ToolbarGroup, ToolbarButton, Button } from '@wordpress/components';
 import { edit } from '@wordpress/icons';
-import { dispatch, select } from '@wordpress/data';
+import { dispatch, select, useSelect } from '@wordpress/data'; // Use `useSelect` for fetching data
 import { createBlock } from '@wordpress/blocks';
 import apiFetch from '@wordpress/api-fetch';
 import domReady from '@wordpress/dom-ready';
@@ -56,18 +56,39 @@ const updateParagraphPlaceholders = () => {
             // Fetch the description for the specific meta key directly
             apiFetch({ path: `/ace/v1/get-choices?choice_name=${metaKey}` })
                 .then((response) => {
-                    const choice = response.choices[0];
+                    // Find the correct choice based on the metaKey
+                    const choice = response.choices.find(c => c.name === metaKey); // Use the correct choice
                     const updatedPlaceholder = choice?.description || "Add content here...";
 
-                    // Update the paragraph block's placeholder if it's different
-                    if (block.attributes.placeholder !== updatedPlaceholder) {
-                        dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
-                            placeholder: updatedPlaceholder
-                        });
+                    // Reset lockState for the current block
+                    let lockState = false;
 
-                        // Trigger the save process to persist changes
-                        dispatch('core/editor').editPost({ blocks: select('core/block-editor').getBlocks() });
+                    // Check for permissions based on roles
+                    if (choice && choice.roles.length > 0) {
+                        const hasPermission = checkPermissions(choice.roles);
+                        console.log('Has permission:', hasPermission);
+                        // Apply locking based on permissions if there are roles
+                        lockState = {
+                            remove: !hasPermission,
+                            move: !hasPermission,
+                            edit: !hasPermission
+                        };
+                    } else {
+                        // No roles means the block should be unlocked
+                        lockState = false;
                     }
+
+                    // Log current block and its final lock state for debugging
+                    console.log(`Updating block ${block.clientId} - Lock State:`, lockState);
+
+                    // Update block attributes with the correct placeholder and lock state
+                    dispatch('core/block-editor').updateBlockAttributes(block.clientId, {
+                        placeholder: updatedPlaceholder,
+                        lock: lockState // Apply calculated lock state
+                    });
+
+                    // Trigger the save process to persist changes
+                    dispatch('core/editor').editPost({ blocks: select('core/block-editor').getBlocks() });
                 })
                 .catch((error) => {
                     console.error("Failed to update placeholder:", error);
@@ -76,6 +97,13 @@ const updateParagraphPlaceholders = () => {
     });
 };
 
+
+
+// Function to check if the current user has permissions
+const checkPermissions = (allowedRoles) => {
+    const currentUserRoles = select('core').getCurrentUser()?.roles || [];
+    return allowedRoles.some(role => currentUserRoles.includes(role));
+};
 
 
 domReady(() => {
@@ -102,11 +130,13 @@ registerBlockType('adaptive-content-enhancer/text-field', {
         const [showCreateFieldForm, setShowCreateFieldForm] = useState(false);
         const [newFieldName, setNewFieldName] = useState('');
         const [newFieldDescription, setNewFieldDescription] = useState('');
+        const [currentPostType, setCurrentPostType] = useState(''); // State for current post type
 
         const blockProps = useBlockProps();
 
         useEffect(() => {
             if (window.choiceGroups) {
+                console.log(choiceGroups);
                 const textKeys = window.choiceGroups
                     .filter(group => group.field_type === 'text')
                     .map(group => ({ key: group.name, label: group.title }));
@@ -116,6 +146,7 @@ registerBlockType('adaptive-content-enhancer/text-field', {
 
         const handleMetaKeyChange = ({ selectedItem }) => {
             const newMetaKey = selectedItem.key;
+            console.log('Selected meta key:', selectedItem);
             if (newMetaKey === 'create-new') {
                 setShowCreateFieldForm(true);
                 return;
@@ -156,6 +187,50 @@ registerBlockType('adaptive-content-enhancer/text-field', {
                 console.error("Failed to fetch placeholder:", error);
             });
         };
+
+        const currentUserRoles = useSelect((select) => {
+            const user = select('core').getCurrentUser();
+            return user ? user.roles : []; // Return roles or an empty array if user is not available
+        }, []);
+    
+// Get the current post type
+useEffect(() => {
+    const postType = select('core/editor').getCurrentPostType();
+    setCurrentPostType(postType);
+    console.log('Current post type:', postType);
+    console.log('CG:', window);
+
+    if (window.choiceGroups) {
+        console.log('Current post type:', postType);
+
+        const textKeys = window.choiceGroups
+            .filter(group => {
+                // Determine if global permissions apply
+                const hasGlobalPermissions = !Array.isArray(group.roles) && !Array.isArray(group.post_types);
+                console.log('Group:', group);
+
+                // Check for post type permissions
+                const hasPostTypePermission = hasGlobalPermissions || 
+                    (Array.isArray(group.post_types) && (group.post_types.length === 0 || group.post_types.includes(postType)));
+
+                console.log('Has post type permission:', hasPostTypePermission);
+
+                // Check for role permissions
+                const hasRolePermission = hasGlobalPermissions || 
+                    (Array.isArray(group.roles) && (group.roles.length === 0 || group.roles.some(role => currentUserRoles.includes(role))));
+
+                console.log('Has role permission:', group.roles);
+
+                // Return true if it meets criteria for a text field and has the right permissions
+                return group.field_type === 'text' && hasPostTypePermission && hasRolePermission;
+            })
+            .map(group => ({ key: group.name, label: group.title }));
+
+        setAvailableMetaKeys(textKeys);
+    }
+}, [currentUserRoles, currentPostType]); // Include currentPostType in the dependency array
+
+
 
 
         const handleCreateField = () => {
@@ -269,21 +344,24 @@ registerBlockType('adaptive-content-enhancer/text-field', {
                 </div>
                 <InspectorControls>
                     <PanelBody title="Settings">
-                        <CustomSelectControl
-                            label="Select a Meta Field"
-                            value={availableMetaKeys.find(key => key.key === selectedMetaKey) ? {
-                                key: selectedMetaKey,
-                                name: availableMetaKeys.find(key => key.key === selectedMetaKey)?.label
-                            } : { key: '', name: 'Please select a meta field' }}
-                            options={[
-                                ...availableMetaKeys.map(key => ({
-                                    name: key.label,
-                                    key: key.key
-                                })),
-                                { name: 'Create New Field', key: 'create-new' }
-                            ]}
-                            onChange={handleMetaKeyChange}
-                        />
+                       
+                    <CustomSelectControl
+    label="Select or Create a Meta Field"
+    value={availableMetaKeys.find(key => key.key === selectedMetaKey) ? {
+        key: selectedMetaKey,
+        name: availableMetaKeys.find(key => key.key === selectedMetaKey)?.label
+    } : { key: '', name: 'Please select a meta field' }}
+    options={[
+        ...availableMetaKeys.map(key => ({
+            name: key.label,
+            key: key.key
+        })),
+        { name: 'Create New Field', key: 'create-new' }
+    ]}
+    onChange={handleMetaKeyChange}
+/>
+
+
                     </PanelBody>
                 </InspectorControls>
             </>
