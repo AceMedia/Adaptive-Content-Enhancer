@@ -199,24 +199,45 @@ useEffect(() => {
 
 const handleMetaChange = (key, value) => {
     setCurrentTag((prevTag) => {
-        const { associated_roles = [], post_types = [], color } = prevTag.meta;
+        const { associated_roles = [], post_types = [] } = prevTag.meta;
 
         let updatedMeta = { ...prevTag.meta }; // Start with the current meta
 
         if (key === 'associated_roles') {
             // Toggle role
-            updatedMeta.associated_roles = associated_roles.includes(value)
-                ? associated_roles.filter((r) => r !== value) // Remove role
-                : [...associated_roles, value]; // Add role
+            if (!Array.isArray(associated_roles) || associated_roles.length === 0) {
+                // If it's not an array or it's empty, set it to include all other roles except the clicked value
+                updatedMeta.associated_roles = availableRoles
+                    .map(role => role.value) // Get string values from availableRoles
+                    .filter(roleValue => roleValue !== value); // Exclude the clicked role
+            } else {
+                // Toggle role
+                updatedMeta.associated_roles = associated_roles.includes(value)
+                    ? associated_roles.filter((r) => r !== value) // Remove role
+                    : [...associated_roles, value]; // Add role
+            }
         } else if (key === 'post_types') {
             // Toggle post type
-            updatedMeta.post_types = post_types.includes(value)
-                ? post_types.filter((p) => p !== value) // Remove post type
-                : [...post_types, value]; // Add post type
+            if (!Array.isArray(post_types) || post_types.length === 0) {
+                // If it's not an array or it's empty, set it to include all other post types except the clicked value
+                updatedMeta.post_types = availablePostTypes
+                    .map(postType => postType.value) // Get string values from availablePostTypes
+                    .filter(postTypeValue => postTypeValue !== value); // Exclude the clicked post type
+            } else {
+                if (post_types.includes(value)) {
+                    updatedMeta.post_types = post_types.filter((p) => p !== value); // Remove post type
+                } else {
+                    updatedMeta.post_types = [...post_types, value]; // Add post type
+                }
+            }
         } else if (key === 'color') {
             // Update color
             updatedMeta.color = value;
         }
+
+        // Ensure all values in associated_roles and post_types are strings
+        updatedMeta.associated_roles = updatedMeta.associated_roles.map(String);
+        updatedMeta.post_types = updatedMeta.post_types.map(String);
 
         console.log(updatedMeta); // Debugging log to check the updated meta
 
@@ -226,7 +247,6 @@ const handleMetaChange = (key, value) => {
         };
     });
 };
-
       
 
     return (
@@ -476,31 +496,42 @@ const handleMetaChange = (key, value) => {
                  onChange={(value) => setCurrentTag({ ...currentTag, description: value })}
              />
 
-
-<h4>Associated Roles</h4>
+<h4>Available User Roles</h4>
 <Flex wrap="wrap" gap={4}>
     {availableRoles.map((role) => (
         <FlexItem key={role.value} style={{ width: '30%', minWidth: '150px' }}>
             <ToggleControl
                 label={role.label}
-                checked={Array.isArray(currentTag?.meta?.associated_roles) && currentTag.meta.associated_roles.includes(role.value)}
+                checked={
+                    currentTag?.meta?.associated_roles?.includes(role.value) ||
+                    currentTag?.meta?.associated_roles === undefined ||
+                    currentTag?.meta?.associated_roles.length === 0
+                }
                 onChange={() => handleMetaChange('associated_roles', role.value)} // Use the unified function
             />
         </FlexItem>
     ))}
 </Flex>
 
-<h4>Associated Post Types</h4>
+<h4>Applicable Content Types</h4>
 <Flex wrap="wrap" gap={4}>
-    {availablePostTypes.map((postType) => (
-        <FlexItem key={postType.value} style={{ width: '30%', minWidth: '150px' }}>
-            <ToggleControl
-                label={postType.label}
-                checked={Array.isArray(currentTag?.meta?.post_types) && currentTag.meta.post_types.includes(postType.value)}
-                onChange={() => handleMetaChange('post_types', postType.value)} // Use the unified function
-            />
-        </FlexItem>
-    ))}
+    {availablePostTypes
+        .filter(postType => 
+            !['nav_menu_item', 'attachment', 'wp_font_family', 'wp_navigation', 'wp_global_styles', 'wp_font_face'].includes(postType.value)
+        )
+        .map((postType) => (
+            <FlexItem key={postType.value} style={{ width: '30%', minWidth: '150px' }}>
+                <ToggleControl
+                    label={postType.value}
+                    checked={
+                        currentTag?.meta?.post_types?.includes(postType.value) ||
+                        currentTag?.meta?.post_types === undefined ||
+                        currentTag?.meta?.post_types.length === 0
+                    }
+                    onChange={() => handleMetaChange('post_types', postType.value)} // Use the unified function
+                />
+            </FlexItem>
+        ))}
 </Flex>
 
 {currentTag?.meta.color || '#000'} 
