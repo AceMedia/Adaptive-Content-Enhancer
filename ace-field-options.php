@@ -83,8 +83,6 @@ function create_underscored_value($string) {
 // Load all options and filter based on custom logic
 $all_options = wp_load_alloptions();
 
-
-// If you need to load fresh options, do it within the filter function
 add_filter('filter_wp_options_by_field_type', 'filter_options_by_field_type', 10, 2);
 function filter_options_by_field_type($all_options, $type) {
     if ($all_options === null) {
@@ -97,54 +95,76 @@ function filter_options_by_field_type($all_options, $type) {
     foreach ($all_options as $option_name => $value) {
         $field_data = (array) get_option($option_name, array());
 
-            if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === $type) {
-                $filtered_options[] = $field_data;
-            }
-    }
+        if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === $type) {
+            // Initialize roles and post types as empty arrays
+            $field_data['roles'] = [];
+            $field_data['post_types'] = [];
 
+            // Check for tags and fetch associated roles and post types
+            if (!empty($field_data['tags'])) {
+                foreach ($field_data['tags'] as $tag_id) {
+                    $tag_meta = get_term_meta($tag_id);
+                    // Uncomment for debugging
+                    // print_r($tag_meta);
+
+                    // Unserialize roles if they exist
+                    if (isset($tag_meta['associated_roles'][0])) {
+                        $associated_roles = maybe_unserialize($tag_meta['associated_roles'][0]);
+                        if (is_array($associated_roles)) {
+                            $field_data['roles'] = array_unique(array_merge($field_data['roles'], $associated_roles));
+                        }
+                    }
+
+                  // Fetch post types if they exist
+                  if (isset($tag_meta['post_types'][0])) {
+                    $post_types = maybe_unserialize($tag_meta['post_types'][0]);
+                    if (is_array($post_types)) {
+                        $field_data['post_types'] = array_unique(array_merge($field_data['post_types'], $post_types));
+                    }
+                }
+                }
+            }
+
+            // For debugging: Print the field data before adding to filtered options
+            // Uncomment for debugging
+            // print_r($field_data['roles']);
+
+            $filtered_options[] = $field_data;
+        }
+    }
     return $filtered_options;
 }
 
 
+
+
 // Fetch dropdown groups after saving dynamically from updated options
 $choices = array_merge(
-    apply_filters('filter_wp_options_by_field_type', null, 'text'),
-    apply_filters('filter_wp_options_by_field_type', null, 'select'),
-    apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', null, 'radio'),
+    apply_filters('filter_wp_options_by_field_type', $all_options, 'text'),
+    apply_filters('filter_wp_options_by_field_type', $all_options, 'select'),
+    apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse'),
+    apply_filters('filter_wp_options_by_field_type', $all_options, 'checkbox'),
+    apply_filters('filter_wp_options_by_field_type', $all_options, 'radio')
 );
 
 
 
 // Enqueue editor assets (admin side) and styles
 function ace_field_options_enqueue_editor_assets() {
-
+    global $choices;
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
         'acemedia-block-editor',
-        plugins_url( '/assets/js/blocks/options.js', __FILE__ ),
-        array( 'wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data' ),
-        filemtime( plugin_dir_path( __FILE__ ) . 'assets/js/blocks/options.js' )
+        plugins_url('/assets/js/blocks/options.js', __FILE__),
+        array('wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data'),
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/blocks/options.js')
     );
-
-
-    // Fetch dropdown groups dynamically by field_type: dropdown
-    $choices = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'text'),
-        apply_filters('filter_wp_options_by_field_type', null, 'select'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio')
-    );
-
-    // Fetch true/false fields dynamically by field_type: truefalse
 
     // Localize the dropdown groups for the dropdown block editor script
     wp_localize_script('acemedia-block-editor', 'choiceGroups', $choices);
-
 }
 add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_assets');
+
 
 
 
@@ -1417,6 +1437,20 @@ function ace_save_options(WP_REST_Request $request) {
     ), 200);
 }
 
+function get_user_roles($object, $field_name, $request) {
+    return get_userdata($object['id'])->roles;
+  }
+  
+  add_action('rest_api_init', function() {
+    register_rest_field('user', 'roles', array(
+      'get_callback' => 'get_user_roles',
+      'update_callback' => null,
+      'schema' => array(
+        'type' => 'array'
+      )
+    ));
+  });
+
 function ace_get_choices(WP_REST_Request $request) {
     $page = (int) $request->get_param('page') ?: 1;
     $per_page = (int) $request->get_param('per_page') ?: 10;
@@ -1497,22 +1531,24 @@ function ace_get_choices(WP_REST_Request $request) {
     }
 
     // Add roles and post types to each choice based on its tags
-    // Add roles and post types to each choice based on its tags
-foreach ($paginated_choices as &$choice) {
-    $choice['roles'] = isset($choice['tags']) ? [] : []; // Initialize roles as an empty array
-    $choice['post_types'] = isset($choice['tags']) ? [] : []; // Initialize post types as an empty array
+    foreach ($paginated_choices as &$choice) {
+        $choice['roles'] = [];
+        $choice['post_types'] = [];
 
-    if (!empty($choice['tags'])) {
-        foreach ($choice['tags'] as $tag_id) {
-            if (isset($tags_with_descriptions[$tag_id])) {
-                // Merge associated roles if they exist
-                $choice['roles'] = array_unique(array_merge($choice['roles'], $tags_with_descriptions[$tag_id]['meta']['associated_roles'] ?? []));
-                // Merge post types if they exist
-                $choice['post_types'] = array_unique(array_merge($choice['post_types'], $tags_with_descriptions[$tag_id]['meta']['post_types'] ?? []));
+        if (!empty($choice['tags'])) {
+            foreach ($choice['tags'] as $tag_id) {
+                if (isset($tags_with_descriptions[$tag_id])) {
+                    // Unserialize associated roles and post types if they exist
+                    $associated_roles = maybe_unserialize($tags_with_descriptions[$tag_id]['meta']['associated_roles'][0] ?? []);
+                    $post_types = maybe_unserialize($tags_with_descriptions[$tag_id]['meta']['post_types'][0] ?? []);
+                    
+                    // Merge associated roles and post types
+                    $choice['roles'] = array_unique(array_merge($choice['roles'], $associated_roles));
+                    $choice['post_types'] = array_unique(array_merge($choice['post_types'], $post_types));
+                }
             }
         }
     }
-}
 
     $response_data = [
         'choices' => array_map(function($choice) use ($tags_with_descriptions) {
