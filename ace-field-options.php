@@ -1497,19 +1497,22 @@ function ace_get_choices(WP_REST_Request $request) {
     }
 
     // Add roles and post types to each choice based on its tags
-    foreach ($paginated_choices as &$choice) {
-        $choice['roles'] = [];
-        $choice['post_types'] = [];
+    // Add roles and post types to each choice based on its tags
+foreach ($paginated_choices as &$choice) {
+    $choice['roles'] = isset($choice['tags']) ? [] : []; // Initialize roles as an empty array
+    $choice['post_types'] = isset($choice['tags']) ? [] : []; // Initialize post types as an empty array
 
-        if (!empty($choice['tags'])) {
-            foreach ($choice['tags'] as $tag_id) {
-                if (isset($tags_with_descriptions[$tag_id])) {
-                    $choice['roles'] = array_unique(array_merge($choice['roles'], $tags_with_descriptions[$tag_id]['meta']['associated_roles']));
-                    $choice['post_types'] = array_unique(array_merge($choice['post_types'], $tags_with_descriptions[$tag_id]['meta']['post_types']));
-                }
+    if (!empty($choice['tags'])) {
+        foreach ($choice['tags'] as $tag_id) {
+            if (isset($tags_with_descriptions[$tag_id])) {
+                // Merge associated roles if they exist
+                $choice['roles'] = array_unique(array_merge($choice['roles'], $tags_with_descriptions[$tag_id]['meta']['associated_roles'] ?? []));
+                // Merge post types if they exist
+                $choice['post_types'] = array_unique(array_merge($choice['post_types'], $tags_with_descriptions[$tag_id]['meta']['post_types'] ?? []));
             }
         }
     }
+}
 
     $response_data = [
         'choices' => array_map(function($choice) use ($tags_with_descriptions) {

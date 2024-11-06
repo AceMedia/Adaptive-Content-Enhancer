@@ -128,8 +128,10 @@ registerBlockType('adaptive-content-enhancer/text-field', {
         };
 
         const insertParagraphBlock = (metaKey) => {
+            console.log('Inserting paragraph block with meta key:', metaKey);
             // Fetch the placeholder description dynamically via the REST API
             apiFetch({ path: '/ace/v1/get-choices?field_type=text' }).then((response) => {
+                console.log('Fetched choices:', response);
                 const selectedChoice = response.choices.find(choice => choice.name === metaKey);
                 const placeholderText = selectedChoice?.description || "Add content here...";
 
