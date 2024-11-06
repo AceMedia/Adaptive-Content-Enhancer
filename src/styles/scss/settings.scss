@@ -114,22 +114,16 @@ table {
                 background: rgba(248, 250, 252, 1);
             }
             &.is-pressed:not(:first-child) {
-                background: $slate;
+                background: $green;
                 color: white !important;
                 svg {
                     opacity: 1;
                 }
-                &:hover {
-                    color: black;
-                }
             }
             &.is-pressed:is(:first-child) {
-                background-color: #CCC;
+                background-color: $green;
                 svg {
                     opacity: 1;
-                }
-                &:hover {
-                    color: black;
                 }
             }
         }
@@ -333,9 +327,6 @@ button {
 }
 }
 
-.components-button:hover:not(:disabled, [aria-disabled="true"]), .components-button[aria-expanded="true"] {
-    color: black;
-}
 
 .components-panel__body-toggle.components-button:focus,
 .components-button.is-pressed:focus:not(:disabled),
@@ -424,7 +415,7 @@ button {
     overflow: hidden;
     transition: 1s linear all;
     .svg-inline--fa {
-        opacity: 0 !important;
+        opacity: .8 !important;
         z-index: 99 !important;
     }
     &.is-pressed {
@@ -432,13 +423,37 @@ button {
             opacity: 1 !important;
         }
     }
-    &:first-child .svg-inline--fa {
-        display: none !important;
-    }
     .components-flex {
         gap: 0px;
     }
 }
+
+
+
+.tag-toggles {
+    .components-button.toggle-button {
+        position: relative;
+        padding-left: 42px !important;
+        overflow: hidden;
+        transition: 1s linear all;
+        .svg-inline--fa {
+            opacity: 0 !important;
+            z-index: 99 !important;
+        }
+        &.is-pressed {
+            .svg-inline--fa {
+                opacity: 1 !important;
+            }
+        }
+        &:first-child .svg-inline--fa {
+            display: none !important;
+        }
+        .components-flex {
+            gap: 0px;
+        }
+    }
+}
+
 
 .field-tag-color {
     border-radius: 50px;

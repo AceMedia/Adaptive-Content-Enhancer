@@ -1,4 +1,4 @@
-import { TextControl, SelectControl, TextareaControl, ToggleControl, Button } from '@wordpress/components';
+import { TextControl, SelectControl, TextareaControl, ToggleControl, Button, Flex, FlexBlock } from '@wordpress/components';
 import Creatable from 'react-select/creatable';
 
 
@@ -44,25 +44,30 @@ const ChoiceFields = ({
 
     return (
         <>
-            <TextControl
-                label="Group Title"
-                value={choice.title}
-                onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
-            />
-
-            <TextControl
-                label="Group Name"
-                value={choice.name}
-                disabled={!isModalOpen && !choice.isNew} // Only disable when not in modal and not a new group
-                onChange={(newValue) => {
-                    const formattedValue = createLowercaseUnderscored(newValue);
-                    handleTextChange(choice, 'name', formattedValue);
-                    setNewChoice((prevNewChoice) => ({
-                        ...prevNewChoice,
-                        name: formattedValue,
-                    }));
-                }} // Allow manual updates and apply formatting
-            />
+             <Flex>
+            <FlexBlock style={{ width: '50%' }}>
+                <TextControl
+                    label="Title"
+                    value={choice.title}
+                    onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
+                />
+            </FlexBlock>
+            <FlexBlock style={{ width: '50%' }}>
+                <TextControl
+                    label="ID"
+                    value={choice.name}
+                    disabled={!isModalOpen && !choice.isNew} // Only disable when not in modal and not a new group
+                    onChange={(newValue) => {
+                        const formattedValue = createLowercaseUnderscored(newValue);
+                        handleTextChange(choice, 'name', formattedValue);
+                        setNewChoice((prevNewChoice) => ({
+                            ...prevNewChoice,
+                            name: formattedValue,
+                        }));
+                    }} // Allow manual updates and apply formatting
+                />
+            </FlexBlock>
+        </Flex>
 
             <SelectControl
                 label="Field Type"

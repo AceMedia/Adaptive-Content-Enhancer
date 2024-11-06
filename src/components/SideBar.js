@@ -231,6 +231,7 @@ const SideBar = ({
 
 
         <PanelBody
+        className='tag-toggles'
     title={
         <span>
             <FontAwesomeIcon icon={faTags} /> Filter by Field Tags
