@@ -169,12 +169,12 @@ function filter_options_by_field_type($all_options, $type) {
 
             if ($is_editor) {
 
-   // Skip if the current post type is not in the allowed post types
 
-
-   if (!empty($field_data['post_types']) && !in_array($current_post_type, $field_data['post_types'])) {
-   // continue; // This break the text blocks showing their correct labels. Remind me to fix it later.
-}
+   if (!empty($field_data['post_types'])) {
+        if(!in_array($current_post_type, $field_data['post_types'])) {
+         //   continue; // This break the text blocks showing their correct labels. Remind me to fix it later.
+        }
+   }
 
 // if (!empty($field_data['roles']) && !array_intersect($current_user_roles, $field_data['roles'])) {
  //   continue; // Skip to the next iteration if the current user does not have permission
@@ -244,7 +244,7 @@ function acefields_register_dynamic_meta_and_bindings() {
     // Loop over each field type and register its meta fields and associated block bindings sources
     foreach ($field_types as $type => $meta_type) {
         // Fetch fields using the filter based on their type
-        $fields = apply_filters('filter_wp_options_by_field_type', null, $type);
+        $fields = apply_filters('filter_wp_options_by_field_type', $all_options, $type);
 
         if (!empty($fields)) {
             foreach ($fields as $field_data) {
@@ -469,10 +469,10 @@ function get_group_options($selected_group, $attributes) {
     $dropdown_value_ref = $attributes['choiceValue'] ?? '';
 
     $dropdown_groups = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'select'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'select'),
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'radio'),
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse')
     );
 
     $dropdown_label = '';
@@ -682,6 +682,7 @@ function get_specific_post_meta_via_rest($request) {
 // Modify existing filter to handle 'from_meta_endpoint' requests correctly
 add_filter('rest_prepare_post', 'modify_post_meta_for_rest', 10, 3);
 function modify_post_meta_for_rest($response, $post, $request) {
+    global $all_options;
     $from_meta_endpoint = $request->get_param('from_meta_endpoint');
     
     // Skip non-view contexts and unrelated requests
@@ -690,13 +691,7 @@ function modify_post_meta_for_rest($response, $post, $request) {
     }
 
     $meta = $response->data['meta'];
-    $choices = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'text'),
-        apply_filters('filter_wp_options_by_field_type', null, 'select'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-    );
+    $choices = $all_options;
 
     if (!empty($choices)) {
         foreach ($choices as $group_data) {
@@ -738,20 +733,14 @@ function modify_post_meta_for_rest($response, $post, $request) {
 
 
 function filter_dynamic_meta_value($value, $source_name, $source_args, $block_instance, $attribute_name) {
-
+    global $all_options;
     if ($source_name !== 'core/post-meta') {
         return $value;
     }
 
 
     // Fetch all options dynamically if it matches our keys
-    $dynamic_keys  = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'text'),
-        apply_filters('filter_wp_options_by_field_type', null, 'select'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse')
-    );
+    $dynamic_keys  = $all_options;
 
     
     foreach ($dynamic_keys as $group) {
@@ -785,6 +774,7 @@ add_filter('block_bindings_source_value', 'filter_dynamic_meta_value', 10, 5);
 add_action('wp_ajax_delete_wp_option', 'ace_delete_wp_option');
 
 function ace_delete_wp_option() {
+    global $all_options;
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Unauthorized', 403);
     }
@@ -795,13 +785,7 @@ function ace_delete_wp_option() {
         $option_name = create_underscored_value($group_name); // Use 'group_name' from the request
 
         // Fetch all groups (dropdowns and true/false) using the filter
-        $all_groups = array_merge(
-            apply_filters('filter_wp_options_by_field_type', null, 'text'),
-            apply_filters('filter_wp_options_by_field_type', null, 'select'),
-            apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-            apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-            apply_filters('filter_wp_options_by_field_type', null, 'radio'),
-        );
+        $all_groups = $all_options;
 
         // Check if the group exists in the filtered options
         $group_exists = false;
@@ -1512,6 +1496,7 @@ function get_user_roles($object, $field_name, $request) {
   });
 
 function ace_get_choices(WP_REST_Request $request) {
+    global $all_options;
     $page = (int) $request->get_param('page') ?: 1;
     $per_page = (int) $request->get_param('per_page') ?: 10;
     $sort_by = $request->get_param('sort') ?: 'edited';
@@ -1522,13 +1507,7 @@ function ace_get_choices(WP_REST_Request $request) {
     $offset = ($page - 1) * $per_page;
 
     // Fetch all choices to determine total count before any filtering
-    $all_choices = array_merge(
-        apply_filters('filter_wp_options_by_field_type', null, 'text'),
-        apply_filters('filter_wp_options_by_field_type', null, 'select'),
-        apply_filters('filter_wp_options_by_field_type', null, 'checkbox'),
-        apply_filters('filter_wp_options_by_field_type', null, 'truefalse'),
-        apply_filters('filter_wp_options_by_field_type', null, 'radio')
-    );
+    $all_choices = $all_options;
     $total_choices = count($all_choices);
 
     // Apply filters if specified
