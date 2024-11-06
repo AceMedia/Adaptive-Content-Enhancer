@@ -197,11 +197,8 @@ registerBlockType('adaptive-content-enhancer/text-field', {
 useEffect(() => {
     const postType = select('core/editor').getCurrentPostType();
     setCurrentPostType(postType);
-    console.log('Current post type:', postType);
-    console.log('CG:', window);
 
     if (window.choiceGroups) {
-        console.log('Current post type:', postType);
 
         const textKeys = window.choiceGroups
             .filter(group => {
@@ -213,13 +210,11 @@ useEffect(() => {
                 const hasPostTypePermission = hasGlobalPermissions || 
                     (Array.isArray(group.post_types) && (group.post_types.length === 0 || group.post_types.includes(postType)));
 
-                console.log('Has post type permission:', hasPostTypePermission);
 
                 // Check for role permissions
                 const hasRolePermission = hasGlobalPermissions || 
                     (Array.isArray(group.roles) && (group.roles.length === 0 || group.roles.some(role => currentUserRoles.includes(role))));
 
-                console.log('Has role permission:', group.roles);
 
                 // Return true if it meets criteria for a text field and has the right permissions
                 return group.field_type === 'text' && hasPostTypePermission && hasRolePermission;

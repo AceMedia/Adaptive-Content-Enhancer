@@ -81,19 +81,58 @@ function create_underscored_value($string) {
 }
 
 // Load all options and filter based on custom logic
-$all_options = wp_load_alloptions();
+global $wpdb;
+
+// Prepare the SQL query to get relevant options
+$query = $wpdb->prepare("
+    SELECT option_name, option_value
+    FROM {$wpdb->options}
+    WHERE option_name LIKE %s
+", 'choices_%'); // Adjust the prefix as needed
+
+// Execute the query
+$results = $wpdb->get_results($query);
+
+$all_options = []; // Initialize an array to hold all options
+foreach ($results as $row) {
+    $all_options[$row->option_name] = maybe_unserialize($row->option_value);
+}
+
 
 add_filter('filter_wp_options_by_field_type', 'filter_options_by_field_type', 10, 2);
 function filter_options_by_field_type($all_options, $type) {
+
+
+    $current_user_roles = wp_get_current_user()->roles; // Get the current user roles
+
     if ($all_options === null) {
         // Load fresh options if $all_options is null
-        $all_options = wp_load_alloptions();
+        // (This condition might not be necessary anymore since we're directly loading relevant options)
+        global $wpdb;
+        $query = $wpdb->prepare("
+            SELECT option_name, option_value
+            FROM {$wpdb->options}
+            WHERE option_name LIKE %s
+        ", 'choices_%');
+        $results = $wpdb->get_results($query);
+
+        $all_options = []; // Initialize an array to hold all options
+        foreach ($results as $row) {
+            $all_options[$row->option_name] = maybe_unserialize($row->option_value);
+        }
     }
 
     $filtered_options = array();
 
+
+    $current_post_type = get_post_type(); 
+
+            
+
     foreach ($all_options as $option_name => $value) {
         $field_data = (array) get_option($option_name, array());
+
+ 
 
         if (!empty($field_data) && isset($field_data['field_type']) && $field_data['field_type'] === $type) {
             // Initialize roles and post types as empty arrays
@@ -125,17 +164,43 @@ function filter_options_by_field_type($all_options, $type) {
                 }
             }
 
+
+            $is_editor = is_admin() && !wp_doing_ajax();
+
+            if ($is_editor) {
+
+   // Skip if the current post type is not in the allowed post types
+
+
+   if (!empty($field_data['post_types']) && !in_array($current_post_type, $field_data['post_types'])) {
+   // continue; // This break the text blocks showing their correct labels. Remind me to fix it later.
+}
+
+// if (!empty($field_data['roles']) && !array_intersect($current_user_roles, $field_data['roles'])) {
+ //   continue; // Skip to the next iteration if the current user does not have permission
+//}
+
+            }
+
+
+            $filtered_options[] = $field_data;
+
             // For debugging: Print the field data before adding to filtered options
             // Uncomment for debugging
             // print_r($field_data['roles']);
-
-            $filtered_options[] = $field_data;
         }
     }
     return $filtered_options;
 }
 
 
+
+
+
+
+// Enqueue editor assets (admin side) and styles
+function ace_field_options_enqueue_editor_assets() {
+    
 
 
 // Fetch dropdown groups after saving dynamically from updated options
@@ -147,11 +212,6 @@ $choices = array_merge(
     apply_filters('filter_wp_options_by_field_type', $all_options, 'radio')
 );
 
-
-
-// Enqueue editor assets (admin side) and styles
-function ace_field_options_enqueue_editor_assets() {
-    global $choices;
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
         'acemedia-block-editor',
