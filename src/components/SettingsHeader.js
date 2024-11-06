@@ -1,7 +1,20 @@
 import { Button, Flex, FlexBlock, FlexItem } from '@wordpress/components';
 import PropTypes from 'prop-types';
 
+import React, { useState } from 'react';
+
+// Grass component
+const Grass = ({ numberOfBlades }) => {
+    const blades = Array.from({ length: numberOfBlades }, (_, index) => (
+        <div className="blade" key={index}></div>
+    ));
+    
+    return blades; // Ensure to return the blades
+};
+
+
 const SettingsHeader = ({ handleAddChoiceGroup }) => {
+    const [numberOfBlades, setNumberOfBlades] = useState(20); // Initial number of blades
     return (
         <Flex gap={4} className="settings-header">
             <FlexBlock>
@@ -17,6 +30,11 @@ const SettingsHeader = ({ handleAddChoiceGroup }) => {
                 <p className="description">
                     Manage your Fields &amp; Options.
                 </p>
+
+
+                <div className="grass">
+                    <Grass numberOfBlades={numberOfBlades} />
+                </div>
             </FlexBlock>
         </Flex>
     );

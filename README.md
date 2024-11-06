@@ -160,7 +160,7 @@ A: WP ACE allows you to apply custom styles using SCSS. Customize the appearance
 - Tag Management: Enhanced tag management features, allowing users to create, edit, and assign tags to field groups for better organization and filtering.
 - Bulk Actions: Improved bulk actions functionality, including the ability to delete multiple field groups at once.
 - Customizable UI: Added more UI customization options, including color pickers and other controls to customize the appearance of field groups and options.
-- Auto-save and Live Save: Implemented auto-save and live save features to ensure changes are saved in real-time without manual intervention.
+- Auto-save and Auto Save: Implemented auto-save and live save features to ensure changes are saved in real-time without manual intervention.
 - Pagination and Sorting: Enhanced pagination and sorting controls to navigate through field groups and sort them by various criteria.
 - Search Functionality: Added a built-in search feature to find specific field groups and options easily.
 - Custom Hooks: Introduced custom hooks such as useFetchChoices and useSaveChoice to encapsulate reusable logic and simplify component development.

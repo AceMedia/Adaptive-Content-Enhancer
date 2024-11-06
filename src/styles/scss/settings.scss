@@ -719,3 +719,47 @@ button {
     z-index: 999;
     pointer-events: none;
 }
+
+
+.settings-header {
+    > div {
+        position: relative;
+    }
+} 
+
+
+.grass {
+    display: flex;
+    display: none !important;
+    align-items: flex-end; /* Align blades to the bottom */
+    justify-content: space-around; /* Space blades evenly */
+    height: 200px; /* Adjust height as needed */
+    position: relative;
+    overflow: hidden;
+    position: absolute;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+    height: 30%;
+    z-index: -1;
+  }
+  
+  .blade {
+    width: 3px; /* Width of each blade */
+    height: 100%; /* Height of each blade */
+    background: linear-gradient(to top, #6fba3e, #9ddf5a); /* Grass color */
+    border-radius: 1px; /* Rounded edges */
+    position: relative;
+    animation: sway 1s ease-in-out infinite; /* Swaying animation */
+    transform-origin: bottom;
+  }
+  
+  @keyframes sway {
+    0%, 100% {
+      transform: rotate(0deg); /* No rotation */
+    }
+    50% {
+      transform: rotate(-10deg); /* Sway to one side */
+    }
+  }
+  

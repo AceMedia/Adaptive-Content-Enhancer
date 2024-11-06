@@ -77,12 +77,12 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
                         )}
                         <div style={{ margin: '0px' }}>
                             <ToggleControl
-                                label="Live Save"
+                                label="Auto Save"
                                 className="ace-save-bar-toggle-control"
                                 checked={isAutoSaveEnabled}
                                 onChange={(isChecked) => {
                                     setIsAutoSaveEnabled(isChecked);
-                                    setMessageState(isChecked ? 'Live Save Enabled' : 'Live Save Disabled');
+                                    setMessageState(isChecked ? 'Auto Save Enabled' : 'Auto Save Disabled');
                                     setTimeout(() => {
                                         setMessageState('');
                                     }, 2000); // Clear the message after 2 seconds
