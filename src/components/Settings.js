@@ -810,47 +810,49 @@ const fetchTagDataAndEdit = async (tagId) => {
     
     
     const handleToggleChange = (choice, newValue) => {
-        if (choice === 'toggle_all') {
-            // Update bulk-select for all choices based on the newValue
-            setFields((prevFields) => {
-                return prevFields.map((c) => ({
-                    ...c,
-                    isSelected: newValue, // Assuming you're using `isSelected` for bulk select
-                }));
-            });
-            // Update bulk edit state for all choices
-            setSelectedFields((prevFields) => {
-                if (newValue) {
-                    return choices.map((c) => c.name); // Select all choices
-                } else {
-                    return []; // Deselect all choices
+        if (quickEdit === 'true') {
+            if (choice === 'toggle_all') {
+                // Update bulk-select for all choices based on the newValue
+                setFields((prevFields) => {
+                    return prevFields.map((c) => ({
+                        ...c,
+                        isSelected: newValue, // Assuming you're using `isSelected` for bulk select
+                    }));
+                });
+                // Update bulk edit state for all choices
+                setSelectedFields((prevFields) => {
+                    if (newValue) {
+                        return choices.map((c) => c.name); // Select all choices
+                    } else {
+                        return []; // Deselect all choices
+                    }
+                });
+            } else {
+                setFields((prevFields) => {
+                    const updatedFields = [...prevFields];
+                    const choiceIndex = updatedFields.findIndex(
+                        (c) => c.name === choice.name
+                    );
+        
+                    if (choiceIndex !== -1) {
+                        updatedFields[choiceIndex].isSelected = newValue;
+                        markAsChanged(choice.name); // Mark as changed
+                    }
+        
+                    return updatedFields;
+                });
+        
+                setSelectedFields((prevSelectedFields) => {
+                    if (newValue) {
+                        return [...prevSelectedFields, choice.name]; // Add choice to selected choices
+                    } else {
+                        return prevSelectedFields.filter((name) => name !== choice.name); // Remove choice from selected choices
+                    }
+                });
+        
+                if (isAutoSaveEnabled) {
+                    handleSave(); // Trigger the save function immediately for dropdowns and other inputs
                 }
-            });
-        } else {
-            setFields((prevFields) => {
-                const updatedFields = [...prevFields];
-                const choiceIndex = updatedFields.findIndex(
-                    (c) => c.name === choice.name
-                );
-    
-                if (choiceIndex !== -1) {
-                    updatedFields[choiceIndex].isSelected = newValue;
-                    markAsChanged(choice.name); // Mark as changed
-                }
-    
-                return updatedFields;
-            });
-    
-            setSelectedFields((prevSelectedFields) => {
-                if (newValue) {
-                    return [...prevSelectedFields, choice.name]; // Add choice to selected choices
-                } else {
-                    return prevSelectedFields.filter((name) => name !== choice.name); // Remove choice from selected choices
-                }
-            });
-    
-            if (isAutoSaveEnabled) {
-                handleSave(); // Trigger the save function immediately for dropdowns and other inputs
             }
         }
     };
