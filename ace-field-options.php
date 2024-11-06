@@ -99,11 +99,11 @@ foreach ($results as $row) {
 }
 
 
+   // $current_user_roles = wp_get_current_user()->roles; // Get the current user roles
 add_filter('filter_wp_options_by_field_type', 'filter_options_by_field_type', 10, 2);
 function filter_options_by_field_type($all_options, $type) {
+//global $current_user_roles;
 
-
-    $current_user_roles = wp_get_current_user()->roles; // Get the current user roles
 
     if ($all_options === null) {
         // Load fresh options if $all_options is null
@@ -125,7 +125,6 @@ function filter_options_by_field_type($all_options, $type) {
     $filtered_options = array();
 
 
-    $current_post_type = get_post_type(); 
 
             
 
@@ -170,6 +169,9 @@ function filter_options_by_field_type($all_options, $type) {
             if ($is_editor) {
 
 
+    $current_post_type = get_post_type(); 
+
+
    if (!empty($field_data['post_types'])) {
         if(!in_array($current_post_type, $field_data['post_types'])) {
          //   continue; // This break the text blocks showing their correct labels. Remind me to fix it later.
@@ -200,7 +202,7 @@ function filter_options_by_field_type($all_options, $type) {
 
 // Enqueue editor assets (admin side) and styles
 function ace_field_options_enqueue_editor_assets() {
-    
+    global $all_options;
 
 
 // Fetch dropdown groups after saving dynamically from updated options
