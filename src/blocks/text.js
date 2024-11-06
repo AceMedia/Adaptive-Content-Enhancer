@@ -10,7 +10,28 @@ import apiFetch from '@wordpress/api-fetch';
 import domReady from '@wordpress/dom-ready';
 
 function createLowercaseUnderscored(string) {
-    return string.toLowerCase().replace(/\s+/g, '_');
+       // Map of numbers to words
+       const numberWords = {
+        '0': 'zero',
+        '1': 'one',
+        '2': 'two',
+        '3': 'three',
+        '4': 'four',
+        '5': 'five',
+        '6': 'six',
+        '7': 'seven',
+        '8': 'eight',
+        '9': 'nine'
+    };
+
+    // Replace each numeric character with its corresponding word
+    const replacedString = string.replace(/\d/g, (match) => numberWords[match]);
+
+    // Process the replaced string
+    return replacedString
+        .toLowerCase() // Convert to lowercase
+        .replace(/[^a-z0-9_ ]+/g, '') // Remove any character that is not a-z, 0-9, or space
+        .replace(/\s+/g, '_'); // Replace spaces with underscores
 }
 
 

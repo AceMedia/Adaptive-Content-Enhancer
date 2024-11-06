@@ -57,7 +57,27 @@ add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_styl
 
 
 function create_underscored_value($string) {
-    return strtolower(str_replace(' ', '_', $string));
+    // Map of numbers to words
+    $numberWords = [
+        '0' => 'zero',
+        '1' => 'one',
+        '2' => 'two',
+        '3' => 'three',
+        '4' => 'four',
+        '5' => 'five',
+        '6' => 'six',
+        '7' => 'seven',
+        '8' => 'eight',
+        '9' => 'nine'
+    ];
+
+    // Replace each numeric character with its corresponding word
+    $string = preg_replace_callback('/\d/', function($matches) use ($numberWords) {
+        return $numberWords[$matches[0]];
+    }, $string);
+
+    // Convert spaces to underscores and return the string in lowercase
+    return $string;
 }
 
 // Load all options and filter based on custom logic
@@ -135,9 +155,9 @@ function acefields_register_dynamic_meta_and_bindings() {
     // Define a mapping of field types to how they should be treated
     $field_types = [
         'text' => 'string',
-        'select' => 'array',
+        'select' => 'string',
         'truefalse' => 'boolean',
-        'checkbox' => 'array', // Set to 'array' for checkboxes
+        'checkbox' => 'array',
         'radio' => 'array',
     ];
 
@@ -151,46 +171,49 @@ function acefields_register_dynamic_meta_and_bindings() {
                 // Create the sanitized meta key from the field name
                 $field_name_key = create_underscored_value($field_data['name']);
 
+                // Skip if the field data is null or has no relevant value
+                if (is_null($field_data) || empty($field_data['name'])) {
+                    continue; // Skip this iteration
+                }
+
                 // Determine the sanitize callback based on the field type
                 $sanitize_callback = 'acefields_sanitize_serialized_meta';
 
-                // Define schema for array items if field type is checkbox
+                // Define schema for array items if field type is checkbox or radio
                 $schema = ['type' => $meta_type];
+
+                if ($meta_type === 'array') {
+                    $schema['items'] = ['type' => 'string']; // Adjust as needed based on what you expect in the array
+                }
 
                 // Register each field as a post meta field
                 register_meta(
                     'post',
                     $field_name_key,
                     array(
-                        'show_in_rest'      => ['schema' => $schema], // Schema with array items for checkboxes
+                        'show_in_rest'      => ['schema' => $schema],
                         'single'            => true,
-                        'type'              => $meta_type, // Type based on field type
+                        'type'              => $meta_type,
                         'sanitize_callback' => $sanitize_callback,
                         'auth_callback'     => '__return_true',
                     )
                 );
+
+                
             }
         }
     }
 }
 
 
-
-// Custom sanitize function for serialized meta data
-function acefields_sanitize_serialized_meta($meta_value) {
-    
-    if ($meta_value === null) {
-        return ''; // Or return an appropriate default value
-    }
-    
-    
-    // Return arrays and objects as they are to avoid double encoding
-    if (is_array($meta_value) || is_object($meta_value)) {
-        return $meta_value;
+function acefields_sanitize_serialized_meta($meta_value, $meta_key, $meta_type) {
+    // Check if the meta value is an array and needs to be serialized
+    if (is_array($meta_value)) {
+        return maybe_serialize($meta_value);
     }
 
-    // Convert other data types to a sanitized string
-    return sanitize_text_field((string) $meta_value);
+    // Otherwise, return the meta value as is
+    return sanitize_text_field($meta_value);
 }
 
 
@@ -1472,7 +1495,22 @@ function ace_get_choices(WP_REST_Request $request) {
             'meta' => get_term_meta($tag->term_id)
         ];
     }
-    
+
+    // Add roles and post types to each choice based on its tags
+    foreach ($paginated_choices as &$choice) {
+        $choice['roles'] = [];
+        $choice['post_types'] = [];
+
+        if (!empty($choice['tags'])) {
+            foreach ($choice['tags'] as $tag_id) {
+                if (isset($tags_with_descriptions[$tag_id])) {
+                    $choice['roles'] = array_unique(array_merge($choice['roles'], $tags_with_descriptions[$tag_id]['meta']['associated_roles']));
+                    $choice['post_types'] = array_unique(array_merge($choice['post_types'], $tags_with_descriptions[$tag_id]['meta']['post_types']));
+                }
+            }
+        }
+    }
+
     $response_data = [
         'choices' => array_map(function($choice) use ($tags_with_descriptions) {
             $choice['tags_with_descriptions'] = [];
@@ -1496,8 +1534,6 @@ function ace_get_choices(WP_REST_Request $request) {
 
     return new WP_REST_Response($response_data, 200);
 }
-
-
 
 add_action('rest_api_init', function () {
     register_rest_route('ace/v1', '/get-choices', array(
