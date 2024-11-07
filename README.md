@@ -92,6 +92,16 @@ To build and develop WP ACE, follow these steps:
 1. **Install Dependencies**: Run `npm install` to install the necessary dependencies.
 2. **Build the Project**: Use `npm run build` to build the project for production.
 3. **Start Development Server**: Use `npm run start` to start the development server with live reloading.
+4. **Build JavaScript**: Use `npm run build-js` to build the JavaScript files.
+5. **Watch JavaScript**: Use `npm run dev-js` to watch for changes in JavaScript files and rebuild automatically.
+6. **Build CSS**: Use `npm run build-css` to build the CSS files from SCSS.
+7. **Watch CSS**: Use `npm run watch-css` to watch for changes in SCSS files and rebuild CSS automatically.
+8. **Clean Assets**: Use `npm run clean-assets` to clean the assets directory.
+9. **Format Code**: Use `npm run format` to format the codebase.
+10. **Lint CSS**: Use `npm run lint:css` to lint the CSS files.
+11. **Lint JavaScript**: Use `npm run lint:js` to lint the JavaScript files.
+12. **Update Packages**: Use `npm run packages-update` to update the npm packages.
+13. **Create Plugin Zip**: Use `npm run plugin-zip` to create a zip file of the plugin for distribution.
 
 The project uses Webpack for bundling and Babel for transpiling modern JavaScript.
 
