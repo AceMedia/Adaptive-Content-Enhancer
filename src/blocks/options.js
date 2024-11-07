@@ -14,6 +14,31 @@ function createLowercaseUnderscored(string) {
     return string.toLowerCase().replace(/\s+/g, '_');
 }
 
+// Function to check if the current user has permissions
+const checkPermissions = (allowedRoles, currentUserRoles) => {
+    return allowedRoles.some(role => currentUserRoles.includes(role));
+};
+
+// Function to filter groups based on permissions
+const filterGroupsByPermissions = (groups, currentUserRoles, postType) => {
+    return groups.filter(group => {
+        // Determine if global permissions apply
+        const hasGlobalPermissions = !Array.isArray(group.roles) && !Array.isArray(group.post_types);
+
+        // Check for post type permissions
+        const hasPostTypePermission = hasGlobalPermissions || 
+            (Array.isArray(group.post_types) && (group.post_types.length === 0 || group.post_types.includes(postType)));
+
+        // Check for role permissions
+        const hasRolePermission = hasGlobalPermissions || 
+            (Array.isArray(group.roles) && (group.roles.length === 0 || group.roles.some(role => currentUserRoles.includes(role))));
+
+        // Return true if it meets criteria for the right permissions
+        return hasPostTypePermission && hasRolePermission;
+    });
+};
+
+
 // Register the block
 registerBlockType('adaptive-content-enhancer/option', {
     title: 'Meta Choice',
@@ -103,9 +128,17 @@ registerBlockType('adaptive-content-enhancer/option', {
         // Fetch available groups and options from the backend
         useEffect(() => {
             if (Array.isArray(window.choiceGroups)) {
+                // Get the current user roles
+                const currentUserRoles = wp.data.select('core').getCurrentUser()?.roles || [];
+                // Get the current post type
+                const currentPostType = wp.data.select('core/editor').getCurrentPostType();
+        
+                // Filter groups based on permissions
+                const filteredGroups = filterGroupsByPermissions(window.choiceGroups, currentUserRoles, currentPostType);
+        
                 // Filter out groups where the field type is "text"
-                const filteredGroups = window.choiceGroups.filter(group => group.field_type !== 'text');
-                setAvailableGroups(filteredGroups);
+                const nonTextGroups = filteredGroups.filter(group => group.field_type !== 'text');
+                setAvailableGroups(nonTextGroups);
             }
         }, []);
 
