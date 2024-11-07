@@ -42,7 +42,8 @@ const [newChoice, setNewChoice] = useState({
     field_type: 'text', 
     description: '', 
     options: [], 
-    tags: [] // Add tags property
+    tags: [],
+    isSelected: false,
 });
 
 const [changedFields, setChangedFields] = useState([]);
@@ -304,11 +305,19 @@ const handleTagSelect = (tagId) => {
     );
 };
 
-const handleChoiceSelect = (choiceName) => {
+const handleChoiceSelect = (choice) => {
+    setFields(prevChoices =>
+        prevChoices.map(c =>
+            c.name === choice.name
+                ? { ...c, isSelected: !c.isSelected }
+                : c
+        )
+    );
+
     setSelectedFields(prevSelectedFields =>
-        prevSelectedFields.includes(choiceName)
-            ? prevSelectedFields.filter(name => name !== choiceName)
-            : [...prevSelectedFields, choiceName]
+        prevSelectedFields.includes(choice.name)
+            ? prevSelectedFields.filter(name => name !== choice.name)
+            : [...prevSelectedFields, choice.name]
     );
 };
 
@@ -556,7 +565,8 @@ const fetchFields = ({ navigateToLastPage = false } = {}) => {
                 options: (choice.options || []).map(option => ({
                     ...option,
                     disabled: true
-                }))
+                })),
+                isSelected: choice.isSelected ?? false,
             }));
 
             // Apply sorting before setting state
@@ -820,36 +830,20 @@ const fetchTagDataAndEdit = async (tagId) => {
                     }));
                 });
                 // Update bulk edit state for all choices
-                setSelectedFields((prevFields) => {
-                    if (newValue) {
-                        return choices.map((c) => c.name); // Select all choices
-                    } else {
-                        return []; // Deselect all choices
-                    }
-                });
+                setSelectedFields(newValue ? choices.map((c) => c.name) : []);
             } else {
                 setFields((prevFields) => {
-                    const updatedFields = [...prevFields];
-                    const choiceIndex = updatedFields.findIndex(
-                        (c) => c.name === choice.name
+                    return prevFields.map((c) =>
+                        c.name === choice.name ? { ...c, isSelected: newValue } : c
                     );
-        
-                    if (choiceIndex !== -1) {
-                        updatedFields[choiceIndex].isSelected = newValue;
-                        markAsChanged(choice.name); // Mark as changed
-                    }
-        
-                    return updatedFields;
                 });
-        
-                setSelectedFields((prevSelectedFields) => {
-                    if (newValue) {
-                        return [...prevSelectedFields, choice.name]; // Add choice to selected choices
-                    } else {
-                        return prevSelectedFields.filter((name) => name !== choice.name); // Remove choice from selected choices
-                    }
-                });
-        
+    
+                setSelectedFields((prevSelectedFields) =>
+                    newValue
+                        ? [...prevSelectedFields, choice.name] // Add choice to selected choices
+                        : prevSelectedFields.filter((name) => name !== choice.name) // Remove choice from selected choices
+                );
+    
                 if (isAutoSaveEnabled) {
                     handleSave(); // Trigger the save function immediately for dropdowns and other inputs
                 }

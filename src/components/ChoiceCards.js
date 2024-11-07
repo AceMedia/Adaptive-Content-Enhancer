@@ -131,23 +131,23 @@ const ChoiceCards = ({
                         >
 
 {quickEdit === 'true' && (
-    <ToggleControl
-        className="bulk-select-field"
-        checked={choice.isSelected} 
-        onChange={(newValue) => handleToggleChange(choice, newValue)}
-        style={{ marginLeft: '10px' }}
-    />
+     <ToggleControl
+     className="bulk-select-field"
+     checked={choice.isSelected} 
+     onChange={() => {}} // No-op to make it non-interactive
+     style={{ marginLeft: '10px', pointerEvents: 'none' }} // Make it non-interactive
+ />
 )}
 
-                                           
-                            <CardHeader  onClick={(e) => {
-            e.stopPropagation();
-            if (quickEdit === 'true') {
-                handleChoiceSelect(choice); // Toggle selection in Quick Edit mode
-            } else {
-                toggleOpen(choice.name, group); // Open/close card normally if not in Quick Edit
-            }
-        }}>
+{console.log(choice.isSelected)}                     
+<CardHeader onClick={(e) => {
+    e.stopPropagation();
+    if (quickEdit === 'true') {
+        handleChoiceSelect(choice); // Toggle selection in Quick Edit mode
+    } else {
+        toggleOpen(choice.name, group); // Open/close card normally if not in Quick Edit
+    }
+}}>
                                 <Flex justify="space-between" align="center" gap={2}>
                                     <FlexItem>
                                         <Flex align="center" gap={2} style={{ textAlign: 'left' }}>
@@ -183,7 +183,7 @@ const ChoiceCards = ({
                             </Flex>
                         )}
                                         {choice.created && (
-                                            <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }}>
+                                            <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }} className='updated-times'>
                                                 <Tooltip text={`Created at ${new Date(choice.created).toLocaleString()}`}>
                                                     <p><strong>Created:</strong> {formatRelativeTime(choice.created)}</p>
                                                 </Tooltip>
