@@ -27,9 +27,6 @@ const SettingsHeader = ({ handleAddChoiceGroup }) => {
 </svg>
 
 <span>Fields</span></h1>
-                <p className="description">
-                    Manage your Fields &amp; Options.
-                </p>
 
 
                 <div className="grass">

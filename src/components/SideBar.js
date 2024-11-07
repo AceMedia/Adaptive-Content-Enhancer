@@ -131,7 +131,7 @@ const SideBar = ({
     
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1em' }}>
            <SearchComponent 
                 searchQuery={searchQuery} 
                 handleSearchChange={handleSearchChange} 
@@ -204,7 +204,7 @@ const SideBar = ({
             
             <PanelBody title={
                                 <span>
-                                    <FontAwesomeIcon icon={faFilter} />Filter by Field Type
+                                    <FontAwesomeIcon icon={faFilter} />Field Types
                                 </span>
                             } initialOpen={false}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -234,7 +234,7 @@ const SideBar = ({
         className='tag-toggles'
     title={
         <span>
-            <FontAwesomeIcon icon={faTags} /> Filter by Field Tags
+            <FontAwesomeIcon icon={faTags} />Field Tags
         </span>
     }
     initialOpen={false}

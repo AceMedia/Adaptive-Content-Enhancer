@@ -159,7 +159,7 @@ const ChoiceCards = ({
                                            
                                         </Flex>
                                     </FlexItem>
-                                    <Flex align="center" gap={3} style={{ textAlign: 'right', width: 'auto' }}>
+                                    <Flex align="center" gap='.5em' style={{ textAlign: 'right', width: 'auto' }}>
                                     {choice.tags && choice.tags.length > 0 && (
                             <Flex align="left" wrap="nowrap" gap={1} className="card-tags" style={{ textAlign: 'left', width: 'auto' }}>
                                 {choice.tags.map((tagId, idx) => (
@@ -183,7 +183,7 @@ const ChoiceCards = ({
                             </Flex>
                         )}
                                         {choice.created && (
-                                            <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '10px' }} className='updated-times'>
+                                            <div style={{ fontSize: '0.85em', color: '#777', display: 'flex', gap: '.5em' }} className='updated-times'>
                                                 <Tooltip text={`Created at ${new Date(choice.created).toLocaleString()}`}>
                                                     <p><strong>Created:</strong> {formatRelativeTime(choice.created)}</p>
                                                 </Tooltip>

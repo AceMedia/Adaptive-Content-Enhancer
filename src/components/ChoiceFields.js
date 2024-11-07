@@ -50,6 +50,7 @@ const ChoiceFields = ({
                     label="Title"
                     value={choice.title}
                     onChange={(newValue) => handleTextChange(choice, 'title', newValue)}
+                                __next40pxDefaultSize='true'
                 />
             </FlexBlock>
             <FlexBlock style={{ width: '50%' }}>
@@ -65,6 +66,7 @@ const ChoiceFields = ({
                             name: formattedValue,
                         }));
                     }} // Allow manual updates and apply formatting
+                                __next40pxDefaultSize='true'
                 />
             </FlexBlock>
         </Flex>
@@ -80,6 +82,7 @@ const ChoiceFields = ({
                     { label: 'Radio', value: 'radio' }
                 ]}
                 onChange={(newValue) => handleTextChange(choice, 'field_type', newValue)} // Update choice's field_type directly
+                __next40pxDefaultSize='true'
             />
 
             <TextareaControl
@@ -164,35 +167,27 @@ const ChoiceFields = ({
                     }
                 }}
             />
-            {/* Display tags and descriptions */}
-            {choice.tags_with_descriptions && choice.tags_with_descriptions.length > 0 && (
-                <div style={{ marginTop: '16px' }}>
-                    <strong>Tags with Descriptions:</strong>
-                    <ul>
-                        {choice.tags_with_descriptions.map((tag, index) => (
-                            <li key={index}>
-                                <strong>{tag.name}:</strong> {tag.description}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+            
 
             {choice.field_type !== 'text' && (
-                <div style={{ marginTop: '16px' }}>
-                    <strong>Options:</strong>
+                <div style={{ marginTop: '1em' }}>
+                    <strong>Field Options:</strong>
                     {choice.options.map((option, optionIndex) => (
-                        <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div key={optionIndex} style={{ display: 'flex', alignItems: 'center', gap: '1em' }} className='field-options-row'>
                             <TextControl
                                 placeholder="Option Label"
                                 value={option.label}
                                 onChange={(value) => updateOption(choice, option, 'label', value)}
+                                __next40pxDefaultSize='true'
+                                __nextHasNoMarginBottom
                             />
                             <TextControl
                                 placeholder="Option Value"
                                 value={option.value}
                                 disabled={choice.field_type === 'truefalse' || !!option.disabled} // Ensure the option is disabled if marked or for true/false
                                 onChange={(value) => updateOption(choice, option, 'value', value)}
+                                __next40pxDefaultSize='true'
+                                __nextHasNoMarginBottom
                             />
                             <Button
                                 isDestructive

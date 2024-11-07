@@ -22,7 +22,7 @@
         display: flex; // Make the submit area a flex container
         align-items: center; // Center items vertically
         justify-content: flex-end; // Align items to the right
-        gap: 10px; // Space between "Unsaved Changes!" and button
+        gap: 1em; // Space between "Unsaved Changes!" and button
         margin: 0px !important;
         padding: 0px !important;
         #unsaved-changes-message {

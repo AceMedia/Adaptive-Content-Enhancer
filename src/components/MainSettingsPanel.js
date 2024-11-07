@@ -1,5 +1,5 @@
 import { useState, useEffect } from '@wordpress/element';
-import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl, ColorPicker, CheckboxControl, ToggleControl } from '@wordpress/components';
+import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl, ColorPicker, Tooltip, ToggleControl } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 import { store as coreDataStore } from '@wordpress/core-data';
 import apiFetch from '@wordpress/api-fetch';
@@ -10,7 +10,7 @@ import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
 import SaveBar from './SaveBar/SaveBar'; // Adjust the path as needed
 import SettingsHeader from './SettingsHeader';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faClock } from '@fortawesome/free-solid-svg-icons';
 
 import Select from 'react-select';
 
@@ -288,7 +288,7 @@ const handleMetaChange = (key, value) => {
 
 
                 {quickEdit === 'true' && (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1em', marginBottom: '15px' }}>
          <ToggleControl
             label="Toggle All"
             checked={choices.every(choice => choice.isSelected)} // Ensure checked reflects all choices
@@ -303,16 +303,36 @@ const handleMetaChange = (key, value) => {
 
                     {choices.length !== 0 && (
                     <div style={{ marginBottom: '15px' }} className='currently-viewing'>
-                <strong>                            <FontAwesomeIcon icon={faEye} style={{ marginRight: '5px' }} />
-                Viewing:</strong> {visibleFields.length} of {totalFields}
+
+
+
+
+                <Tooltip text={`Viewing ${visibleFields.length} of ${totalFields}`}>
+                    <span className='pill' style={{ marginRight: '1em' }} >
+                        <FontAwesomeIcon icon={faEye} style={{ marginRight: '5px' }} />{visibleFields.length} of {totalFields}
+                    </span>
+                </Tooltip>
+
+
+                <Tooltip text={`0.00ms response time for the current view`}>
+                    <span className='pill'>
+                        <FontAwesomeIcon icon={faClock} style={{ marginRight: '5px' }} />0.00ms
+                    </span>
+                </Tooltip>
+
+
                 <ul className='visible-types'>
     {Object.entries(visibleFields.reduce((acc, field) => {
         acc[field.field_type] = (acc[field.field_type] || 0) + 1;
         return acc;
     }, {})).map(([type, count]) => (
         <li key={type}>
+        <Tooltip text={`Showing ${count} ${type.charAt(0).toUpperCase() + type.slice(1)} fields`}>
+        <span className='pill'>
             <FontAwesomeIcon icon={fieldTypeIcons[type] || faGlobe} style={{ marginRight: '5px' }} />
-            {type.charAt(0).toUpperCase() + type.slice(1)}: <strong>{count}</strong>
+        <strong>{count}</strong>
+                    </span>
+                </Tooltip>
         </li>
     ))}
 </ul>
@@ -384,7 +404,7 @@ const handleMetaChange = (key, value) => {
 )}
 
 {quickEdit === 'true' && (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1em' }}>
         <Button isDestructive isPrimary onClick={handleBulkDelete} icon="trash">
             Delete Selected
         </Button>
