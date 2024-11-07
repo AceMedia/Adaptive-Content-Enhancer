@@ -127,20 +127,27 @@ registerBlockType('adaptive-content-enhancer/option', {
 
         // Fetch available groups and options from the backend
         useEffect(() => {
-            if (Array.isArray(window.choiceGroups)) {
-                // Get the current user roles
-                const currentUserRoles = wp.data.select('core').getCurrentUser()?.roles || [];
-                // Get the current post type
-                const currentPostType = wp.data.select('core/editor').getCurrentPostType();
+            // Get the current user roles
+            const currentUserRoles = wp.data.select('core').getCurrentUser()?.roles || [];
+            // Get the current post type
+            const currentPostType = wp.data.select('core/editor').getCurrentPostType();
         
+            if (Array.isArray(window.choiceGroups)) {
                 // Filter groups based on permissions
                 const filteredGroups = filterGroupsByPermissions(window.choiceGroups, currentUserRoles, currentPostType);
         
                 // Filter out groups where the field type is "text"
                 const nonTextGroups = filteredGroups.filter(group => group.field_type !== 'text');
-                setAvailableGroups(nonTextGroups);
+        
+                // Check if nonTextGroups is empty and fallback to unfiltered groups if necessary
+                setAvailableGroups(nonTextGroups.length > 0 ? nonTextGroups : window.choiceGroups);
             }
-        }, []);
+        }, [window.choiceGroups, wp.data.select('core').getCurrentUser()?.roles, wp.data.select('core/editor').getCurrentPostType()]);
+        
+
+
+
+        
 
         // Extend useEffect to fetch and set truefalse meta values correctly
         useEffect(() => {
