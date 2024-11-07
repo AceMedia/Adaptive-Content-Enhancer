@@ -94,8 +94,11 @@ registerBlockType('adaptive-content-enhancer/option', {
         // Dynamically generate meta key based on selected group
         const metaKey = createLowercaseUnderscored(selectedGroup);
 
+            const postType = wp.data.select('core/editor').getCurrentPostType();
+
         // Fetch the post meta and keep it in sync
-        const [metaValue, setMetaValue] = useEntityProp('postType', 'post', 'meta');
+        const [metaValue, setMetaValue] = useEntityProp('postType', postType, 'meta');
+//        const [metaValue, setMetaValue] = useEntityProp('postType', 'page', 'meta');
 
         // Fetch available groups and options from the backend
         useEffect(() => {
