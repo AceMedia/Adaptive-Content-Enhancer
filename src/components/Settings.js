@@ -335,7 +335,7 @@ const handleTextChange = (choice, field, newValue) => {
                 : prevNewChoice.name,
             // Only set options if the field is 'field_type'
             options: field === 'field_type'
-                ? (newValue === 'truefalse' ? getTrueFalseOptions() : getDefaultOptions())
+                ? (newValue === 'truefalse' ? getTrueFalseOptions() : prevNewChoice.options)
                 : prevNewChoice.options, // Keep existing options if the field isn't 'field_type'
         }));
     } else {
@@ -354,7 +354,7 @@ const handleTextChange = (choice, field, newValue) => {
                 if (field === 'field_type') {
                     updatedFields[choiceIndex].options = newValue === 'truefalse'
                         ? getTrueFalseOptions()
-                        : getDefaultOptions();
+                        : updatedFields[choiceIndex].options; // Keep existing options for other field types
                 }
 
                 markAsChanged(choice.name);
