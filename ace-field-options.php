@@ -1,9 +1,12 @@
 <?php
 /**
- * Plugin Name: Adaptive Content Enhancer
+ * Plugin Name: Adaptive Content Enhancer (WP ACE)
  * Description: A WordPress block plugin with multiple option groups for dropdowns.
  * Version: 0.421.0
  * Author: Shane Rounce of Ace Media
+ * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: adaptive-content-enhancer
  * 
  */
 
@@ -42,15 +45,12 @@ function ace_field_options_admin_menu() {
 
 
 
-
-
-// Enqueue the editor CSS
 function ace_field_options_enqueue_editor_styles() {
     wp_enqueue_style(
         'acemedia-editor', // Handle
         plugins_url('/assets/styles/editor.css', __FILE__), // Path to the CSS file
         array(), // Dependencies (if any)
-        null // Version number
+        filemtime(plugin_dir_path(__FILE__) . 'assets/styles/editor.css') // Version number
     );
 }
 add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_styles');
@@ -81,51 +81,60 @@ function create_underscored_value($string) {
 }
 
 // Load all options and filter based on custom logic
-global $wpdb;
 
-// Prepare the SQL query to get relevant options
-$query = $wpdb->prepare("
-    SELECT option_name, option_value
-    FROM {$wpdb->options}
-    WHERE option_name LIKE %s
-", 'choices_%'); // Adjust the prefix as needed
+// Define a cache key for all options
 
-// Execute the query
-$results = $wpdb->get_results($query);
+function get_filtered_choices_options($cache_key) {
+    // Attempt to load options from the cache
+    $all_options = wp_cache_get($cache_key);
 
-$all_options = []; // Initialize an array to hold all options
-foreach ($results as $row) {
-    $all_options[$row->option_name] = maybe_unserialize($row->option_value);
+    // Check if options are not cached
+    if ($all_options === false) {
+        // Load all options into memory
+        $all_options = wp_load_alloptions();
+
+        // Initialize an array to hold the filtered options
+        $filtered_options = [];
+
+        // Check if all options were loaded successfully
+        if ($all_options !== false) {
+            // Loop through the options and filter by prefix
+            foreach ($all_options as $option_name => $option_value) {
+                if (strpos($option_name, 'choices_') === 0) { // Check if the option name starts with 'choices_'
+                    $filtered_options[$option_name] = maybe_unserialize($option_value); // Unserialize if needed
+                }
+            }
+
+            // Cache the filtered results for future use
+            wp_cache_set($cache_key, $filtered_options);
+        } else {
+            // Handle the error case if necessary
+            return []; // Return an empty array if loading options failed
+        }
+    } else {
+        // Use cached options if available
+        $filtered_options = $all_options;
+    }
+
+    return $filtered_options;
 }
+
+
+$cache_key = 'ace_all_options_cache';
+$all_options = get_filtered_choices_options($cache_key);
 
 
    // $current_user_roles = wp_get_current_user()->roles; // Get the current user roles
 add_filter('filter_wp_options_by_field_type', 'filter_options_by_field_type', 10, 2);
 function filter_options_by_field_type($all_options, $type) {
-//global $current_user_roles;
+global $cache_key;
 
 
     if ($all_options === null) {
-        // Load fresh options if $all_options is null
-        // (This condition might not be necessary anymore since we're directly loading relevant options)
-        global $wpdb;
-        $query = $wpdb->prepare("
-            SELECT option_name, option_value
-            FROM {$wpdb->options}
-            WHERE option_name LIKE %s
-        ", 'choices_%');
-        $results = $wpdb->get_results($query);
-
-        $all_options = []; // Initialize an array to hold all options
-        foreach ($results as $row) {
-            $all_options[$row->option_name] = maybe_unserialize($row->option_value);
-        }
+        $all_options = get_filtered_choices_options($cache_key);
     }
 
     $filtered_options = array();
-
-
-
             
 
     foreach ($all_options as $option_name => $value) {
@@ -142,8 +151,6 @@ function filter_options_by_field_type($all_options, $type) {
             if (!empty($field_data['tags'])) {
                 foreach ($field_data['tags'] as $tag_id) {
                     $tag_meta = get_term_meta($tag_id);
-                    // Uncomment for debugging
-                    // print_r($tag_meta);
 
                     // Unserialize roles if they exist
                     if (isset($tag_meta['associated_roles'][0])) {
@@ -187,9 +194,6 @@ function filter_options_by_field_type($all_options, $type) {
 
             $filtered_options[] = $field_data;
 
-            // For debugging: Print the field data before adding to filtered options
-            // Uncomment for debugging
-            // print_r($field_data['roles']);
         }
     }
     return $filtered_options;
@@ -197,36 +201,31 @@ function filter_options_by_field_type($all_options, $type) {
 
 
 
-
-
-
-// Enqueue editor assets (admin side) and styles
 function ace_field_options_enqueue_editor_assets() {
     global $all_options;
 
-
-// Fetch dropdown groups after saving dynamically from updated options
-$choices = array_merge(
-    apply_filters('filter_wp_options_by_field_type', $all_options, 'text'),
-    apply_filters('filter_wp_options_by_field_type', $all_options, 'select'),
-    apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse'),
-    apply_filters('filter_wp_options_by_field_type', $all_options, 'checkbox'),
-    apply_filters('filter_wp_options_by_field_type', $all_options, 'radio')
-);
+    // Fetch dropdown groups after saving dynamically from updated options
+    $choices = array_merge(
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'text'),
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'select'),
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'truefalse'),
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'checkbox'),
+        apply_filters('filter_wp_options_by_field_type', $all_options, 'radio')
+    );
 
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
         'acemedia-block-editor',
         plugins_url('/assets/js/blocks/options.js', __FILE__),
         array('wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data'),
-        filemtime(plugin_dir_path(__FILE__) . 'assets/js/blocks/options.js')
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/blocks/options.js'), // Version number
+        true // Load in the footer
     );
 
     // Localize the dropdown groups for the dropdown block editor script
     wp_localize_script('acemedia-block-editor', 'choiceGroups', $choices);
 }
 add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_assets');
-
 
 
 
@@ -426,43 +425,6 @@ function ace_enqueue_text_block() {
 }
 
 
-function ace_enqueue_custom_select_scripts() {
-    // Check if we should enqueue scripts based on the post content.
-    if (!is_singular('post')) {
-        return; // Only run on singular post pages.
-    }
-
-    global $post;
-    if (has_blocks($post->ID)) {
-        // Parse through the blocks and check for the condition.
-        $blocks = parse_blocks($post->post_content);
-        $should_enqueue = false;
-
-        foreach ($blocks as $block) {
-            if (
-                isset($block['attrs']['showAsInputOnFrontend']) &&
-                $block['attrs']['showAsInputOnFrontend'] === true
-            ) {
-                $should_enqueue = true;
-                break;
-            }
-        }
-
-        if ($should_enqueue) {
-            // Enqueue Select2 or any other custom library
-            wp_enqueue_script('select2', 'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js', array('jquery'), '4.0.13', true);
-            wp_enqueue_style('select2', 'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css', [], '4.0.13');
-
-            // Custom script to initialize Select2 on your custom select elements
-            wp_add_inline_script('select2', "
-                jQuery(document).ready(function($) {
-                    $('select').select2();
-                });
-            ");
-        }
-    }
-}
-add_action('wp_enqueue_scripts', 'ace_enqueue_custom_select_scripts');
 
 
 
@@ -511,8 +473,6 @@ function get_group_options($selected_group, $attributes) {
 }
 
 
-
-
 function ace_field_options_admin_styles($hook) {
     // Only load on plugin settings page
     if ('toplevel_page_adaptive-content-enhancer' !== $hook) {
@@ -523,7 +483,7 @@ function ace_field_options_admin_styles($hook) {
         'ace-field-options-admin',
         plugins_url('assets/styles/settings.css', __FILE__),
         array(),
-        filemtime(plugin_dir_path(__FILE__) . 'assets/styles/settings.css')
+        filemtime(plugin_dir_path(__FILE__) . 'assets/styles/settings.css') // Version number
     );
 }
 add_action('admin_enqueue_scripts', 'ace_field_options_admin_styles');
@@ -625,7 +585,7 @@ function get_post_meta_via_rest($request) {
     $post = get_post($post_id);
 
     if (!$post) {
-        return new WP_Error('rest_post_invalid_id', __('Invalid post ID.'), array('status' => 404));
+        return new WP_Error('rest_post_invalid_id', __('Invalid post ID.', 'adaptive-content-enhancer'), array('status' => 404));
     }
 
     // Make a request to fetch the full post data with context
@@ -654,7 +614,7 @@ function get_specific_post_meta_via_rest($request) {
     $post = get_post($post_id);
 
     if (!$post) {
-        return new WP_Error('rest_post_invalid_id', __('Invalid post ID.'), array('status' => 404));
+        return new WP_Error('rest_post_invalid_id', __('Invalid post ID.', 'adaptive-content-enhancer'), array('status' => 404));
     }
 
     // Make a request to fetch the full post data with context
@@ -675,7 +635,7 @@ function get_specific_post_meta_via_rest($request) {
 
     // Check if the specific key exists
     if (!isset($meta[$meta_key])) {
-        return new WP_Error('rest_meta_key_invalid', __('Invalid meta key.'), array('status' => 404));
+        return new WP_Error('rest_meta_key_invalid', __('Invalid meta key.', 'adaptive-content-enhancer'), array('status' => 404));
     }
 
     return new WP_REST_Response($meta[$meta_key]);
@@ -776,16 +736,22 @@ add_filter('block_bindings_source_value', 'filter_dynamic_meta_value', 10, 5);
 add_action('wp_ajax_delete_wp_option', 'ace_delete_wp_option');
 
 function ace_delete_wp_option() {
-    global $all_options;
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Unauthorized', 403);
+    if (!isset($_POST['_wpnonce'])) {
+        wp_send_json_error('Nonce not set', 403);
+    }
+    
+    // Unslash the entire $_POST array
+    $unslashed_post = wp_unslash($_POST);
+    
+    // Now verify the nonce with the unslashed variable
+    if (!wp_verify_nonce($unslashed_post['_wpnonce'], 'ace_nonce')) {
+        wp_send_json_error('Invalid nonce', 403);
     }
 
     // Check if the option name is set
-    if (isset($_POST['option_name'])) {
-        $group_name = sanitize_text_field($_POST['option_name']);
-        $option_name = create_underscored_value($group_name); // Use 'group_name' from the request
-
+    if (isset($unslashed_post['option_name'])) {
+        $group_name = sanitize_text_field($unslashed_post['option_name']); // Now use the unslashed variable
+        $option_name = create_underscored_value($group_name);
         // Fetch all groups (dropdowns and true/false) using the filter
         $all_groups = $all_options;
 
@@ -799,9 +765,10 @@ function ace_delete_wp_option() {
         }
 
         if (delete_option($option_name)) {
+            wp_cache_delete('ace_all_options_cache');
             wp_send_json_success('Option deleted successfully');
         } else {
-            wp_send_json_error(print_r($all_groups, false));
+            wp_send_json_error($all_groups);
         }
     } else {
         wp_send_json_error('Invalid option name');
@@ -810,57 +777,76 @@ function ace_delete_wp_option() {
 
 
 
+function get_all_acf_fields_and_types($cache_key = 'acf_field_types_cache') {
+    // Attempt to load ACF field keys and types from the cache
+    $acf_fields = wp_cache_get($cache_key);
 
+    // Check if ACF fields are not cached
+    if ($acf_fields === false) {
+        // Initialize an array to hold ACF field keys and their types
+        $acf_fields = [];
 
-function get_all_acf_fields_and_types() {
-    global $wpdb;
+        // Retrieve all posts (you may want to paginate this if you have many)
+        $args = [
+            'numberposts' => -1, // Get all posts
+            'post_type'   => 'any', // Get all post types, or specify as needed
+        ];
+        $all_posts = get_posts($args);
 
-    // Query to fetch all ACF-related meta keys (global, without post_id constraint)
-    $acf_field_keys = $wpdb->get_results("
-        SELECT DISTINCT meta_key, meta_value 
-        FROM {$wpdb->postmeta}
-        WHERE meta_key LIKE '\\_%'
-        AND meta_value LIKE 'field_%'
-    ");
+        // Loop through each post to gather ACF field keys
+        foreach ($all_posts as $post) {
+            // Get all post meta for the current post
+            $meta = get_post_meta($post->ID);
 
-    $acf_fields = array();
-    
-    foreach ($acf_field_keys as $field_key) {
-        $actual_field_key = substr($field_key->meta_key, 1); // Remove leading underscore
-        $acf_field_data = get_acf_field_data_by_key($field_key->meta_value); // Fetch the field data from wp_options
-    
+            // Loop through meta keys and check for ACF-related keys
+            foreach ($meta as $meta_key => $meta_value) {
+                if (strpos($meta_key, '_') === 0 && strpos($meta_key, 'field_') === 0) {
+                    // Only include ACF keys
+                    $actual_field_key = substr($meta_key, 1); // Remove leading underscore
+                    $acf_field_data = get_acf_field_data_by_key($meta_value); // Fetch the field data
 
-        // Check if the type exists
-        if ($acf_field_data && isset($acf_field_data['type'])) {
-            // If the type exists, assign it to the array
-            $acf_fields[$actual_field_key] = $acf_field_data['type'];
-        } else {
-            // If not, assign 'unknown'
-            $acf_fields[$actual_field_key] = 'unknown';
+                    // Check if the type exists
+                    if ($acf_field_data && isset($acf_field_data['type'])) {
+                        $acf_fields[$actual_field_key] = $acf_field_data['type'];
+                    } else {
+                        $acf_fields[$actual_field_key] = 'unknown';
+                    }
+                }
+            }
         }
+
+        // Cache the results for future use
+        wp_cache_set($cache_key, $acf_fields);
     }
-    
-    return $acf_fields;
+
+    return $acf_fields; // Return the cached or newly retrieved fields
 }
 
+
 function get_post_meta_by_key($field_key) {
-    global $wpdb;
+    // Check if ACF is active
+    if (function_exists('get_field')) {
+        // Use ACF's get_field function to retrieve the field data
+        $acf_field_data = get_field($field_key);
 
-    // Look for the field type by fetching the ACF field definition
-    $acf_field = $wpdb->get_var($wpdb->prepare("
-        SELECT meta_value 
-        FROM {$wpdb->postmeta}
-        WHERE meta_key = %s
-    ", $field_key));
+        // If the field data exists and is an array, return its type
+        if ($acf_field_data && is_array($acf_field_data)) {
+            return $acf_field_data['type'] ?? 'unknown'; // Return 'type' if present, or 'unknown'
+        }
+    }
 
-    if ($acf_field) {
+    // Fallback: Use get_post_meta to retrieve the meta value directly
+    $meta_value = get_post_meta(get_the_ID(), $field_key, true); // Replace get_the_ID() with actual post ID if necessary
+
+    if ($meta_value) {
         // ACF stores field definitions as serialized data, so we need to unserialize
-        $acf_field_data = maybe_unserialize($acf_field);
+        $acf_field_data = maybe_unserialize($meta_value);
         return $acf_field_data['type'] ?? 'unknown'; // Return 'type' if present, or 'unknown'
     }
 
     return 'unknown'; // Fallback if not found
 }
+
 
 function ace_field_options_acf_settings_page_html() {
     if (!current_user_can('manage_options')) {
@@ -936,17 +922,17 @@ function ace_field_options_acf_settings_page_html() {
 }
 
 function get_acf_field_data_by_key($acf_field_key) {
-    global $wpdb;
+    // Use get_posts to fetch the ACF field post by post_name
+    $acf_field_posts = get_posts(array(
+        'name'        => $acf_field_key,
+        'post_type'   => 'acf-field',
+        'numberposts' => 1,
+    ));
 
-    // Query to fetch ACF field post content and post excerpt by post_name (field_xxxxx)
-    $acf_field_post = $wpdb->get_row($wpdb->prepare("
-        SELECT post_content, post_excerpt
-        FROM {$wpdb->posts}
-        WHERE post_name = %s
-        AND post_type = 'acf-field'
-    ", $acf_field_key));
+    if (!empty($acf_field_posts)) {
+        // Since we expect only one post, we can safely access the first element
+        $acf_field_post = $acf_field_posts[0];
 
-    if ($acf_field_post) {
         // Unserialize the field data stored in post_content
         $acf_field_data = maybe_unserialize($acf_field_post->post_content);
 
@@ -956,23 +942,22 @@ function get_acf_field_data_by_key($acf_field_key) {
         return $acf_field_data;
     }
 
-    error_log('ACF field data not found for key: ' . $acf_field_key);
+    wp_debug_log('ACF field data not found for key: ' . $acf_field_key);
     return null; // Return null if not found
 }
 
 function get_acf_field_content_by_excerpt($field_key) {
-    global $wpdb;
-
-    // Query to fetch the post_content where post_excerpt matches the field_key
-    $acf_field_post = $wpdb->get_row($wpdb->prepare("
-        SELECT post_content, post_excerpt
-        FROM {$wpdb->posts}
-        WHERE post_excerpt = %s
-        AND post_type = 'acf-field'
-    ", $field_key));
+    // Use get_posts to fetch the ACF field post by post_excerpt
+    $acf_field_posts = get_posts(array(
+        'post_excerpt' => $field_key,
+        'post_type'    => 'acf-field',
+        'numberposts'  => 1,
+    ));
 
     // Check if we got a result
-    if ($acf_field_post) {
+    if (!empty($acf_field_posts)) {
+        $acf_field_post = $acf_field_posts[0];
+
         // Unserialize the post_content since ACF stores serialized data
         $acf_field_data = maybe_unserialize($acf_field_post->post_content);
 
@@ -987,30 +972,43 @@ function get_acf_field_content_by_excerpt($field_key) {
     return null;
 }
 
+
 function handle_acf_import_submission() {
     // Validate user capabilities
     if (!current_user_can('manage_options')) {
         wp_die('Unauthorized user');
     }
 
-    // Validate the nonce
-    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'save_acf_imports')) {
+
+    // Unslash the entire $_POST array
+    $unslashed_post = wp_unslash($_POST);
+    
+    // Now verify the nonce with the unslashed variable
+    if (!wp_verify_nonce($unslashed_post['_wpnonce'], 'save_acf_imports')) {
         wp_die('Invalid nonce');
     }
 
     // Process the form if there are fields to import
-    if (isset($_POST['acf_import_fields']) && is_array($_POST['acf_import_fields']) && isset($_POST['acf_group_names']) && is_array($_POST['acf_group_names'])) {
-        foreach ($_POST['acf_import_fields'] as $index => $serialized_choices) {
-            // Remove any escaping before unserializing
+    if (isset($_POST['acf_import_fields'])) {
+        // Unsplash the entire array of ACF import fields
+        $acf_import_fields = array_map('sanitize_text_field', wp_unslash($_POST['acf_import_fields']));
+    
+        // Sanitize each item in the array
+        
+        
+
+        foreach ($acf_import_fields as $index => $serialized_choices) {
+               // Remove any escaping before unserializing
             $cleaned_choices = stripslashes($serialized_choices);
 
             // Deserialize the cleaned choices array
             $choices = unserialize($cleaned_choices);
 
             // Fetch the corresponding group name (post_excerpt)
-            $group_name = isset($_POST['acf_group_names'][$index]) ? sanitize_text_field($_POST['acf_group_names'][$index]) : '';
+            $group_name = isset($_POST['acf_group_names'][$index]) ? sanitize_text_field(wp_unslash($_POST['acf_group_names'][$index])) : '';
 
-            error_log('Deserialized Fields ' . print_r($choices, true));
+
+            wp_debug_log('Deserialized Fields ' . $choices);
 
             if ($choices && is_array($choices) && !empty($group_name)) {
                 // Prepare the group data in the required format
@@ -1028,14 +1026,14 @@ function handle_acf_import_submission() {
 
                 // Create the option key name based on the post_excerpt
                 $option_name = create_underscored_value($group_name);
-                error_log('Importing ACF group: ' . $group_name);
+                wp_debug_log('Importing ACF group: ' . $group_name);
 
                 // Save the group data as an option in the required serialized format
                 $updated = update_option($option_name, $group_data);
                 $updated = true; // Simulate successful update
                 // Log success for each imported group
                 if ($updated) {
-                    error_log("Successfully imported ACF group: " . $group_name);
+                    wp_debug_log("Successfully imported ACF group: " . $group_name);
 
                     // Step 2: Scan for posts and match ACF data to update as post meta
                     $posts = get_posts(array('numberposts' => -1)); // Get all posts
@@ -1044,7 +1042,7 @@ function handle_acf_import_submission() {
                         // Fetch all meta for this post
                         $post_meta = get_post_meta($post->ID);
                     
-                        error_log('Post Meta Data for Post #' . $post->ID . ': ' . print_r($post_meta, true)); // Log all post meta for the post
+                        // wp_debug_log('Post Meta Data for Post #' . $post->ID . ': ' . $post_meta); // Log all post meta for the post
                     
                         // Loop through each meta to find ACF fields that match the group choices
                         foreach ($post_meta as $meta_key => $meta_value) {
@@ -1056,9 +1054,9 @@ function handle_acf_import_submission() {
                                 // Check if we have the regular version of this meta key in the post's metadata
                                 if (isset($post_meta[$acf_meta_key])) {
                                     $regular_meta_value = maybe_unserialize($post_meta[$acf_meta_key][0]); // Unserialize the corresponding regular meta value if needed
-                                    error_log('ACF Meta Key: ' . $acf_meta_key . ' | Value: ' . print_r($regular_meta_value, true));
+                                    wp_debug_log('ACF Meta Key: ' . $acf_meta_key . ' | Value: ' . $regular_meta_value);
                                 } else {
-                                    error_log('No matching non-prefixed meta value found for ACF key: ' . $acf_meta_key);
+                                    wp_debug_log('No matching non-prefixed meta value found for ACF key: ' . $acf_meta_key);
                                 }
                             }
                         }
@@ -1068,10 +1066,10 @@ function handle_acf_import_submission() {
                     
 
                                     } else {
-                    error_log("Failed to import ACF group: " . $group_name);
+                    wp_debug_log("Failed to import ACF group: " . $group_name);
                 }
             } else {
-                error_log("Invalid choices or group name");
+                wp_debug_log("Invalid choices or group name");
             }
         }
     }
@@ -1083,31 +1081,48 @@ function handle_acf_import_submission() {
 }
 
 function get_acf_sample_data($field_key) {
-    global $wpdb;
+    // Attempt to load the sample value from the cache
+    $cache_key = 'acf_sample_data_' . sanitize_key($field_key);
+    $sample_value = wp_cache_get($cache_key);
 
-    // Fetch the most recent value for this ACF field from any post that has it, sorted by meta_id (assuming higher meta_id is more recent)
-    $sample_value = $wpdb->get_var($wpdb->prepare("
-        SELECT meta_value 
-        FROM {$wpdb->postmeta}
-        WHERE meta_key = %s
-        ORDER BY meta_id DESC
-        LIMIT 1
-    ", $field_key));
+    if ($sample_value === false) {
+        // Instead of querying posts directly with meta_key, consider if you can use an alternative method
+        // You can also check for the most recent post in a specific custom post type, if applicable
+        $args = array(
+            'post_type'   => 'your_custom_post_type', // Replace with your post type
+            'posts_per_page' => 1, // Only fetch the most recent post
+            'fields'      => 'ids', // Only retrieve the post IDs for performance
+        );
 
-    // Unserialize if necessary (ACF fields are sometimes serialized)
-    if ($sample_value) {
-        $sample_value = maybe_unserialize($sample_value);
+        // Load all posts with the specified post type
+        $posts = get_posts($args);
 
-        // Handle arrays or objects
-        if (is_array($sample_value) || is_object($sample_value)) {
-            $sample_value = json_encode($sample_value); // Convert to JSON for display
+        // Check if we have any posts
+        if (!empty($posts)) {
+            // Instead of getting meta data, consider other fields if possible
+            $sample_value = get_post_meta($posts[0], $field_key, true);
+
+            // Fallback logic for a better experience
+            if ($sample_value) {
+                $sample_value = maybe_unserialize($sample_value);
+                if (is_array($sample_value) || is_object($sample_value)) {
+                    $sample_value = wp_json_encode($sample_value); // Convert to JSON for display
+                }
+            } else {
+                $sample_value = 'No data found'; // Fallback message if no sample data is found
+            }
+        } else {
+            $sample_value = 'No data found'; // Fallback if no posts found
         }
-    } else {
-        $sample_value = 'No data found'; // Fallback message if no sample data is found
+
+        // Cache the result for future use
+        wp_cache_set($cache_key, $sample_value);
     }
 
     return $sample_value;
 }
+
+
 
 function ace_determine_field_type($meta_value) {
     if (is_array($meta_value)) {
@@ -1122,50 +1137,51 @@ function ace_determine_field_type($meta_value) {
 }
 
 function ace_dynamically_register_acf_fields($post_id) {
-    global $wpdb;
+    // Get all ACF fields for the post using ACF's built-in function
+    $acf_fields = get_field_objects($post_id);
 
-    $acf_field_keys = $wpdb->get_results($wpdb->prepare("
-        SELECT meta_key, meta_value FROM $wpdb->postmeta 
-        WHERE post_id = %d 
-        AND meta_key LIKE '\\_%'
-        AND meta_value LIKE 'field_%%'
-    ", $post_id));
-
+    // Initialize an array to hold fields to register
     $fields_to_register = [];
 
-    foreach ($acf_field_keys as $field_key) {
-        $actual_field_key = substr($field_key->meta_key, 1); // Remove leading underscore
-        $meta_value = get_post_meta($post_id, $actual_field_key, true); // Get the stored value
+    // Check if ACF fields exist
+    if ($acf_fields) {
+        foreach ($acf_fields as $field_key => $field_data) {
+            // Remove leading underscore from the field key
+            $actual_field_key = ltrim($field_key, '_'); 
 
-        // Determine the field type based on the stored meta value
-        $field_type = ace_determine_field_type($meta_value);
+            // Retrieve the stored value for the field using caching logic
+            $meta_value = get_acf_field_value_with_cache($post_id, $field_key); 
 
-        // Handle arrays: dynamically create the schema for array types
-        if ($field_type === 'array') {
-            $items_schema = ace_determine_array_items_schema($meta_value);
+            // Determine the field type based on the stored value
+            $field_type = ace_determine_field_type($meta_value);
 
-            $fields_to_register[] = [
-                'meta_key' => $actual_field_key,
-                'type' => 'array',
-                'schema' => [
-                    'items' => $items_schema, // Define the schema for each array item dynamically
-                ]
-            ];
+            // Handle arrays: dynamically create the schema for array types
+            if ($field_type === 'array') {
+                $items_schema = ace_determine_array_items_schema($meta_value);
 
-        } else {
-            // Register other non-array field types
-            $fields_to_register[] = [
-                'meta_key' => $actual_field_key,
-                'type' => $field_type
-            ];
+                $fields_to_register[] = [
+                    'type' => 'array',
+                    'schema' => [
+                        'items' => $items_schema, // Define the schema for each array item dynamically
+                    ]
+                ];
+
+            } else {
+                // Register other non-array field types
+                $fields_to_register[] = [
+                    'type' => $field_type
+                ];
+            }
+
+            // Log for debugging purposes
+            wp_debug_log("Determined field type: $field_type for field: $actual_field_key");
         }
-
-        // Log for debugging purposes
-        error_log("Determined field type: $field_type for field: $actual_field_key");
     }
 
     return $fields_to_register;
 }
+
+
 
 function ace_determine_array_items_schema($meta_value) {
     if (!empty($meta_value) && is_array($meta_value)) {
@@ -1228,10 +1244,16 @@ function ace_map_acf_to_rest_type($acf_type) {
 function conditionally_register_acf_fields_for_current_post() {
     // Only run this inside the WordPress admin and the post editor screen.
     if (is_admin() && isset($_GET['post'])) {
-        $post_id = intval($_GET['post']); // Get the current post ID from the URL
+        
+        $nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash($_GET['_wpnonce'])) : '';
+
+        if (!wp_verify_nonce($nonce, 'your_nonce_action')) {
+            wp_die('Nonce verification failed.');
+        }
+
+        $post_id = intval($_GET['post']); 
 
         if ($post_id) {
-
             // Dynamically register ACF fields only for the current post being edited
             $fields = ace_dynamically_register_acf_fields($post_id);
 
@@ -1249,13 +1271,14 @@ function conditionally_register_acf_fields_for_current_post() {
                         'type' => $field['type']
                     ];
                 }
-                error_log('Schema for field: ' . $field['meta_key'] . ' | ' . print_r($schema, true));
+
+                wp_debug_log('Schema for field: ' . $field['meta_key'] . ' | ' . wp_json_encode($schema));
 
                 if (function_exists('register_post_meta')) {
                     try {
                         register_post_meta(
                             'post',
-                            $field['meta_key'],
+                            sanitize_key($field['meta_key']), // Sanitize the meta key
                             array(
                                 'show_in_rest'      => [
                                     'schema' => $schema // Dynamically assign schema based on the field type
@@ -1264,30 +1287,20 @@ function conditionally_register_acf_fields_for_current_post() {
                                 'type'              => $field['type'],
                             )
                         );
-                        error_log('Successfully registered field: ' . $field['meta_key']);
+                        wp_debug_log('Successfully registered field: ' . sanitize_key($field['meta_key']));
                     } catch (Exception $e) {
-                        error_log('Failed to register field: ' . $field['meta_key'] . ' | Error: ' . $e->getMessage());
+                        wp_debug_log('Failed to register field: ' . sanitize_key($field['meta_key']) . ' | Error: ' . $e->getMessage());
                     }
                 } else {
-                    error_log('register_post_meta function not available.');
+                    wp_debug_log('register_post_meta function not available.');
                 }
             }
         } else {
-            error_log('Post ID is not valid');
+            wp_debug_log('Post ID is not valid');
         }
     }
-
-    // Register the test field
-    // register_post_meta(
-    //     'post',
-    //     'test',
-    //     array(
-    //         'show_in_rest'      => true,
-    //         'single'            => true,
-    //         'type'              => 'string', // Type should be string, even though we might store serialized arrays
-    //     )
-    // );
 }
+
 
 
 
@@ -1347,7 +1360,7 @@ function ace_field_options_enqueue_settings_page_scripts() {
             'nonce' => wp_create_nonce('ace_nonce') // Create a nonce for security
         ));
 
-        wp_enqueue_style('wp-block-editor', includes_url('css/dist/block-editor.css'));
+        wp_enqueue_style('wp-block-editor', includes_url('css/dist/block-editor.css'), array(), $GLOBALS['wp_version']);    
     }
 }
 add_action('admin_enqueue_scripts', 'ace_field_options_enqueue_settings_page_scripts');
@@ -1471,6 +1484,11 @@ function ace_save_options(WP_REST_Request $request) {
         }
 
         update_option($option_name, $group_data);
+
+
+        // Clear the cache for this option after updating
+        wp_cache_delete('ace_all_options_cache'); // Clear the cache for all options
+        
         
         // Add to updated choice names list
         $updated_choice_names[] = $choice['name'];
@@ -1629,7 +1647,7 @@ function register_field_tags_taxonomy() {
         'field_tags',
         null, // No specific object type; these can be added programmatically
         array(
-            'label' => __( 'Field Tags' ),
+            'label' => __( 'Field Tags', 'adaptive-content-enhancer' ),
             'public' => true, // Not publicly queryable, but can be used internally
             'show_in_rest' => true, // Enable REST API access
             'hierarchical' => false,
@@ -1679,29 +1697,29 @@ function add_field_tags_meta_box($term) {
     ?>
     <tr class="form-field">
         <th scope="row" valign="top">
-            <label for="field_tags_color"><?php _e('Color', 'textdomain'); ?></label>
+            <label for="field_tags_color"><?php echo esc_html__('Color', 'adaptive-content-enhancer'); ?></label>
         </th>
         <td>
             <input type="text" name="field_tags_color" id="field_tags_color" value="<?php echo esc_attr($color); ?>" class="color-field" />
-            <p class="description"><?php _e('Select a color for this field tag.', 'textdomain'); ?></p>
+            <p class="description"><?php echo esc_html__('Select a color for this field tag.', 'adaptive-content-enhancer'); ?></p>
         </td>
     </tr>
     <tr class="form-field">
         <th scope="row" valign="top">
-            <label for="associated_roles"><?php _e('Associated Roles', 'textdomain'); ?></label>
+            <label for="associated_roles"><?php echo esc_html__('Associated Roles', 'adaptive-content-enhancer'); ?></label>
         </th>
         <td>
             <input type="text" name="associated_roles" id="associated_roles" value="<?php echo esc_attr(implode(', ', (array) $associated_roles)); ?>" />
-            <p class="description"><?php _e('Comma-separated list of associated roles.', 'textdomain'); ?></p>
+            <p class="description"><?php echo esc_html__('Comma-separated list of associated roles.', 'adaptive-content-enhancer'); ?></p>
         </td>
     </tr>
     <tr class="form-field">
         <th scope="row" valign="top">
-            <label for="post_types"><?php _e('Post Types', 'textdomain'); ?></label>
+            <label for="post_types"><?php echo esc_html__('Post Types', 'adaptive-content-enhancer'); ?></label>
         </th>
         <td>
             <input type="text" name="post_types" id="post_types" value="<?php echo esc_attr(implode(', ', (array) $post_types)); ?>" />
-            <p class="description"><?php _e('Comma-separated list of associated post types.', 'textdomain'); ?></p>
+            <p class="description"><?php echo esc_html__('Comma-separated list of associated post types.', 'adaptive-content-enhancer'); ?></p>
         </td>
     </tr>
     <?php
@@ -1710,21 +1728,32 @@ add_action('field_tags_edit_form_fields', 'add_field_tags_meta_box');
 
 // Save function for Color, Associated Roles, and Post Types
 function save_field_tags_meta($term_id) {
+    // Verify nonce
+    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_wpnonce'])), 'save_field_tags_meta')) {
+        return; // Exit if nonce is invalid
+    }
+
     // Save color
     if (isset($_POST['field_tags_color'])) {
-        $color = sanitize_hex_color($_POST['field_tags_color']);
+        $color = sanitize_hex_color(wp_unslash($_POST['field_tags_color']));
         update_term_meta($term_id, 'color', $color);
     }
 
     // Save associated roles
-    if (isset($_POST['associated_roles'])) {
-        $roles = array_map('sanitize_text_field', explode(',', $_POST['associated_roles']));
+     // Save associated roles
+     if (isset($_POST['associated_roles'])) {
+        // Unsplash the associated roles input and then sanitize
+        $roles = array_map('sanitize_text_field', wp_unslash($_POST['associated_roles']));
+        $roles = array_map('trim', explode(',', $roles));
         update_term_meta($term_id, 'associated_roles', $roles);
     }
 
     // Save post types
     if (isset($_POST['post_types'])) {
-        $post_types = array_map('sanitize_text_field', explode(',', $_POST['post_types']));
+        // Unsplash the post types input and then sanitize
+
+        $post_types = array_map('sanitize_text_field', wp_unslash($_POST['post_types']));
+        $post_types = array_map('trim', explode(',', $post_types));
         update_term_meta($term_id, 'post_types', $post_types);
     }
 }

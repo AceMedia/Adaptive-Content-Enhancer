@@ -1,12 +1,13 @@
-### WordPress Adaptive Content Enhancer (WP ACE)
+### Adaptive Content Enhancer (WP ACE)
 Contributors: Shane Rounce  
 Tags: block, custom fields, dynamic content, editor enhancements  
 Tested up to: 6.7  
 Stable tag: 0.421.0  
 License: GPL-2.0-or-later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html  
+Short 
 
-**Adaptive Content Enhancer** (WP ACE) brings flexible, dynamic custom field management to the WordPress block editor. Seamlessly integrate custom dropdowns, true/false toggles, and various other input options directly into the editor, enabling more interactive and customizable content editing experiences.
+Adaptive Content Enhancer offers flexible custom field management for the WordPress block editor, enabling interactive content editing.
 
 ---
 

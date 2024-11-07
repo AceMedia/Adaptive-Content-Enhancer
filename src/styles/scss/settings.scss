@@ -184,7 +184,7 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
     border: 1px solid rgb(203, 213, 225) !important;
     .components-card__header {
         position: relative;
-        overflow: hidden;
+        overflow: hidden !important;
         padding-left: 50px;
         p, h2 {
             margin: 0px;
@@ -210,7 +210,6 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
             width: 40px;
             text-align: center;
             align-items: center;
-            border-radius: .5em 0px 0px .5em !important;
             svg {
                 padding: 0px;
                 margin: 0px;
@@ -227,9 +226,7 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
             }
         }
         &:hover {
-            background: rgba(248, 250, 252, 1);
             cursor: pointer;
-            border-radius: .5em;
         }
     }
 
@@ -277,6 +274,9 @@ ul#adminmenu a.wp-has-current-submenu::after, ul#adminmenu > li.current > a.curr
             }
     }
 
+}
+.components-card:has(.components-card__body) .components-card__header {
+    background: rgba(248, 250, 252, 1) !important;
 }
 
 button {
@@ -597,8 +597,8 @@ button {
         position: relative;
         box-shadow: none;
         transition: background-color 0.2s, color 0.2s;
-        border-radius: 0px 2px 2px 0px !important;
-        padding: 0px 1em 0px 20px !important;
+        border-radius: 0px .5em .5em 0px !important;
+        padding: 0px .5em 0px 20px !important;
         text-align: left;
         &:is(div) {
             padding-right: 31px !important;
@@ -629,7 +629,7 @@ button {
             height: 5px;
             width: 5px;
             position: absolute;
-            left: 10px;
+            left: 8px;
             top: 50%;
             transform: translateY(-50%);
         }
@@ -704,9 +704,8 @@ button {
 
 .bulk-select-field {
     position: absolute;
-    left: 0px;
+    left: .5em;
     top: 50%;
-    left: -3em;
     display: inline-block;
     width: 20px !important;
     height: 20px !important;
@@ -719,7 +718,7 @@ button {
 }
 
 .components-card.quick-edit {
-    margin-left: 3em;
+    padding-left: 3em;
 
 
 }
@@ -778,3 +777,14 @@ button {
     }
   }
   
+
+
+  .updated-times {
+    > * {
+        padding: 0px .5em;
+        line-height: 26px;
+        font-size: .8em;
+        background: #EFEFEF;
+        border-radius: .5em;
+    }
+  }
