@@ -1,21 +1,19 @@
-import { useState, useEffect } from '@wordpress/element';
+import { useState, useEffect, useCallback, useMemo } from '@wordpress/element';
 import { Button, Modal, Flex, FlexBlock, FlexItem, TextControl, ColorPicker, Tooltip, ToggleControl } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 import { store as coreDataStore } from '@wordpress/core-data';
 import apiFetch from '@wordpress/api-fetch';
 
 import SideBar from './SideBar';
-import ChoiceCards from './ChoiceCards'; // Adjust path as necessary
-import ChoiceFields from './ChoiceFields'; // Adjust the path as needed
-import SaveBar from './SaveBar/SaveBar'; // Adjust the path as needed
+import ChoiceCards from './ChoiceCards';
+import ChoiceFields from './ChoiceFields';
+import SaveBar from './SaveBar/SaveBar';
 import SettingsHeader from './SettingsHeader';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faCheckSquare, faToggleOn, faCircleDot, faFont, faSquareCaretDown, faClock } from '@fortawesome/free-solid-svg-icons';
 
 import Select from 'react-select';
-
 import Creatable from 'react-select/creatable';
-
 
 const MainSettingsPanel = ({
     choices,
@@ -45,8 +43,8 @@ const MainSettingsPanel = ({
     formatRelativeTime,
     setFieldTypeFilter,
     tagFilter,
-    setTagFilter, // Accept the setter function
-    tags, 
+    setTagFilter,
+    tags,
     searchQuery,
     handleSearchChange,
     isEditingTag,
@@ -59,7 +57,7 @@ const MainSettingsPanel = ({
     isAutoSaveEnabled,
     setNewChoice,
     setButtonText,
-    setMessage,
+    message,
     totalFields,
     handleBulkDelete,
     selectedFields,
@@ -71,40 +69,43 @@ const MainSettingsPanel = ({
     setTags,
     customStyles,
     getRandomColor,
-    setSelectedTags
+    setSelectedTags,
+    responseTime
 }) => {
-    // Define the groupBy state and its handler
-    const [sortBy, setSortBy] = useState('edited'); // or whatever default sort
+    const [sortBy, setSortBy] = useState('edited');
+    const [availableRoles, setAvailableRoles] = useState([]);
+    const [availablePostTypes, setAvailablePostTypes] = useState([]);
+    const [color, setColor] = useState(currentTag?.meta?.color || '#000');
 
 
 
-    const tagOptions = Object.keys(tags).map(tagId => ({
-        value: tagId,
-        label: tags[tagId].name
-    }));
-    
+    const visibleFields = choices.filter(field => field); // Adjust this filter as needed
 
 
-    const fieldTypeIcons = {
+    const fieldTypeIcons = useMemo(() => ({
         text: faFont,
         checkbox: faCheckSquare,
         select: faSquareCaretDown,
         radio: faCircleDot,
         truefalse: faToggleOn,
-    };
+    }), []);
 
+    const tagOptions = useMemo(() => Object.keys(tags).map(tagId => ({
+        value: tagId,
+        label: tags[tagId].name
+    })), [tags]);
 
-    const handleGroupByChange = (newGroupBy) => {
+    const handleGroupByChange = useCallback((newGroupBy) => {
         setGroupBy(newGroupBy);
-    };
+    }, [setGroupBy]);
 
-    const handleSortChange = (value) => {
+    const handleSortChange = useCallback((value) => {
         setSortBy(value);
-    };
+    }, []);
 
-    const sortFields = (choices, sortBy) => {
+    const sortedFields = useMemo(() => {
         return [...choices].sort((a, b) => {
-            switch(sortBy) {
+            switch (sortBy) {
                 case 'edited':
                     return new Date(b.modified_time) - new Date(a.modified_time);
                 case 'title':
@@ -113,55 +114,13 @@ const MainSettingsPanel = ({
                     return a.name.localeCompare(b.name);
             }
         });
-    };
+    }, [choices, sortBy]);
 
-
-    const [color, setColor] = useState(currentTag?.meta?.color || '');
-
-    useEffect(() => {
-        if (currentTag?.meta?.color) {
-            // Check if color is an array
-            if (Array.isArray(currentTag.meta.color)) {
-                setColor(currentTag.meta.color[0] || '#000'); // Set to first element or fallback
-            } else {
-                setColor(currentTag.meta.color || '#000'); // Set directly or fallback
-            }
-        } else {
-            setColor('#000'); // Fallback to default if no color is set
-        }
-    }, [currentTag]);
-
-    
-    const handleColorChangeComplete = (value) => {
-        setColor(value.hex); // Update local color state
-        setCurrentTag((prevTag) => ({
-            ...prevTag,
-            color: value.hex,
-            meta: {
-                ...prevTag.meta,
-                color: value.hex, // Update meta.color only
-            },
-        }));
-    };
-
-
-    const visibleFields = choices.filter(field => field); // Adjust this filter as needed
-
-
-       
-      
-      
-      
-    const [availableRoles, setAvailableRoles] = useState([]);
-    const [availablePostTypes, setAvailablePostTypes] = useState([]);
-
-    // Fetch post types using @wordpress/core-data
-    const postTypes = useSelect((select) =>
+    const postTypes = useSelect((select) => 
         select(coreDataStore)?.getPostTypes({ per_page: -1 }) || [],
-    []);
+    );
 
     useEffect(() => {
-        // Set available post types once they're fetched
         if (postTypes.length) {
             setAvailablePostTypes(
                 postTypes.map((postType) => ({
@@ -172,82 +131,48 @@ const MainSettingsPanel = ({
         }
     }, [postTypes]);
 
-
-useEffect(() => {
-    const fetchRoles = async () => {
-        try {
-            const rolesData = await apiFetch({
-                path: '/ace/v1/roles',
-                method: 'GET',
-                headers: { 'X-WP-Nonce': aceAjax.nonce }
-            });
-
-            setAvailableRoles(
-                rolesData.map((role) => ({
-                    label: role.name,
-                    value: role.slug,
-                }))
-            );
-        } catch (error) {
-            console.error('Error fetching roles:', error);
-        }
-    };
-
-    fetchRoles();
-}, []);
-
-
-const handleMetaChange = (key, value) => {
-    setCurrentTag((prevTag) => {
-        const { associated_roles = [], post_types = [] } = prevTag.meta;
-
-        let updatedMeta = { ...prevTag.meta }; // Start with the current meta
-
-        if (key === 'associated_roles') {
-            // Toggle role
-            if (!Array.isArray(associated_roles) || associated_roles.length === 0) {
-                // If it's not an array or it's empty, set it to include all other roles except the clicked value
-                updatedMeta.associated_roles = availableRoles
-                    .map(role => role.value) // Get string values from availableRoles
-                    .filter(roleValue => roleValue !== value); // Exclude the clicked role
-            } else {
-                // Toggle role
-                updatedMeta.associated_roles = associated_roles.includes(value)
-                    ? associated_roles.filter((r) => r !== value) // Remove role
-                    : [...associated_roles, value]; // Add role
+    useEffect(() => {
+        const fetchRoles = async () => {
+            try {
+                const rolesData = await apiFetch({ path: '/ace/v1/roles', method: 'GET', headers: { 'X-WP-Nonce': aceAjax.nonce } });
+                setAvailableRoles(rolesData.map((role) => ({ label: role.name, value: role.slug })));
+            } catch (error) {
+                console.error('Error fetching roles:', error);
             }
-        } else if (key === 'post_types') {
-            // Toggle post type
-            if (!Array.isArray(post_types) || post_types.length === 0) {
-                // If it's not an array or it's empty, set it to include all other post types except the clicked value
-                updatedMeta.post_types = availablePostTypes
-                    .map(postType => postType.value) // Get string values from availablePostTypes
-                    .filter(postTypeValue => postTypeValue !== value); // Exclude the clicked post type
-            } else {
-                if (post_types.includes(value)) {
-                    updatedMeta.post_types = post_types.filter((p) => p !== value); // Remove post type
-                } else {
-                    updatedMeta.post_types = [...post_types, value]; // Add post type
-                }
-            }
-        } else if (key === 'color') {
-            // Update color
-            updatedMeta.color = value;
-        }
-
-        // Ensure all values in associated_roles and post_types are strings
-        updatedMeta.associated_roles = updatedMeta.associated_roles.map(String);
-        updatedMeta.post_types = updatedMeta.post_types.map(String);
-
-        console.log(updatedMeta); // Debugging log to check the updated meta
-
-        return {
-            ...prevTag,
-            meta: updatedMeta, // Update the meta with the changes
         };
-    });
-};
-      
+        fetchRoles();
+    }, []);
+
+    useEffect(() => {
+        if (currentTag?.meta?.color) {
+            setColor(Array.isArray(currentTag.meta.color) ? currentTag.meta.color[0] || '#000' : currentTag.meta.color || '#000');
+        } else {
+            setColor('#000');
+        }
+    }, [currentTag]);
+
+    const handleMetaChange = useCallback((key, value) => {
+        setCurrentTag((prevTag) => {
+            const { associated_roles = [], post_types = [] } = prevTag.meta;
+            let updatedMeta = { ...prevTag.meta };
+
+            if (key === 'associated_roles') {
+                updatedMeta.associated_roles = associated_roles.includes(value)
+                    ? associated_roles.filter((r) => r !== value)
+                    : [...associated_roles, value];
+            } else if (key === 'post_types') {
+                updatedMeta.post_types = post_types.includes(value)
+                    ? post_types.filter((p) => p !== value)
+                    : [...post_types, value];
+            } else if (key === 'color') {
+                updatedMeta.color = value;
+            }
+
+            updatedMeta.associated_roles = updatedMeta.associated_roles.map(String);
+            updatedMeta.post_types = updatedMeta.post_types.map(String);
+            return { ...prevTag, meta: updatedMeta };
+        });
+    }, [setCurrentTag, availableRoles, availablePostTypes]);
 
     return (
         <>
@@ -260,8 +185,8 @@ const handleMetaChange = (key, value) => {
                         fieldTypeFilter={fieldTypeFilter}
                         setFieldTypeFilter={setFieldTypeFilter}
                         tagFilter={tagFilter}
-                        setTagFilter={setTagFilter} // Pass the setter function
-                        tags={tags} // Pass the tags state
+                        setTagFilter={setTagFilter}
+                        tags={tags}
                         groupBy={groupBy}
                         handleGroupByChange={handleGroupByChange}
                         fields={choices}
@@ -274,75 +199,76 @@ const handleMetaChange = (key, value) => {
                         currentTag={currentTag}
                         totalFields={totalFields} 
                         setSelectedTags={setSelectedTags}
-                quickEdit={quickEdit}
-                setQuickEdit={setQuickEdit}
-                handleBulkDelete={handleBulkDelete}
-                selectedTags={selectedTags} // Pass the selectedTags
-                handleTagSelect={handleTagSelect}
-                getRandomColor={getRandomColor}
-                customStyles={customStyles}
+                        quickEdit={quickEdit}
+                        setQuickEdit={setQuickEdit}
+                        handleBulkDelete={handleBulkDelete}
+                        selectedTags={selectedTags}
+                        handleTagSelect={handleTagSelect}
+                        getRandomColor={getRandomColor}
+                        customStyles={customStyles}
                     />
                 </FlexItem>
-
+                
                 <FlexBlock>
 
 
-                {quickEdit === 'true' && (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '1em', marginBottom: '15px' }}>
-         <ToggleControl
-            label="Toggle All"
-            checked={choices.every(choice => choice.isSelected)} // Ensure checked reflects all choices
-            onChange={(value) => {
-                handleToggleChange('toggle_all', value); // Use 'toggle_all' as the choice identifier
-            }}
-        />
-    </div>
+{quickEdit === 'true' && (
+<div style={{ display: 'flex', alignItems: 'center', gap: '1em', marginBottom: '15px' }}>
+<ToggleControl
+label="Toggle All"
+checked={choices.every(choice => choice.isSelected)} // Ensure checked reflects all choices
+onChange={(value) => {
+handleToggleChange('toggle_all', value); // Use 'toggle_all' as the choice identifier
+}}
+/>
+</div>
 )}
 
-                    {/* Choice Cards */}
 
-                    {choices.length !== 0 && (
-                    <div style={{ marginBottom: '15px' }} className='currently-viewing'>
-
-
+    {choices.length !== 0 && (
+        <div style={{ marginBottom: '15px' }} className='currently-viewing'>
+            <Tooltip text={`Viewing ${visibleFields.length} of ${totalFields}`}></Tooltip>
 
 
-                <Tooltip text={`Viewing ${visibleFields.length} of ${totalFields}`}>
-                    <span className='pill' style={{ marginRight: '1em' }} >
-                        <FontAwesomeIcon icon={faEye} style={{ marginRight: '5px' }} />{visibleFields.length} of {totalFields}
-                    </span>
-                </Tooltip>
+
+<Tooltip text={`Viewing ${visibleFields.length} of ${totalFields}`}>
+    <span className='pill' style={{ marginRight: '1em' }} >
+        <FontAwesomeIcon icon={faEye} style={{ marginRight: '5px' }} />{visibleFields.length} of {totalFields}
+    </span>
+</Tooltip>
 
 
-                <Tooltip text={`0.00ms response time for the current view`}>
-                    <span className='pill'>
-                        <FontAwesomeIcon icon={faClock} style={{ marginRight: '5px' }} />0.00ms
-                    </span>
-                </Tooltip>
+<Tooltip text={`${responseTime}ms response time for the current view`}>
+                <span className='pill'>
+                    <FontAwesomeIcon icon={faClock} style={{ marginRight: '5px' }} />
+                    {responseTime}ms
+                </span>
+            </Tooltip>
 
 
-                <ul className='visible-types'>
-    {Object.entries(visibleFields.reduce((acc, field) => {
-        acc[field.field_type] = (acc[field.field_type] || 0) + 1;
-        return acc;
-    }, {})).map(([type, count]) => (
-        <li key={type}>
-        <Tooltip text={`Showing ${count} ${type.charAt(0).toUpperCase() + type.slice(1)} fields`}>
-        <span className='pill'>
-            <FontAwesomeIcon icon={fieldTypeIcons[type] || faGlobe} style={{ marginRight: '5px' }} />
-        <strong>{count}</strong>
-                    </span>
-                </Tooltip>
-        </li>
-    ))}
+<ul className='visible-types'>
+{Object.entries(visibleFields.reduce((acc, field) => {
+acc[field.field_type] = (acc[field.field_type] || 0) + 1;
+return acc;
+}, {})).map(([type, count]) => (
+<li key={type}>
+<Tooltip text={`Showing ${count} ${type.charAt(0).toUpperCase() + type.slice(1)} fields`}>
+<span className='pill'>
+<FontAwesomeIcon icon={fieldTypeIcons[type] || faGlobe} style={{ marginRight: '5px' }} />
+<strong>{count}</strong>
+    </span>
+</Tooltip>
+</li>
+))}
 </ul>
-            </div>
-        )}
+</div>
+)}
+
 
                     <ChoiceCards
-                        choices={choices}
+                        choices={sortedFields}
                         sortBy={sortBy}
-                        groupBy={groupBy}  // Add this line
+                        groupBy={groupBy}
                         newlyAddedChoice={newlyAddedChoice}
                         openIndexes={openIndexes}
                         toggleOpen={toggleOpen}
@@ -360,7 +286,7 @@ const handleMetaChange = (key, value) => {
                         quickEdit={quickEdit}
                         setQuickEdit={setQuickEdit}
                         handleBulkDelete={handleBulkDelete}
-                        selectedFields={selectedFields} // Pass selectedFields
+                        selectedFields={selectedFields}
                         handleChoiceSelect={handleChoiceSelect} 
                         handleAddChoiceGroup={handleAddChoiceGroup}
                         setNewChoice={setNewChoice}
@@ -368,226 +294,87 @@ const handleMetaChange = (key, value) => {
                         getRandomColor={getRandomColor}
                         customStyles={customStyles}
                     />
-
                     {totalPages > 1 && (
                         <Flex justify="flex-start" gap={2}>
-                            {currentPage > 1 && (
-                                <Button isSecondary onClick={handlePreviousPage}>
-                                    Previous
-                                </Button>
-                            )}
-                            {currentPage < totalPages && (
-                                <Button isSecondary onClick={handleNextPage}>
-                                    Next
-                                </Button>
-                            )}
+                            {currentPage > 1 && <Button isSecondary onClick={handlePreviousPage}>Previous</Button>}
+                            {currentPage < totalPages && <Button isSecondary onClick={handleNextPage}>Next</Button>}
                         </Flex>
                     )}
                 </FlexBlock>
             </Flex>
 
             <SaveBar
-    onSave={handleSave}
-    setUnsavedChanges={setUnsavedChanges}
-    unsavedChanges={unsavedChanges}
-    isAutoSaveEnabled={isAutoSaveEnabled} // Pass the state to SaveBar
-    setIsAutoSaveEnabled={setIsAutoSaveEnabled} // Pass the function to SaveBar
-    buttonText={unsavedChanges ? 'Save Changes' : 'Saved'}
-    setButtonText={setButtonText}
-    setMessage={setMessage}
->
-
-{quickEdit != 'true' && (
-    <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup} icon="plus">
-        Add New Field
-    </Button>
-)}
-
-{quickEdit === 'true' && (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '1em' }}>
-        <Button isDestructive isPrimary onClick={handleBulkDelete} icon="trash">
-            Delete Selected
-        </Button>
-        
-
-
-    <label htmlFor="bulk-tag-set">Select or Create Tags</label>
-        <Creatable
-    isMulti
-     menuPlacement="top"
-     id="bulk-tag-set"
-    options={tagOptions}
-    value={selectedTags}
-    className="ace-tag-select"
-    styles={customStyles} // Apply custom styles to display tag color
-    onChange={(selectedOptions, actionMeta) => {
-        if (actionMeta.action === 'create-option') {
-            const temporaryTagId = `temp-${Date.now()}`;
-            const randomColor = getRandomColor();
-            const newTag = { name: actionMeta.option.label, description: '', meta: { color: randomColor } };
-            const temporaryTag = { value: temporaryTagId, label: newTag.name, meta: { color: randomColor } };
-
-            // Optimistically update tag options and selected tags
-            const updatedTagOptions = [...tagOptions, temporaryTag];
-            const updatedSelectedTags = [...selectedTags, temporaryTag];
-            setTags((prevTags) => ({
-                ...prevTags,
-                [temporaryTagId]: { name: newTag.name, description: '', meta: { color: randomColor } },
-            }));
-            handleTagChange(choice, updatedSelectedTags.map(tag => tag.value));
-            setNewChoice((prevNewChoice) => ({
-                ...prevNewChoice,
-                tags: updatedSelectedTags.map(tag => tag.value),
-            }));
-
-            // Proceed with the API call to create a new tag
-            apiFetch({
-                path: '/wp/v2/field_tags',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newTag),
-            })
-                .then((response) => {
-                    if (response.id) {
-                        const createdTag = { value: response.id, label: response.name, meta: { color: randomColor } };
-
-                        // Update tags to replace temporary tag with the saved tag
-                        setTags((prevTags) => {
-                            const { [temporaryTagId]: removed, ...restTags } = prevTags;
-                            return {
-                                ...restTags,
-                                [response.id]: { name: response.name, description: '', meta: { color: randomColor } },
-                            };
-                        });
-
-                        handleTagChange(
-                            choice,
-                            [
-                                ...updatedSelectedTags.filter((tag) => tag.value !== temporaryTagId),
-                                createdTag,
-                            ].map((tag) => tag.value)
-                        );
-                    } else {
-                        console.error('Error creating tag:', response);
-                    }
-                })
-                .catch((error) => {
-                    console.error('Error creating tag:', error);
-                    // Optionally handle error by removing the temporary tag
-                    setTags((prevTags) => {
-                        const { [temporaryTagId]: removed, ...restTags } = prevTags;
-                        return restTags;
-                    });
-                });
-        } else {
-            // Handle selection of existing tags
-            const tagIds = selectedOptions.map((option) => option.value);
-            handleTagChange(choice, tagIds);
-        }
-    }}
-/>
-
-    </div>
-)}
-
+                onSave={handleSave}
+                setUnsavedChanges={setUnsavedChanges}
+                unsavedChanges={unsavedChanges}
+                isAutoSaveEnabled={isAutoSaveEnabled}
+                setIsAutoSaveEnabled={setIsAutoSaveEnabled}
+                buttonText={unsavedChanges ? 'Save Changes' : 'Saved'}
+                message={message}
+            >
+                {quickEdit !== 'true' && (
+                    <Button isPrimary variant="secondary" onClick={handleAddChoiceGroup} icon="plus">
+                        Add New Field
+                    </Button>
+                )}
+                {quickEdit === 'true' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1em' }}>
+                        <Button isDestructive isPrimary onClick={handleBulkDelete} icon="trash">
+                            Delete Selected
+                        </Button>
+                    </div>
+                )}
             </SaveBar>
 
-            {/* Modal for adding a new choice group */}
             {isModalOpen && (
-    <Modal
-        title={isEditingTag ? "Edit Tag" : "Add New Choice Group"}
-        onRequestClose={() => setIsModalOpen(false)}
-        size="large"
-        focusOnMount="firstContentElement"
-    >
-        {isEditingTag ? (
-             <>
-             {console.log(currentTag)}
-             <TextControl
-                 label="Tag Name"
-                 value={currentTag ? currentTag.label : ''}
-                 onChange={(value) => setCurrentTag({ ...currentTag, label: value })}
-             />
-             <TextControl
-                 label="Tag Description"
-                 value={currentTag ? currentTag.description : ''}
-                 onChange={(value) => setCurrentTag({ ...currentTag, description: value })}
-             />
-
-<h4>Available User Roles</h4>
-<Flex wrap="wrap" gap={4}>
-    {availableRoles.map((role) => (
-        <FlexItem key={role.value} style={{ width: '30%', minWidth: '150px' }}>
-            <ToggleControl
-                label={role.label}
-                checked={
-                    currentTag?.meta?.associated_roles?.includes(role.value) ||
-                    currentTag?.meta?.associated_roles === undefined ||
-                    currentTag?.meta?.associated_roles.length === 0
-                }
-                onChange={() => handleMetaChange('associated_roles', role.value)} // Use the unified function
-            />
-        </FlexItem>
-    ))}
-</Flex>
-
-<h4>Applicable Content Types</h4>
-<Flex wrap="wrap" gap={4}>
-    {availablePostTypes
-        .filter(postType => 
-            !['nav_menu_item', 'attachment', 'wp_font_family', 'wp_navigation', 'wp_global_styles', 'wp_font_face'].includes(postType.value)
-        )
-        .map((postType) => (
-            <FlexItem key={postType.value} style={{ width: '30%', minWidth: '150px' }}>
-                <ToggleControl
-                    label={postType.value}
-                    checked={
-                        currentTag?.meta?.post_types?.includes(postType.value) ||
-                        currentTag?.meta?.post_types === undefined ||
-                        currentTag?.meta?.post_types.length === 0
-                    }
-                    onChange={() => handleMetaChange('post_types', postType.value)} // Use the unified function
-                />
-            </FlexItem>
-        ))}
-</Flex>
-
-{currentTag?.meta.color || '#000'} 
-
-<ColorPicker
-    color={color} // Fallback to '#000' if currentTag.color is not set
-    disableAlpha={true}
-    onChangeComplete={(colorValue) => handleMetaChange('color', colorValue.hex)} // Use the unified function for color change
-/>
-         </>
-        ) : (
-            <ChoiceFields 
-                choice={newChoice}
-                handleTextChange={handleTextChange}
-                handleToggleChange={handleToggleChange}
-                handleTagChange={handleTagChange}
-                updateOption={updateOption}
-                removeOption={removeOption}
-                addOption={addOption}
-                isModalOpen={isModalOpen}
-                openConfirmDialog={openConfirmDialog}
-                tags={tags}
-                setNewChoice={setNewChoice}
-                getRandomColor={getRandomColor}
-                customStyles={customStyles}
-            />
-        )}
-        <Button isPrimary variant="primary" onClick={handleModalSubmit}>
-            {isEditingTag ? "Save Tag" : "Add Field"}
-        </Button>
-    </Modal>
-)}
+                <Modal
+                    title={isEditingTag ? "Edit Tag" : "Add New Choice Group"}
+                    onRequestClose={() => setIsModalOpen(false)}
+                    size="large"
+                    focusOnMount="firstContentElement"
+                >
+                    {isEditingTag ? (
+                        <>
+                            <TextControl
+                                label="Tag Name"
+                                value={currentTag ? currentTag.label : ''}
+                                onChange={(value) => setCurrentTag({ ...currentTag, label: value })}
+                            />
+                            <TextControl
+                                label="Tag Description"
+                                value={currentTag ? currentTag.description : ''}
+                                onChange={(value) => setCurrentTag({ ...currentTag, description: value })}
+                            />
+                            <ColorPicker
+                                color={color}
+                                disableAlpha
+                                onChangeComplete={(colorValue) => handleMetaChange('color', colorValue.hex)}
+                            />
+                        </>
+                    ) : (
+                        <ChoiceFields 
+                            choice={newChoice}
+                            handleTextChange={handleTextChange}
+                            handleToggleChange={handleToggleChange}
+                            handleTagChange={handleTagChange}
+                            updateOption={updateOption}
+                            removeOption={removeOption}
+                            addOption={addOption}
+                            isModalOpen={isModalOpen}
+                            openConfirmDialog={openConfirmDialog}
+                            tags={tags}
+                            setNewChoice={setNewChoice}
+                            getRandomColor={getRandomColor}
+                            customStyles={customStyles}
+                        />
+                    )}
+                    <Button isPrimary variant="primary" onClick={handleModalSubmit}>
+                        {isEditingTag ? "Save Tag" : "Add Field"}
+                    </Button>
+                </Modal>
+            )}
         </>
     );
 };
 
 export default MainSettingsPanel;
-
-

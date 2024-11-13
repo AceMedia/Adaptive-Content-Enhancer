@@ -75,6 +75,9 @@ const [totalFields, setTotalFields] = useState(0);
 const [quickEdit, setQuickEdit] = useState('false'); // Initialize quickEdit state
 
 
+const [responseTime, setResponseTime] = useState(null); // Add state for response time
+
+
 const [isBulkDeleteConfirmDialogOpen, setIsBulkDeleteConfirmDialogOpen] = useState(false);
 const [bulkDeleteConfirmMessage, setBulkDeleteConfirmMessage] = useState('');
 
@@ -371,10 +374,11 @@ const handleTextChange = (choice, field, newValue) => {
 };
 
 
-
 const handleSave = (isAutoSave = false) => {
-    setButtonText('Saving...'); // Change button text
-    setMessage(''); // Reset message visibility for the saving process
+    setButtonText('Saving...');
+    setMessage('Saving...'); // Clear any previous messages
+
+    const startTime = performance.now(); // Start time for measuring response time
 
     const payload = {
         choices: choices
@@ -386,11 +390,11 @@ const handleSave = (isAutoSave = false) => {
                 description: choice.description,
                 options: choice.options ? choice.options.map(option => ({
                     label: option.label,
-                    value: option.value, // Only set disabled once saved, not before
-                    saved: true // Mark the option as saved
+                    value: option.value,
+                    saved: true
                 })) : [],
                 show_in_rest: choice.show_in_rest ? 1 : 0,
-                tags: choice.tags, // Ensure tags are saved as IDs
+                tags: choice.tags,
                 created: choice.created,
                 edited: new Date().toISOString(),
             })),
@@ -404,40 +408,47 @@ const handleSave = (isAutoSave = false) => {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
-    }).then((response) => {
-        if (response.success) {
-            // Handle successful save
-            setChangedFields([]); // Reset changed choices
-            fetchFields(); // Refresh choices
-            setUnsavedChanges(false); // Reset unsaved changes
-            setMessage('Time since last saved'); // Always show time since last saved
+    })
+    .then((response) => {
+        const endTime = performance.now(); // End time for measuring response time
+        const responseTime = (endTime - startTime); // Calculate response time in milliseconds
 
-            // Start the timer for elapsed time
+        if (response.success) {
+            setChangedFields([]);
+            fetchFields();
+            setUnsavedChanges(false);
+            setMessage(`Settings saved successfully in ${responseTime}ms`); // Success message with response time
+
+            // Clear any existing interval
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+
+            // Start a new interval to update elapsed time
             const id = setInterval(() => {
                 setElapsedTime((prev) => prev + 1);
             }, 1000);
             setIntervalId(id);
 
-            // Change button text to "Fields Saved" for 3 seconds
             setButtonText('Fields Saved');
             setTimeout(() => {
-                setButtonText(saveText); // Reset to original text
+                setButtonText('Save Settings');
             }, 3000);
-
-            return { success: true }; // Return success response
         } else {
             console.error('Error saving choices:', response.error);
-            setButtonText('Failed!'); // Change button text on failure
-            return { success: false }; // Return failure response
+            setMessage('Failed to save settings'); // Failure message
+            setButtonText('Failed!');
         }
-    }).catch((error) => {
+    })
+    .catch((error) => {
+        const endTime = performance.now(); // End time for measuring response time
+        const responseTime = (endTime - startTime).toFixed(2); // Calculate response time in milliseconds
+
         console.error('Error saving choices:', error);
-        setButtonText('Failed!'); // Handle error
-        return { success: false }; // Return failure response
+        setMessage(`An error occurred while saving settings in ${responseTime} ms`); // Catch and update message with response time
+        setButtonText('Failed!');
     });
 };
-
-
 
     
     
@@ -551,12 +562,21 @@ const refreshUpdatedFields = (updatedChoiceNames) => {
   // In Settings.js
 // In Settings.js
 const fetchFields = ({ navigateToLastPage = false } = {}) => {
+    
     const fieldTypeQuery = fieldTypeFilter.length === 0 || fieldTypeFilter.includes('') ? '' : fieldTypeFilter.join(',');
     const tagQuery = tagFilter.length === 0 || tagFilter.includes('') ? '' : tagFilter.join(',');
     const searchQueryParam = searchQuery.length >= 3 ? `&search_query=${searchQuery}` : '';
 
+    const startTime = performance.now(); 
+
     apiFetch({ path: `/ace/v1/get-choices?page=${navigateToLastPage ? totalPages : currentPage}&per_page=${choicesPerPage}&field_type=${fieldTypeQuery}&tags=${tagQuery}${searchQueryParam}` })
         .then((response) => {
+
+            const endTime = performance.now(); // End time for measuring response time
+            const responseTime = (endTime - startTime); // Calculate response time in milliseconds
+            setResponseTime(responseTime); // Update state with response time
+
+
             const { choices: fetchedFields, totalPages: updatedTotalPages, tags: fetchedTags, totalFields } = response;
 
             const updatedFields = fetchedFields.map(choice => ({
@@ -1018,6 +1038,8 @@ const fetchTagDataAndEdit = async (tagId) => {
                 buttonText={buttonText}
                 setButtonText={setButtonText}
                 setMessage={setMessage}
+                message={message}
+                responseTime={responseTime} 
                 handleBulkDelete={handleBulkDelete}
                 selectedFields={selectedFields} // Pass selectedFields
                 handleChoiceSelect={handleChoiceSelect} 

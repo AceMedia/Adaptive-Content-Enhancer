@@ -2,9 +2,8 @@ import PropTypes from 'prop-types';
 import { useState, useEffect } from '@wordpress/element';
 import { Button, Flex, FlexItem, ToggleControl } from '@wordpress/components';
 
-const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText = "Save Settings", isAutoSaveEnabled, setIsAutoSaveEnabled, buttonText, setMessage }) => {
+const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, isAutoSaveEnabled, setIsAutoSaveEnabled, buttonText, message }) => {
     const [isSuccess, setIsSuccess] = useState(false);
-    const [message, setMessageState] = useState(''); // Manage message state
     const [elapsedTime, setElapsedTime] = useState(0);
     const [intervalId, setIntervalId] = useState(null);
 
@@ -20,21 +19,18 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
     }
 
     useEffect(() => {
-        // Update position on load, resize, and scroll
         window.addEventListener('resize', updateFixedPosition);
         window.addEventListener('scroll', updateFixedPosition);
         window.addEventListener('load', updateFixedPosition);
 
-        // Add beforeunload event to prompt the user if there are unsaved changes
         const handleBeforeUnload = (event) => {
             if (unsavedChanges) {
                 event.preventDefault();
-                event.returnValue = ''; // Required for Chrome to show the dialog
+                event.returnValue = '';
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
 
-        // Cleanup function
         return () => {
             window.removeEventListener('resize', updateFixedPosition);
             window.removeEventListener('scroll', updateFixedPosition);
@@ -44,7 +40,6 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
     }, [unsavedChanges]);
 
     useEffect(() => {
-        // Start the timer when the message is shown
         if (message === 'Time since last saved') {
             const id = setInterval(() => setElapsedTime((prev) => prev + 1), 1000);
             setIntervalId(id);
@@ -55,7 +50,7 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
     }, [message]);
 
     const handleClick = () => {
-        onSave(false, setMessageState); // Pass setMessageState to onSave
+        onSave(false);
     };
 
     const formatElapsedTime = (seconds) => {
@@ -82,10 +77,6 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
                                 checked={isAutoSaveEnabled}
                                 onChange={(isChecked) => {
                                     setIsAutoSaveEnabled(isChecked);
-                                    setMessageState(isChecked ? 'Auto Save Enabled' : 'Auto Save Disabled');
-                                    setTimeout(() => {
-                                        setMessageState('');
-                                    }, 2000); // Clear the message after 2 seconds
                                 }}
                             />
                         </div>
@@ -94,7 +85,7 @@ const SaveBar = ({ children, onSave, setUnsavedChanges, unsavedChanges, saveText
                             onClick={handleClick}
                             className={`wp-saving-button ${unsavedChanges ? 'enabled' : ''} ${isSuccess ? 'saved' : ''}`}
                             aria-label={buttonText}
-                            disabled={!unsavedChanges || isAutoSaveEnabled} // Start disabled on load
+                            disabled={!unsavedChanges || isAutoSaveEnabled}
                         >
                             <span className="dashicons dashicons-update"></span> {buttonText}
                         </Button>
@@ -110,9 +101,9 @@ SaveBar.propTypes = {
     onSave: PropTypes.func.isRequired,
     setUnsavedChanges: PropTypes.func.isRequired,
     unsavedChanges: PropTypes.bool.isRequired,
-    isAutoSaveEnabled: PropTypes.bool.isRequired, // Added this line
-    setIsAutoSaveEnabled: PropTypes.func.isRequired, // Added this line
-    setMessage: PropTypes.func.isRequired, // Added this line
+    isAutoSaveEnabled: PropTypes.bool.isRequired,
+    setIsAutoSaveEnabled: PropTypes.func.isRequired,
+    message: PropTypes.string, // Updated to accept message as a prop
 };
 
 export default SaveBar;
