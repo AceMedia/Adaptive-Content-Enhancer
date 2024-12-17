@@ -305,29 +305,147 @@ function acefields_get_unserialized_meta($meta_value) {
     return maybe_unserialize($meta_value);
 }
 
-function ace_field_options_render_block($attributes) {
+
+
+
+register_block_type('adaptive-content-enhancer/text-field', array(
+    'render_callback' => 'ace_field_options_render_block',
+    'attributes' => array(
+        'selectedGroup' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'choiceValue' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'choiceLabel' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'selectedFieldType' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'style' => array(
+            'type' => 'object',
+            'default' => array(
+                'spacing' => array(
+                    'padding' => array(
+                        'top' => '0',
+                        'right' => '0',
+                        'bottom' => '0',
+                        'left' => '0'
+                    )
+                )
+            )
+        )
+    ),
+    'isInsideForm' => ['adaptive-content-enhancer/isInsideForm'],
+    'supports' => array(
+        'align' => true,
+        'attributes' => true,
+        'color' => array(
+            'text' => true,
+            'background' => true,
+        ),
+        'spacing' => array(
+            'padding' => true,
+            'margin' => true,
+        ),
+        'typography' => array(
+            'fontSize' => true,
+            'lineHeight' => true,
+            'textAlign' => true,
+            '__experimentalFontWeights' => true,
+            '__experimentalFontFamily' => true,
+            '__experimentalFontStyle' => true,
+            '__experimentalFontVariant' => true,
+            '__experimentalLetterSpacing' => true,
+            '__experimentalTextTransform' => true,
+            '__experimentalCustomLineHeight' => true,
+            'customFontSize' => true,
+        ),
+        '__experimentalBorder' => array(
+            'color' => true,
+            'radius' => true,
+            'style' => true,
+            'width' => true,
+            '__experimentalDefaultControls' => array(
+                'color' => true,
+                'radius' => true,
+                'style' => true,
+                'width' => true,
+            )
+        ),
+        'customClassName' => true,
+    ),
+));
+
+function ace_field_options_render_block($attributes, $content, $block) {
+    $is_inside_form = isset($attributes['isInsideForm']) ? $attributes['isInsideForm'] : false;
+
+
+
     $wrapper_attributes = get_block_wrapper_attributes();
     $selected_group = $attributes['selectedGroup'] ?? '';
     $selected_field_type = $attributes['selectedFieldType'] ?? '';
     $show_as_input = $attributes['showAsInputOnFrontend'] ?? false;
     $show_labels = $attributes['showLabelsOnFrontend'] ?? false;
-
-    // Fetch the group options dynamically.
-    $group_options = get_group_options($selected_group, $attributes);
-    $dropdown_label = $group_options['label'];
-    $dropdown_title = $group_options['title']; // Use the dynamically fetched title
-
+    $selected_meta_key = $attributes['selectedMetaKey'] ?? ''; // For text blocks
+    $content = $attributes['content'] ?? ''; // Content for text blocks
     $output = '';
 
-    // Render based on whether inputs or plain text are requested.
+
+    // Fetch the dynamically stored group options from the database
+    if (!empty($selected_meta_key)) {
+        $option_name = 'choices_' . $selected_meta_key; // Build the correct option name
+        $group_data = get_option($option_name, []); // Get the option from the database
+
+        // Extract the title dynamically if available
+        if (!empty($group_data['title'])) {
+            $title = $group_data['title'];
+        } else {
+            $title = $attributes['title'] ?? ''; // Fallback to block attribute title
+        }
+    }
+
+
+    // Handle Text Blocks
+    if (!empty($selected_meta_key)) {
+        if ($is_inside_form) {
+            // Render input field if inside a form container
+            $output = sprintf(
+                '<label>%s</label><br/><input type="text" class="acemedia-text-input" name="%s" value="%s" placeholder="%s" />',
+                esc_attr($title),
+                esc_attr($selected_meta_key),
+                esc_attr($content),
+                esc_attr("Enter value for " . $selected_meta_key)
+            );
+        } else {
+            // Render plain text as a paragraph
+            $output = sprintf(
+                '<p class="acemedia-text-field" data-meta-key="%s">%s</p>',
+                esc_attr($selected_meta_key),
+                esc_html($content)
+            );
+        }
+
+        return sprintf('<div %s>%s</div>', $wrapper_attributes, $output);
+    }
+
+    // Fetch the group options dynamically for options blocks
+    $group_options = get_group_options($selected_group, $attributes);
+    $dropdown_label = $group_options['label'] ?? '';
+    $dropdown_title = $group_options['title'] ?? ''; // Use dynamically fetched title
+
+    // Existing logic for options blocks
     if ($show_as_input && $selected_field_type != 'text') {
         switch ($selected_field_type) {
             case 'truefalse':
-                // Fetch true/false field labels dynamically from wp_options.
-                $true_label = $group_options['label']; // Already dynamically fetched from wp_options
+                // Fetch true/false labels dynamically
+                $true_label = $group_options['label'] ?? '';
                 $is_checked = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true) ? 'checked' : '';
-
-                // Render the checkbox with the correct label.
                 $output = sprintf(
                     '<label><input type="checkbox" class="acemedia-checkbox" %s> %s</label>',
                     $is_checked,
@@ -337,7 +455,7 @@ function ace_field_options_render_block($attributes) {
 
             case 'checkbox':
             case 'radio':
-                // Loop and render inputs for each option in the selected group.
+                // Render checkbox/radio options
                 foreach ($group_options['options'] as $option) {
                     $isSelected = $attributes['choiceValue'] === $option['value'] ? 'checked' : '';
                     $inputType = ($selected_field_type === 'checkbox') ? 'checkbox' : 'radio';
@@ -354,12 +472,12 @@ function ace_field_options_render_block($attributes) {
                 break;
 
             default:
+                // Render dropdown
                 if ($show_labels) {
                     $output .= '<label>';
-                    $output .= $dropdown_title; // Render the title dynamically
+                    $output .= esc_html($dropdown_title) . '<br />'; // Render the title dynamically
                 }
 
-                // Default to select dropdown.
                 $select = '<select class="acemedia-input">';
                 foreach ($group_options['options'] as $option) {
                     $isSelected = $attributes['choiceValue'] === $option['value'] ? 'selected' : '';
@@ -372,26 +490,26 @@ function ace_field_options_render_block($attributes) {
                 }
                 $select .= '</select>';
                 $output .= $select;
-                
+
                 if ($show_labels) {
                     $output .= '</label>';
                 }
                 break;
         }
-        return sprintf('<div %s>%s</div>', $wrapper_attributes, $output);
     } else {
-        // Render plain text labels for non-input fields.
+        // Plain text rendering for options blocks
         if ($selected_field_type === 'truefalse') {
-            $dropdown_label = $group_options['label']; // Use the dynamically fetched label
-        }
-        // Render plain text labels for non-input fields.
-        if ($selected_field_type === 'text') {
+            $dropdown_label = $group_options['label'] ?? '';
+        } elseif ($selected_field_type === 'text') {
             $dropdown_label = get_post_meta(get_the_ID(), $selected_group, true);
         }
 
-        return sprintf('<p %s>%s</p>', $wrapper_attributes, esc_html($dropdown_label));
+        $output = sprintf('<p>%s</p>', esc_html($dropdown_label));
     }
+
+    return sprintf('<div %s>%s</div>', $wrapper_attributes, $output);
 }
+
 
 
 
@@ -424,6 +542,35 @@ function ace_enqueue_text_block() {
     wp_set_script_translations('ace-text-block', 'ace');
 }
 
+
+add_action('enqueue_block_editor_assets', 'ace_enqueue_form_block');
+
+function ace_enqueue_form_block() {
+    $dir = plugin_dir_path(__FILE__);
+    $url = plugin_dir_url(__FILE__);
+
+    if (file_exists("{$dir}/assets/js/blocks/form.asset.php")) {
+        $asset = include "{$dir}/assets/js/blocks/form.asset.php";
+
+        wp_enqueue_script(
+            'ace-form-block',
+            "{$url}/assets/js/blocks/form.js",
+            $asset['dependencies'],
+            $asset['version'],
+            true
+        );
+    } else {
+        wp_enqueue_script(
+            'ace-form-block',
+            "{$url}/assets/js/blocks/form.js",
+            ['wp-blocks', 'wp-element', 'wp-editor'],
+            filemtime("{$dir}/assets/js/blocks/form.js"),
+            true
+        );
+    }
+
+    wp_set_script_translations('ace-form-block', 'ace');
+}
 
 
 
@@ -563,6 +710,8 @@ register_block_type('adaptive-content-enhancer/option', array(
         'customClassName' => true,
     ),
 ));
+
+
 
 // Extend REST API to include /meta endpoint for each post and specific meta fields
 add_action('rest_api_init', function() {

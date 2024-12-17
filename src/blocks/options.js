@@ -1,4 +1,5 @@
 import { useEffect, useState, RichText } from '@wordpress/element';
+import { useSelect } from '@wordpress/data';
 import { useEntityProp } from '@wordpress/core-data';
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps, BlockControls } from '@wordpress/block-editor';
@@ -57,6 +58,7 @@ registerBlockType('adaptive-content-enhancer/option', {
         showLabelsInEditor: { type: 'boolean', default: true }, // New attribute to control editor display
         showAsInputOnFrontend: { type: 'boolean', default: false }, // New attribute to control frontend display
         showLabelsOnFrontend: { type: 'boolean', default: false }, // New attribute to control frontend display
+        isInsideForm: { type: 'boolean', default: false }
     },
     supports: {
         html: false,
@@ -100,7 +102,7 @@ registerBlockType('adaptive-content-enhancer/option', {
         },
         align: true, // Enable alignment options (left, center, right, wide, full)
     },
-    edit: ({ attributes, setAttributes }) => {
+    edit: ({ attributes, setAttributes, clientId }) => {
         const { selectedGroup, choiceValue, choiceLabel, selectedFieldType, trueFalseValue, trueFalseLabel, showAsTextEditor, showLabelsInEditor, showLabelsOnFrontend, showAsInputOnFrontend } = attributes;
         const [availableGroups, setAvailableGroups] = useState([]);
         const [groupOptions, setGroupOptions] = useState([]);
@@ -115,6 +117,21 @@ registerBlockType('adaptive-content-enhancer/option', {
                 fontSize: attributes.fontSize,
             },
         });
+
+
+          const isInsideForm = useSelect((select) => {
+                    const { getBlockRootClientId, getBlock } = select('core/block-editor');
+                    const parentClientId = getBlockRootClientId(clientId);
+                    const parentBlock = getBlock(parentClientId);
+                    return parentBlock?.name === 'adaptive-content-enhancer/form';
+                }, [clientId]);
+        
+        
+                console.log('Is inside form:', isInsideForm);
+        
+                useEffect(() => {
+                    setAttributes({ isInsideForm });
+                }, [isInsideForm]);
 
         // Dynamically generate meta key based on selected group
         const metaKey = createLowercaseUnderscored(selectedGroup);
@@ -322,12 +339,13 @@ registerBlockType('adaptive-content-enhancer/option', {
                             <CustomSelectControl
                                 style={{ fontSize: 'inherit', padding: '.5em', height: 'auto', borderRadius: '.25em' }}
                                 label={
-                                    attributes.description 
-                                        ? attributes.description 
-                                        : (context === 'editor' 
+                                    showLabelsInEditor && attributes.name
+                                        ? attributes.name
+                                        : showLabelsInEditor 
                                             ? selectedGroupTitle 
-                                            : (showLabelsInEditor ? selectedGroupTitle : null))
-                                }                                
+                                            : null
+                                }
+                                                        
                                 value={groupOptions.find(option => option.value === choiceValue) ? {
                                     key: choiceValue,
                                     name: groupOptions.find(option => option.value === choiceValue)?.label
@@ -368,110 +386,114 @@ const toolbarControls = (
 
         return (
             <>
-                <BlockControls>
-                    {toolbarControls}
-                </BlockControls>
-                {showAsTextEditor ? (
-                    <>
-                        <>{choiceLabel || trueFalseLabel || 'Click to edit'}</> {/* Display as text if in text mode */}
-                    </>
-                ) : (
-                    <div className="content-enhancer-choices-choices-block">
-                        {/* Group selector */}
-                        {!selectedGroup && (
-                            <CustomSelectControl
-                                label="Select an Option"
-                                value={availableGroups.find(group => group.name === selectedGroup) ? {
-                                    key: selectedGroup,
-                                    name: availableGroups.find(group => group.name === selectedGroup)?.title,
-                                    description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
-                                } : { key: '', name: 'Please select an Option' }}
-                                options={[
-                                    ...availableGroups.map(group => ({
-                                        name: group.title,
-                                        key: group.name,
-                                        hint: group.field_type
-                                    }))
-                                ]}
-                                onChange={({ selectedItem }) => setAttributes({
-                                    selectedGroup: selectedItem.key,
-                                    choiceValue: '',
-                                    choiceLabel: '',
-                                    selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
-                                })}
-                                showSelectedHint = {true}
-                            />
-                        )}
-                        {/* Render dynamic controls based on field type */}
-                        {selectedGroup && selectedGroup !== '' && renderFieldControls()}
-                    </div>
-                )}
-                <InspectorControls>
-                <PanelBody title="Dropdown Settings" className="custom-dropdown-settings">
-                        <CustomSelectControl
-                            label="Select an Option"
-                            value={availableGroups.find(group => group.name === selectedGroup) ? {
-                                key: selectedGroup,
-                                name: (
-                                    <>
-                                        {availableGroups.find(group => group.name === selectedGroup)?.title}          
-                                    </>
-                                ),
-                            } : { key: '', name: 'Please select an Option' }}
-                            options={[
-                                ...availableGroups.map(group => ({
-                                    name: (
-                                        <>
-                                            {group.title}
-                                        </>
-                                    ),
-                                    key: group.name,
-                                    hint: group.field_type
-                                }))
-                            ]}
-                            onChange={({ selectedItem }) => setAttributes({
-                                selectedGroup: selectedItem.key,
-                                choiceValue: '',
-                                choiceLabel: '',
-                                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
-                            })}
-                            showSelectedHint = 'true'
-                        />
-                        {selectedFieldType && (
-                            <Text style={{ display: 'block', margin: '1em 0px' }}>{attributes.description}</Text>
-                        )}
-                        {/* Always display controls here */}
-                        {selectedGroup && selectedGroup !== '' && renderFieldControls('editor')}
-                    </PanelBody>
-                    <PanelBody title="Editor Options">
-                        <SwitchControl
-                            label="Show as Text in Editor"
-                            checked={showAsTextEditor}
-                            onChange={(newValue) => setAttributes({ showAsTextEditor: newValue })}
-                        />
-                        {showAsTextEditor ? null : (
-                            <SwitchControl
-                                label="Show Labels in Editor"
-                                checked={showLabelsInEditor}
-                                onChange={(newValue) => setAttributes({ showLabelsInEditor: newValue })}
-                            />
-                        )}
-                    </PanelBody>
-                    <PanelBody title="Frontend Options">
-                        <SwitchControl
-                            label="Show as Input on Frontend"
-                            checked={showAsInputOnFrontend}
-                            onChange={(newValue) => setAttributes({ showAsInputOnFrontend: newValue })}
-                        />
-                        {showAsInputOnFrontend ? (
-                            <SwitchControl
-                                label="Show Labels on Frontend"
-                                checked={showLabelsOnFrontend}
-                                onChange={(newValue) => setAttributes({ showLabelsOnFrontend: newValue })}
-                            />
-                        ) : null}
-                    </PanelBody>
-                </InspectorControls>
+            <BlockControls>
+            {toolbarControls}
+            </BlockControls>
+            {showAsTextEditor ? (
+            <>
+            <>{choiceLabel || trueFalseLabel || 'Click to edit'}</> {/* Display as text if in text mode */}
+            </>
+            ) : (
+            <div className="content-enhancer-choices-choices-block">
+            {/* Group selector */}
+            {!selectedGroup && (
+                <CustomSelectControl
+                label="Select an Option"
+                value={availableGroups.find(group => group.name === selectedGroup) ? {
+                key: selectedGroup,
+                name: availableGroups.find(group => group.name === selectedGroup)?.title,
+                description: availableGroups.find(group => group.name === selectedGroup)?.field_type // Show field type as subtext
+                } : { key: '', name: 'Please select an Option' }}
+                options={[
+                ...availableGroups.map(group => ({
+                name: group.title,
+                key: group.name,
+                hint: group.field_type
+                }))
+                ]}
+                onChange={({ selectedItem }) => setAttributes({
+                selectedGroup: selectedItem.key,
+                choiceValue: '',
+                choiceLabel: '',
+                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
+                })}
+                showSelectedHint = {true}
+                />
+            )}
+            {/* Render dynamic controls based on field type */}
+            {selectedGroup && selectedGroup !== '' && renderFieldControls()}
+            </div>
+            )}
+            <InspectorControls>
+            <PanelBody title="Dropdown Settings" className="custom-dropdown-settings">
+            <CustomSelectControl
+                label="Select an Option"
+                value={availableGroups.find(group => group.name === selectedGroup) ? {
+                key: selectedGroup,
+                name: (
+                <>
+                {availableGroups.find(group => group.name === selectedGroup)?.title}          
+                </>
+                ),
+                } : { key: '', name: 'Please select an Option' }}
+                options={[
+                ...availableGroups.map(group => ({
+                name: (
+                <>
+                    {group.title}
+                </>
+                ),
+                key: group.name,
+                hint: group.field_type
+                }))
+                ]}
+                onChange={({ selectedItem }) => setAttributes({
+                selectedGroup: selectedItem.key,
+                choiceValue: '',
+                choiceLabel: '',
+                selectedFieldType: availableGroups.find(group => group.name === selectedItem.key)?.field_type || ''
+                })}
+                showSelectedHint = 'true'
+            />
+            {selectedFieldType && (
+                <Text style={{ display: 'block', margin: '1em 0px' }}>{attributes.description}</Text>
+            )}
+            {/* Always display controls here */}
+            {selectedGroup && selectedGroup !== '' && renderFieldControls('editor')}
+            </PanelBody>
+            <PanelBody title="Editor Options">
+            {!isInsideForm && (
+                <SwitchControl
+                label="Show as Text in Editor"
+                checked={showAsTextEditor}
+                onChange={(newValue) => setAttributes({ showAsTextEditor: newValue })}
+                />
+            )}
+            {!showAsTextEditor && (
+                <SwitchControl
+                label="Show Labels in Editor"
+                checked={showLabelsInEditor}
+                onChange={(newValue) => setAttributes({ showLabelsInEditor: newValue })}
+                />
+            )}
+            </PanelBody>
+            <PanelBody title="Frontend Options">
+            {!isInsideForm && (
+                <SwitchControl
+                label="Show as Input on Frontend"
+                checked={showAsInputOnFrontend}
+                onChange={(newValue) => setAttributes({ showAsInputOnFrontend: newValue })}
+                />
+            )}
+            {showAsInputOnFrontend && (
+                <SwitchControl
+                label="Show Labels on Frontend"
+                checked={showLabelsOnFrontend}
+                onChange={(newValue) => setAttributes({ showLabelsOnFrontend: newValue })}
+                />
+            )}
+            </PanelBody>
+            </InspectorControls>
             </>
         );
     },

@@ -116,12 +116,51 @@ registerBlockType('adaptive-content-enhancer/text-field', {
     icon: 'editor-paragraph',
     attributes: {
         selectedMetaKey: { type: 'string', default: '' },
-        content: { type: 'string', default: '' }
+        content: { type: 'string', default: '' },
+        isInsideForm: { type: 'boolean', default: false },
+        title: { type: 'string', default: '' } 
     },
     supports: {
-        advanced: false,
-        customClassName: false,
-        html: false
+        html: false,
+        styles: true,
+        customClassName: true,
+        attributes: true,
+        color: {
+            text: true,
+            background: true,
+            gradients: true, // Enable gradient options
+            link: true, // Enable link color
+        },
+        typography: {
+            fontSize: true,
+            lineHeight: true,
+            textAlign: true,
+            __experimentalFontWeights: true,
+            __experimentalFontFamily: true,
+            __experimentalFontStyle: true,
+            __experimentalFontVariant: true,
+            __experimentalLetterSpacing: true,
+            __experimentalTextTransform: true,
+            customLineHeight: true,
+            __experimentalCustomFontSize: true,
+        },
+        spacing: {
+            padding: true,
+            margin: true,
+        },
+        __experimentalBorder: {
+            color: true,
+            radius: true,
+            style: true,
+            width: true,
+            __experimentalDefaultControls: {
+                color: true,
+                radius: true,
+                style: true,
+                width: true,
+            },
+        },
+        align: true, // Enable alignment options (left, center, right, wide, full)
     },
     edit: ({ attributes, setAttributes, clientId }) => {
         const { selectedMetaKey, content } = attributes;
@@ -132,7 +171,28 @@ registerBlockType('adaptive-content-enhancer/text-field', {
         const [newFieldDescription, setNewFieldDescription] = useState('');
         const [currentPostType, setCurrentPostType] = useState(''); // State for current post type
 
-        const blockProps = useBlockProps();
+
+        const isInsideForm = useSelect((select) => {
+            const { getBlockRootClientId, getBlock } = select('core/block-editor');
+            const parentClientId = getBlockRootClientId(clientId);
+            const parentBlock = getBlock(parentClientId);
+            return parentBlock?.name === 'adaptive-content-enhancer/form';
+        }, [clientId]);
+
+
+
+        const blockProps = useBlockProps({
+            className: 'ace-text-field wp-block',
+        });
+
+        console.log('Is inside form:', isInsideForm);
+
+        useEffect(() => {
+            setAttributes({ isInsideForm });
+        }, [isInsideForm]);
+        
+        
+
 
         useEffect(() => {
             if (window.choiceGroups) {
@@ -146,17 +206,35 @@ registerBlockType('adaptive-content-enhancer/text-field', {
 
         const handleMetaKeyChange = ({ selectedItem }) => {
             const newMetaKey = selectedItem.key;
+        
             console.log('Selected meta key:', selectedItem);
+        
             if (newMetaKey === 'create-new') {
                 setShowCreateFieldForm(true);
                 return;
             }
-            setAttributes({ selectedMetaKey: newMetaKey, content: '' });
+        
+            const newTitle = selectedItem.name || ''; // Use the name of the selected item as the title
+        
+            // Update selected meta key, title, and content
+            setAttributes({ 
+                selectedMetaKey: newMetaKey, 
+                title: newTitle, 
+                content: '' 
+            });
+        
             if (metaValue && metaValue[newMetaKey]) {
                 setAttributes({ content: metaValue[newMetaKey] });
             }
+        
+            if (isInsideForm) {
+                console.log('Block is inside a form container, skipping paragraph insertion.');
+                return;
+            }
+        
             insertParagraphBlock(newMetaKey);
         };
+        
 
         const insertParagraphBlock = (metaKey) => {
             console.log('Inserting paragraph block with meta key:', metaKey);
@@ -190,7 +268,7 @@ registerBlockType('adaptive-content-enhancer/text-field', {
 
         const currentUserRoles = useSelect((select) => {
             const user = select('core').getCurrentUser();
-            return user ? user.roles : []; // Return roles or an empty array if user is not available
+            return user && Array.isArray(user.roles) ? user.roles : [];
         }, []);
     
 // Get the current post type
@@ -213,7 +291,8 @@ useEffect(() => {
 
                 // Check for role permissions
                 const hasRolePermission = hasGlobalPermissions || 
-                    (Array.isArray(group.roles) && (group.roles.length === 0 || group.roles.some(role => currentUserRoles.includes(role))));
+    (Array.isArray(group.roles) && currentUserRoles && (group.roles.length === 0 || group.roles.some(role => currentUserRoles.includes(role))));
+
 
 
                 // Return true if it meets criteria for a text field and has the right permissions
@@ -330,11 +409,11 @@ useEffect(() => {
                     )}
                     {selectedMetaKey && (
                         <TextControl
-                            label="Custom Text"
-                            value={content}
-                            onChange={(newContent) => setAttributes({ content: newContent })}
-                            placeholder="Enter text bound to the selected meta field..."
-                        />
+                        label={`${attributes.selectedMetaKey}`}
+                        value={attributes.content}
+                        onChange={(newContent) => setAttributes({ content: newContent })}
+                        placeholder="Enter text bound to the selected meta field..."
+                    />
                     )}
                 </div>
                 <InspectorControls>
