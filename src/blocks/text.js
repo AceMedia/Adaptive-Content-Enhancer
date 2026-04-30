@@ -1,11 +1,20 @@
 import { useEffect, useState } from '@wordpress/element';
 import { useEntityProp } from '@wordpress/core-data';
-import { registerBlockType } from '@wordpress/blocks';
+import { registerBlockType, createBlock, registerBlockVariation } from '@wordpress/blocks';
 import { useBlockProps, InspectorControls, BlockControls } from '@wordpress/block-editor';
-import { TextControl, CustomSelectControl, PanelBody, ToolbarGroup, ToolbarButton, Button } from '@wordpress/components';
+import {
+	TextControl,
+	CustomSelectControl,
+	PanelBody,
+	ToolbarGroup,
+	ToolbarButton,
+	Button,
+	TextareaControl,
+	SelectControl,
+	ToggleControl,
+} from '@wordpress/components';
 import { edit } from '@wordpress/icons';
 import { dispatch, select, useSelect } from '@wordpress/data'; // Use `useSelect` for fetching data
-import { createBlock } from '@wordpress/blocks';
 import apiFetch from '@wordpress/api-fetch';
 import domReady from '@wordpress/dom-ready';
 
@@ -118,7 +127,17 @@ registerBlockType('adaptive-content-enhancer/text-field', {
         selectedMetaKey: { type: 'string', default: '' },
         content: { type: 'string', default: '' },
         isInsideForm: { type: 'boolean', default: false },
-        title: { type: 'string', default: '' } 
+        title: { type: 'string', default: '' },
+        description: { type: 'string', default: '' },
+        label: { type: 'string', default: '' },
+        placeholder: { type: 'string', default: '' },
+        helpText: { type: 'string', default: '' },
+        inputType: { type: 'string', default: 'text' },
+        autocomplete: { type: 'string', default: '' },
+        isRequired: { type: 'boolean', default: false },
+        rows: { type: 'number', default: 4 },
+        minLength: { type: 'number', default: 0 },
+        maxLength: { type: 'number', default: 0 }
     },
     supports: {
         html: false,
@@ -169,6 +188,8 @@ registerBlockType('adaptive-content-enhancer/text-field', {
         const [showCreateFieldForm, setShowCreateFieldForm] = useState(false);
         const [newFieldName, setNewFieldName] = useState('');
         const [newFieldDescription, setNewFieldDescription] = useState('');
+        const [fieldTitle, setFieldTitle] = useState('');
+        const [fieldDescription, setFieldDescription] = useState('');
         const [currentPostType, setCurrentPostType] = useState(''); // State for current post type
 
 
@@ -199,10 +220,91 @@ registerBlockType('adaptive-content-enhancer/text-field', {
                 console.log(choiceGroups);
                 const textKeys = window.choiceGroups
                     .filter(group => group.field_type === 'text')
-                    .map(group => ({ key: group.name, label: group.title }));
+                    .map(group => ({
+                        key: group.name,
+                        label: group.title,
+                        title: group.title,
+                        description: group.description || '',
+                        field_type: group.field_type,
+                        show_in_rest: group.show_in_rest,
+                        options: group.options || [],
+                        tags: group.tags || [],
+                        associated_roles: group.associated_roles || [],
+                        post_types: group.post_types || [],
+                    }));
                 setAvailableMetaKeys(textKeys);
             }
         }, []);
+
+        useEffect(() => {
+            if (!selectedMetaKey) {
+                setFieldTitle('');
+                setFieldDescription('');
+                return;
+            }
+
+            const selectedField = availableMetaKeys.find((field) => field.key === selectedMetaKey);
+            if (!selectedField) {
+                return;
+            }
+
+            setFieldTitle(selectedField.title || selectedField.label || '');
+            setFieldDescription(selectedField.description || '');
+        }, [selectedMetaKey, availableMetaKeys]);
+
+        const syncFieldDefinition = (fieldKey, updates) => {
+            setAvailableMetaKeys((previousFields) =>
+                previousFields.map((field) =>
+                    field.key === fieldKey
+                        ? {
+                                ...field,
+                                ...updates,
+                                label: updates.title || field.label,
+                                title: updates.title || field.title,
+                            }
+                        : field
+                )
+            );
+
+            if (Array.isArray(window.choiceGroups)) {
+                window.choiceGroups = window.choiceGroups.map((field) =>
+                    field.name === fieldKey ? { ...field, ...updates } : field
+                );
+            }
+        };
+
+        const saveFieldDefinition = (fieldKey, definitionOverrides = {}) => {
+            const existingField = availableMetaKeys.find((field) => field.key === fieldKey);
+            if (!existingField) {
+                return Promise.resolve();
+            }
+
+            const updatedField = {
+                name: fieldKey,
+                title: definitionOverrides.title || existingField.title || existingField.label || fieldKey,
+                description:
+                    definitionOverrides.description ?? existingField.description ?? '',
+                field_type: existingField.field_type || 'text',
+                show_in_rest: existingField.show_in_rest ? 1 : 0,
+                options: existingField.options || [],
+                tags: existingField.tags || [],
+                associated_roles: existingField.associated_roles || [],
+                post_types: existingField.post_types || [],
+            };
+
+            return apiFetch({
+                path: '/ace/v1/save-options',
+                method: 'POST',
+                data: { choices: [ updatedField ] },
+            }).then(() => {
+                syncFieldDefinition(fieldKey, updatedField);
+                setAttributes({
+                    title: updatedField.title,
+                });
+            }).catch((error) => {
+                console.error('Failed to save field definition:', error);
+            });
+        };
 
         const handleMetaKeyChange = ({ selectedItem }) => {
             const newMetaKey = selectedItem.key;
@@ -213,13 +315,17 @@ registerBlockType('adaptive-content-enhancer/text-field', {
                 setShowCreateFieldForm(true);
                 return;
             }
-        
+
+            const selectedField =
+                availableMetaKeys.find((field) => field.key === newMetaKey) || selectedItem;
+         
             const newTitle = selectedItem.name || ''; // Use the name of the selected item as the title
-        
+         
             // Update selected meta key, title, and content
             setAttributes({ 
                 selectedMetaKey: newMetaKey, 
-                title: newTitle, 
+                title: selectedField.title || newTitle,
+                description: selectedField.description || '',
                 content: '' 
             });
         
@@ -298,7 +404,18 @@ useEffect(() => {
                 // Return true if it meets criteria for a text field and has the right permissions
                 return group.field_type === 'text' && hasPostTypePermission && hasRolePermission;
             })
-            .map(group => ({ key: group.name, label: group.title }));
+            .map(group => ({
+                key: group.name,
+                label: group.title,
+                title: group.title,
+                description: group.description || '',
+                field_type: group.field_type,
+                show_in_rest: group.show_in_rest,
+                options: group.options || [],
+                tags: group.tags || [],
+                associated_roles: group.associated_roles || [],
+                post_types: group.post_types || [],
+            }));
 
         setAvailableMetaKeys(textKeys);
     }
@@ -313,6 +430,7 @@ useEffect(() => {
                 title: newFieldName,
                 description: newFieldDescription,
                 field_type: 'text',
+                show_in_rest: 1,
             };
         
             apiFetch({
@@ -320,8 +438,24 @@ useEffect(() => {
                 method: 'POST',
                 data: { choices: [newFieldData] }
             }).then(() => {
-                const updatedMetaKeys = [...availableMetaKeys, { key: newFieldData.name, label: newFieldData.title }];
-        
+                const createdField = {
+                    key: newFieldData.name,
+                    label: newFieldData.title,
+                    title: newFieldData.title,
+                    description: newFieldData.description,
+                    field_type: newFieldData.field_type,
+                    show_in_rest: newFieldData.show_in_rest,
+                    options: [],
+                    tags: [],
+                    associated_roles: [],
+                    post_types: [],
+                };
+                const updatedMetaKeys = [...availableMetaKeys, createdField];
+
+                if (Array.isArray(window.choiceGroups)) {
+                    window.choiceGroups = [...window.choiceGroups, newFieldData];
+                }
+         
                 // Log current post meta attributes
                 const currentMeta = select('core/editor').getEditedPostAttribute('meta');
         
@@ -339,12 +473,19 @@ useEffect(() => {
         
                 // Update available meta keys and set the new field as the selected meta key
                 setAvailableMetaKeys(updatedMetaKeys);
-                setAttributes({ selectedMetaKey: newFieldData.name, content: '' });
+                setAttributes({
+                    selectedMetaKey: newFieldData.name,
+                    title: newFieldData.title,
+                    description: newFieldData.description,
+                    content: '',
+                });
                 setShowCreateFieldForm(false);
                 setNewFieldName('');
                 setNewFieldDescription('');
-        
-                insertParagraphBlock(newFieldData.name);
+
+                if (!isInsideForm) {
+                    insertParagraphBlock(newFieldData.name);
+                }
             }).catch((error) => {
                 console.error("Failed to create new field:", error);
             });
@@ -408,12 +549,23 @@ useEffect(() => {
                         </div>
                     )}
                     {selectedMetaKey && (
-                        <TextControl
-                        label={`${attributes.selectedMetaKey}`}
-                        value={attributes.content}
-                        onChange={(newContent) => setAttributes({ content: newContent })}
-                        placeholder="Enter text bound to the selected meta field..."
-                    />
+                        attributes.inputType === 'textarea' ? (
+                            <TextareaControl
+                                label={attributes.label || `${attributes.selectedMetaKey}`}
+                                value={attributes.content}
+                                onChange={(newContent) => setAttributes({ content: newContent })}
+                                placeholder={attributes.placeholder || 'Enter text bound to the selected meta field...'}
+                                rows={attributes.rows || 4}
+                            />
+                        ) : (
+                            <TextControl
+                                label={attributes.label || `${attributes.selectedMetaKey}`}
+                                type={attributes.inputType || 'text'}
+                                value={attributes.content}
+                                onChange={(newContent) => setAttributes({ content: newContent })}
+                                placeholder={attributes.placeholder || 'Enter text bound to the selected meta field...'}
+                            />
+                        )
                     )}
                 </div>
                 <InspectorControls>
@@ -434,9 +586,102 @@ useEffect(() => {
     ]}
     onChange={handleMetaKeyChange}
 />
-
-
+                    {selectedMetaKey && (
+                        <>
+                            <TextControl
+                                label="Field Title"
+                                value={fieldTitle}
+                                onChange={(value) => {
+                                    setFieldTitle(value);
+                                    setAttributes({ title: value });
+                                }}
+                            />
+                            <TextareaControl
+                                label="Field Description / Label Copy"
+                                value={fieldDescription}
+                                onChange={(value) => {
+                                    setFieldDescription(value);
+                                    setAttributes({ description: value });
+                                }}
+                            />
+                            <Button
+                                isPrimary
+                                onClick={() =>
+                                    saveFieldDefinition(selectedMetaKey, {
+                                        title: fieldTitle,
+                                        description: fieldDescription,
+                                    })
+                                }
+                            >
+                                Save Field Definition
+                            </Button>
+                        </>
+                    )}
                     </PanelBody>
+                    {selectedMetaKey && (
+                        <PanelBody title="Form Field Settings" initialOpen={false}>
+                            <SelectControl
+                                label="Input Type"
+                                value={attributes.inputType || 'text'}
+                                options={[
+                                    { label: 'Text', value: 'text' },
+                                    { label: 'Email', value: 'email' },
+                                    { label: 'Phone', value: 'tel' },
+                                    { label: 'URL', value: 'url' },
+                                    { label: 'Number', value: 'number' },
+                                    { label: 'Textarea', value: 'textarea' },
+                                ]}
+                                onChange={(value) => setAttributes({ inputType: value })}
+                            />
+                            <TextControl
+                                label="Custom Label"
+                                help="Overrides the shared field title for this block only."
+                                value={attributes.label || ''}
+                                onChange={(value) => setAttributes({ label: value })}
+                            />
+                            <TextControl
+                                label="Placeholder"
+                                value={attributes.placeholder || ''}
+                                onChange={(value) => setAttributes({ placeholder: value })}
+                            />
+                            <TextareaControl
+                                label="Help Text"
+                                value={attributes.helpText || ''}
+                                onChange={(value) => setAttributes({ helpText: value })}
+                            />
+                            <TextControl
+                                label="Autocomplete"
+                                help="Examples: name, email, tel, organization, street-address."
+                                value={attributes.autocomplete || ''}
+                                onChange={(value) => setAttributes({ autocomplete: value })}
+                            />
+                            <ToggleControl
+                                label="Required field"
+                                checked={!!attributes.isRequired}
+                                onChange={(value) => setAttributes({ isRequired: value })}
+                            />
+                            {attributes.inputType === 'textarea' && (
+                                <TextControl
+                                    label="Textarea Rows"
+                                    type="number"
+                                    value={attributes.rows || 4}
+                                    onChange={(value) => setAttributes({ rows: parseInt(value, 10) || 4 })}
+                                />
+                            )}
+                            <TextControl
+                                label="Minimum Length"
+                                type="number"
+                                value={attributes.minLength || ''}
+                                onChange={(value) => setAttributes({ minLength: parseInt(value, 10) || 0 })}
+                            />
+                            <TextControl
+                                label="Maximum Length"
+                                type="number"
+                                value={attributes.maxLength || ''}
+                                onChange={(value) => setAttributes({ maxLength: parseInt(value, 10) || 0 })}
+                            />
+                        </PanelBody>
+                    )}
                 </InspectorControls>
             </>
         );
@@ -445,3 +690,41 @@ useEffect(() => {
         return null;
     }
 });
+
+[
+    {
+        name: 'email-field',
+        title: 'Email Field',
+        description: 'A text field variation configured for email addresses.',
+        icon: 'email',
+        attributes: { inputType: 'email' },
+    },
+    {
+        name: 'phone-field',
+        title: 'Phone Field',
+        description: 'A text field variation configured for phone numbers.',
+        icon: 'phone',
+        attributes: { inputType: 'tel' },
+    },
+    {
+        name: 'url-field',
+        title: 'URL Field',
+        description: 'A text field variation configured for web addresses.',
+        icon: 'admin-links',
+        attributes: { inputType: 'url' },
+    },
+    {
+        name: 'textarea-field',
+        title: 'Textarea Field',
+        description: 'A larger multi-line text input for messages and notes.',
+        icon: 'editor-alignleft',
+        attributes: { inputType: 'textarea', rows: 5 },
+    },
+].forEach( ( variation ) => {
+    registerBlockVariation( 'adaptive-content-enhancer/text-field', {
+        ...variation,
+        scope: [ 'inserter', 'block' ],
+        isActive: ( blockAttributes ) =>
+            blockAttributes.inputType === variation.attributes.inputType,
+    } );
+} );

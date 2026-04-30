@@ -3,8 +3,9 @@ import { useSelect } from '@wordpress/data';
 import { useEntityProp } from '@wordpress/core-data';
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps, BlockControls } from '@wordpress/block-editor';
-import {  __experimentalText as Text, __experimentalHeading as Heading, Tip, PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton, ToolbarDropdownMenu } from '@wordpress/components';
+import {  __experimentalText as Text, __experimentalHeading as Heading, Tip, PanelBody, CheckboxControl, RadioControl, ToggleControl, ToggleControl as SwitchControl, CustomSelectControl, Dropdown, MenuGroup, MenuItem, ToolbarGroup, ToolbarButton, ToolbarDropdownMenu, TextControl, TextareaControl, Button } from '@wordpress/components';
 import { edit, title } from '@wordpress/icons';
+import apiFetch from '@wordpress/api-fetch';
 
 const paragraphBlockSettings = wp.blocks.getBlockSupport('core/paragraph', 'supports');
 
@@ -58,7 +59,11 @@ registerBlockType('adaptive-content-enhancer/option', {
         showLabelsInEditor: { type: 'boolean', default: true }, // New attribute to control editor display
         showAsInputOnFrontend: { type: 'boolean', default: false }, // New attribute to control frontend display
         showLabelsOnFrontend: { type: 'boolean', default: false }, // New attribute to control frontend display
-        isInsideForm: { type: 'boolean', default: false }
+        isInsideForm: { type: 'boolean', default: false },
+        label: { type: 'string', default: '' },
+        helpText: { type: 'string', default: '' },
+        placeholder: { type: 'string', default: '' },
+        isRequired: { type: 'boolean', default: false }
     },
     supports: {
         html: false,
@@ -106,6 +111,8 @@ registerBlockType('adaptive-content-enhancer/option', {
         const { selectedGroup, choiceValue, choiceLabel, selectedFieldType, trueFalseValue, trueFalseLabel, showAsTextEditor, showLabelsInEditor, showLabelsOnFrontend, showAsInputOnFrontend } = attributes;
         const [availableGroups, setAvailableGroups] = useState([]);
         const [groupOptions, setGroupOptions] = useState([]);
+        const [fieldTitle, setFieldTitle] = useState('');
+        const [fieldDescription, setFieldDescription] = useState('');
 
         const blockProps = useBlockProps({
             style: {
@@ -204,6 +211,63 @@ registerBlockType('adaptive-content-enhancer/option', {
                 setAttributes({ choiceValue });
             }
         }, [choiceValue, attributes.choiceValue, setAttributes]);
+
+        useEffect(() => {
+            if (!selectedGroup) {
+                setFieldTitle('');
+                setFieldDescription('');
+                return;
+            }
+
+            const selectedField = availableGroups.find((group) => group.name === selectedGroup);
+            if (!selectedField) {
+                return;
+            }
+
+            setFieldTitle(selectedField.title || '');
+            setFieldDescription(selectedField.description || '');
+        }, [selectedGroup, availableGroups]);
+
+        const syncGroupDefinition = (groupName, updates) => {
+            setAvailableGroups((previousGroups) =>
+                previousGroups.map((group) =>
+                    group.name === groupName ? { ...group, ...updates } : group
+                )
+            );
+
+            if (Array.isArray(window.choiceGroups)) {
+                window.choiceGroups = window.choiceGroups.map((group) =>
+                    group.name === groupName ? { ...group, ...updates } : group
+                );
+            }
+        };
+
+        const saveGroupDefinition = () => {
+            const selectedField = availableGroups.find((group) => group.name === selectedGroup);
+            if (!selectedField) {
+                return;
+            }
+
+            const updatedField = {
+                ...selectedField,
+                title: fieldTitle || selectedField.title || selectedGroup,
+                description: fieldDescription,
+            };
+
+            apiFetch({
+                path: '/ace/v1/save-options',
+                method: 'POST',
+                data: { choices: [ updatedField ] }
+            }).then(() => {
+                syncGroupDefinition(selectedGroup, updatedField);
+                setAttributes({
+                    title: updatedField.title,
+                    description: updatedField.description || '',
+                });
+            }).catch((error) => {
+                console.error('Failed to save field definition:', error);
+            });
+        };
 
 
         
@@ -461,6 +525,55 @@ const toolbarControls = (
             {/* Always display controls here */}
             {selectedGroup && selectedGroup !== '' && renderFieldControls('editor')}
             </PanelBody>
+            {selectedGroup && (
+                <PanelBody title="Field Definition">
+                <TextControl
+                    label="Field Title"
+                    value={fieldTitle}
+                    onChange={(value) => {
+                    setFieldTitle(value);
+                    setAttributes({ title: value });
+                    }}
+                />
+                <TextareaControl
+                    label="Field Description / Label Copy"
+                    value={fieldDescription}
+                    onChange={(value) => {
+                    setFieldDescription(value);
+                    setAttributes({ description: value });
+                    }}
+                />
+                <Button isPrimary onClick={saveGroupDefinition}>
+                    Save Field Definition
+                </Button>
+                </PanelBody>
+            )}
+            {selectedGroup && (
+                <PanelBody title="Form Field Settings" initialOpen={false}>
+                <TextControl
+                    label="Custom Label"
+                    help="Overrides the shared field title for this block only."
+                    value={attributes.label || ''}
+                    onChange={(value) => setAttributes({ label: value })}
+                />
+                <TextControl
+                    label="Placeholder / Prompt"
+                    help="Used for select prompts and general field guidance."
+                    value={attributes.placeholder || ''}
+                    onChange={(value) => setAttributes({ placeholder: value })}
+                />
+                <TextareaControl
+                    label="Help Text"
+                    value={attributes.helpText || ''}
+                    onChange={(value) => setAttributes({ helpText: value })}
+                />
+                <ToggleControl
+                    label="Required field"
+                    checked={!!attributes.isRequired}
+                    onChange={(value) => setAttributes({ isRequired: value })}
+                />
+                </PanelBody>
+            )}
             <PanelBody title="Editor Options">
             {!isInsideForm && (
                 <SwitchControl

@@ -57,7 +57,6 @@ add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_styl
 
 
 function create_underscored_value($string) {
-    // Map of numbers to words
     $numberWords = [
         '0' => 'zero',
         '1' => 'one',
@@ -71,12 +70,14 @@ function create_underscored_value($string) {
         '9' => 'nine'
     ];
 
-    // Replace each numeric character with its corresponding word
     $string = preg_replace_callback('/\d/', function($matches) use ($numberWords) {
         return $numberWords[$matches[0]];
     }, $string);
 
-    // Convert spaces to underscores and return the string in lowercase
+    $string = strtolower($string);
+    $string = preg_replace('/[^a-z0-9_ ]+/', '', $string);
+    $string = preg_replace('/\s+/', '_', trim($string));
+
     return $string;
 }
 
@@ -118,6 +119,515 @@ function get_filtered_choices_options($cache_key) {
 
     return $filtered_options;
 }
+
+function ace_get_choice_groups() {
+    global $cache_key;
+
+    return get_filtered_choices_options($cache_key);
+}
+
+function ace_get_form_field_name($attributes) {
+    if (!empty($attributes['selectedMetaKey'])) {
+        return create_underscored_value($attributes['selectedMetaKey']);
+    }
+
+    if (!empty($attributes['selectedGroup'])) {
+        return create_underscored_value($attributes['selectedGroup']);
+    }
+
+    return '';
+}
+
+function ace_get_form_field_label($attributes, $fallback = '') {
+    if (!empty($attributes['label'])) {
+        return sanitize_text_field($attributes['label']);
+    }
+
+    if (!empty($attributes['title'])) {
+        return sanitize_text_field($attributes['title']);
+    }
+
+    return sanitize_text_field($fallback);
+}
+
+function ace_get_form_field_help_text($attributes, $group_data = []) {
+    if (!empty($attributes['helpText'])) {
+        return sanitize_textarea_field($attributes['helpText']);
+    }
+
+    if (!empty($group_data['description']) && empty($attributes['placeholder'])) {
+        return sanitize_textarea_field($group_data['description']);
+    }
+
+    return '';
+}
+
+function ace_get_form_field_placeholder($attributes, $fallback = '') {
+    if (!empty($attributes['placeholder'])) {
+        return sanitize_text_field($attributes['placeholder']);
+    }
+
+    return sanitize_text_field($fallback);
+}
+
+function ace_get_form_input_type($attributes) {
+    $allowed_types = ['text', 'email', 'tel', 'url', 'number', 'textarea'];
+    $input_type = sanitize_key($attributes['inputType'] ?? 'text');
+
+    return in_array($input_type, $allowed_types, true) ? $input_type : 'text';
+}
+
+function ace_get_form_field_constraint_attributes($attributes) {
+    $html_attributes = [];
+
+    if (!empty($attributes['isRequired'])) {
+        $html_attributes['required'] = 'required';
+        $html_attributes['aria-required'] = 'true';
+    }
+
+    if (!empty($attributes['autocomplete'])) {
+        $html_attributes['autocomplete'] = sanitize_text_field($attributes['autocomplete']);
+    }
+
+    $min_length = isset($attributes['minLength']) ? (int) $attributes['minLength'] : 0;
+    if ($min_length > 0) {
+        $html_attributes['minlength'] = (string) $min_length;
+    }
+
+    $max_length = isset($attributes['maxLength']) ? (int) $attributes['maxLength'] : 0;
+    if ($max_length > 0) {
+        $html_attributes['maxlength'] = (string) $max_length;
+    }
+
+    return $html_attributes;
+}
+
+function ace_build_html_attributes($attributes) {
+    $serialized = [];
+
+    foreach ($attributes as $attribute_name => $attribute_value) {
+        if ($attribute_value === '' || $attribute_value === null || $attribute_value === false) {
+            continue;
+        }
+
+        $serialized[] = sprintf(
+            '%s="%s"',
+            esc_attr($attribute_name),
+            esc_attr((string) $attribute_value)
+        );
+    }
+
+    return implode(' ', $serialized);
+}
+
+function ace_format_form_value_for_email($value) {
+    if (is_array($value)) {
+        return implode(', ', array_map('ace_format_form_value_for_email', $value));
+    }
+
+    if (is_bool($value)) {
+        return $value ? 'Yes' : 'No';
+    }
+
+    return (string) $value;
+}
+
+function ace_find_reply_to_email($fields) {
+    foreach ($fields as $value) {
+        $values = is_array($value) ? $value : [$value];
+
+        foreach ($values as $candidate) {
+            $candidate = sanitize_email($candidate);
+
+            if ($candidate && is_email($candidate)) {
+                return $candidate;
+            }
+        }
+    }
+
+    return '';
+}
+
+function ace_build_form_email_message($config, $fields, $page_url = '') {
+    $template = isset($config['emailTemplate']) ? (string) $config['emailTemplate'] : '';
+
+    if ($template !== '') {
+        foreach ($fields as $field_name => $value) {
+            $template = str_replace(
+                '{' . $field_name . '}',
+                ace_format_form_value_for_email($value),
+                $template
+            );
+        }
+
+        if ($page_url !== '') {
+            $template .= "\n\nSubmitted from: " . esc_url_raw($page_url);
+        }
+
+        return $template;
+    }
+
+    $lines = [];
+
+    foreach ($fields as $field_name => $value) {
+        $label = ucwords(str_replace('_', ' ', $field_name));
+        $lines[] = sprintf('%s: %s', $label, ace_format_form_value_for_email($value));
+    }
+
+    if ($page_url !== '') {
+        $lines[] = 'Submitted from: ' . esc_url_raw($page_url);
+    }
+
+    return implode("\n\n", $lines);
+}
+
+function ace_normalize_form_submission($fields) {
+    $normalized = [];
+
+    if (!is_array($fields)) {
+        return $normalized;
+    }
+
+    foreach ($fields as $field_name => $value) {
+        $sanitized_key = create_underscored_value((string) $field_name);
+
+        if ($sanitized_key === '') {
+            continue;
+        }
+
+        if (is_array($value)) {
+            $normalized[$sanitized_key] = array_values(array_filter(array_map(function($item) {
+                return sanitize_textarea_field((string) $item);
+            }, $value), function($item) {
+                return $item !== '';
+            }));
+            continue;
+        }
+
+        $normalized[$sanitized_key] = sanitize_textarea_field((string) $value);
+    }
+
+    return array_filter($normalized, function($value) {
+        return $value !== '' && $value !== [];
+    });
+}
+
+function ace_sign_contact_form_config($payload) {
+    return wp_hash($payload);
+}
+
+function ace_is_woocommerce_available() {
+    return class_exists('WooCommerce') && function_exists('wc_get_product');
+}
+
+function ace_get_product_context_data($product_id = 0) {
+    if (!ace_is_woocommerce_available()) {
+        return null;
+    }
+
+    if (!$product_id) {
+        $product_id = get_the_ID();
+    }
+
+    if (!$product_id) {
+        return null;
+    }
+
+    $product = wc_get_product($product_id);
+    if (!$product) {
+        return null;
+    }
+
+    return [
+        'id' => $product->get_id(),
+        'name' => $product->get_name(),
+        'sku' => $product->get_sku(),
+        'price' => wp_strip_all_tags($product->get_price_html()),
+        'permalink' => get_permalink($product->get_id()),
+    ];
+}
+
+function ace_get_latest_product_context_sample() {
+    if (!ace_is_woocommerce_available()) {
+        return null;
+    }
+
+    $products = get_posts([
+        'post_type' => 'product',
+        'posts_per_page' => 1,
+        'post_status' => 'publish',
+        'orderby' => 'date',
+        'order' => 'DESC',
+        'fields' => 'ids',
+    ]);
+
+    if (empty($products)) {
+        return null;
+    }
+
+    return ace_get_product_context_data((int) $products[0]);
+}
+
+function ace_enqueue_contact_form_frontend_assets() {
+    static $assets_enqueued = false;
+
+    if ($assets_enqueued || is_admin()) {
+        return;
+    }
+
+    $dir = plugin_dir_path(__FILE__);
+    $url = plugin_dir_url(__FILE__);
+    $script_handle = 'ace-contact-form-frontend';
+    $script_asset = "{$dir}assets/js/js/form-submit.asset.php";
+    $script_path = "{$dir}assets/js/js/form-submit.js";
+
+    if (file_exists($script_asset)) {
+        $asset = include $script_asset;
+
+        wp_enqueue_script(
+            $script_handle,
+            "{$url}assets/js/js/form-submit.js",
+            $asset['dependencies'],
+            $asset['version'],
+            true
+        );
+    } elseif (file_exists($script_path)) {
+        wp_enqueue_script(
+            $script_handle,
+            "{$url}assets/js/js/form-submit.js",
+            [],
+            filemtime($script_path),
+            true
+        );
+    }
+
+    wp_localize_script($script_handle, 'aceContactForm', [
+        'restUrl' => esc_url_raw(rest_url('ace/v1/submit-form')),
+    ]);
+
+    $style_path = "{$dir}assets/styles/form.css";
+    if (file_exists($style_path)) {
+        wp_enqueue_style(
+            'ace-contact-form',
+            "{$url}assets/styles/form.css",
+            [],
+            filemtime($style_path)
+        );
+    }
+
+    $assets_enqueued = true;
+}
+
+function ace_render_form_block($attributes, $content) {
+    ace_enqueue_contact_form_frontend_assets();
+
+    $recipient = sanitize_email($attributes['recipient'] ?? '');
+    $subject = sanitize_text_field($attributes['subject'] ?? '');
+    $success_message = sanitize_text_field($attributes['successMessage'] ?? 'Thank you for your message!');
+    $error_message = sanitize_text_field($attributes['errorMessage'] ?? 'There was an error sending your message.');
+    $form_id = sanitize_html_class($attributes['formId'] ?? '');
+    $email_template = sanitize_textarea_field($attributes['emailTemplate'] ?? '');
+    $field_styles = is_array($attributes['fieldStyles'] ?? null) ? $attributes['fieldStyles'] : [];
+    $use_floating_placeholders = !empty($field_styles['useFloatingPlaceholders']);
+    $show_required_indicator = !array_key_exists('showRequiredIndicator', $field_styles) || !empty($field_styles['showRequiredIndicator']);
+
+    $config = [
+        'formId' => $form_id,
+        'recipient' => $recipient,
+        'subject' => $subject,
+        'successMessage' => $success_message,
+        'errorMessage' => $error_message,
+        'emailTemplate' => $email_template,
+    ];
+
+    $config_payload = base64_encode(wp_json_encode($config));
+    $config_signature = ace_sign_contact_form_config($config_payload);
+    $style_map = [
+        '--ace-form-field-gap' => $field_styles['fieldGap'] ?? '',
+        '--ace-form-label-gap' => $field_styles['labelGap'] ?? '',
+        '--ace-form-input-padding' => $field_styles['inputPadding'] ?? '',
+        '--ace-form-input-radius' => $field_styles['inputBorderRadius'] ?? '',
+        '--ace-form-input-border-width' => $field_styles['inputBorderWidth'] ?? '',
+        '--ace-form-input-border-color' => $field_styles['inputBorderColor'] ?? '',
+        '--ace-form-input-background' => $field_styles['inputBackgroundColor'] ?? '',
+        '--ace-form-input-color' => $field_styles['inputTextColor'] ?? '',
+        '--ace-form-placeholder-color' => $field_styles['placeholderColor'] ?? '',
+        '--ace-form-focus-border-color' => $field_styles['focusBorderColor'] ?? '',
+        '--ace-form-focus-background' => $field_styles['focusBackgroundColor'] ?? '',
+    ];
+    $style_declarations = [];
+    foreach ($style_map as $property => $value) {
+        $value = sanitize_text_field((string) $value);
+        if ($value !== '') {
+            $style_declarations[] = $property . ': ' . $value;
+        }
+    }
+
+    $wrapper_attributes = get_block_wrapper_attributes([
+        'class' => trim(
+            'ace-form-container' .
+            ($use_floating_placeholders ? ' ace-form-container--floating-placeholders' : '') .
+            ($show_required_indicator ? ' ace-form-container--show-required' : '')
+        ),
+        'style' => implode('; ', $style_declarations),
+    ]);
+
+    return sprintf(
+        '<form %1$s method="post" data-ace-form="true" data-success-message="%2$s" data-error-message="%3$s">
+            <input type="hidden" name="ace_form_nonce" value="%4$s" />
+            <input type="hidden" name="ace_form_config" value="%5$s" />
+            <input type="hidden" name="ace_form_signature" value="%6$s" />
+            <input type="text" class="ace-form-honeypot" name="ace_hp" value="" tabindex="-1" autocomplete="off" />
+            %7$s
+            <div class="ace-form-status" data-ace-form-status hidden aria-live="polite"></div>
+        </form>',
+        $wrapper_attributes,
+        esc_attr($success_message),
+        esc_attr($error_message),
+        esc_attr(wp_create_nonce('ace_submit_form')),
+        esc_attr($config_payload),
+        esc_attr($config_signature),
+        $content
+    );
+}
+
+function ace_register_form_block() {
+    register_block_type('adaptive-content-enhancer/form', [
+        'render_callback' => 'ace_render_form_block',
+        'attributes' => [
+            'formId' => ['type' => 'string', 'default' => ''],
+            'recipient' => ['type' => 'string', 'default' => ''],
+            'subject' => ['type' => 'string', 'default' => ''],
+            'successMessage' => ['type' => 'string', 'default' => 'Thank you for your message!'],
+            'errorMessage' => ['type' => 'string', 'default' => 'There was an error sending your message.'],
+            'enableRecaptcha' => ['type' => 'boolean', 'default' => false],
+            'enableFileUpload' => ['type' => 'boolean', 'default' => false],
+            'maxFileSize' => ['type' => 'number', 'default' => 2],
+            'allowedFileTypes' => ['type' => 'array', 'default' => ['pdf', 'doc', 'docx']],
+            'emailTemplate' => ['type' => 'string', 'default' => ''],
+            'customClass' => ['type' => 'string', 'default' => ''],
+            'formAction' => ['type' => 'string', 'default' => 'email'],
+            'fieldStyles' => [
+                'type' => 'object',
+                'default' => [
+                    'inputPadding' => '0.875rem 1rem',
+                    'fieldGap' => '1rem',
+                    'labelGap' => '0.5rem',
+                    'inputBorderRadius' => '0.5rem',
+                    'inputBorderWidth' => '1px',
+                    'inputBorderColor' => '#cfd4dc',
+                    'inputBackgroundColor' => '#ffffff',
+                    'inputTextColor' => '#1e1e1e',
+                    'placeholderColor' => '#6b7280',
+                    'focusBorderColor' => '#1d4ed8',
+                    'focusBackgroundColor' => '#ffffff',
+                    'useFloatingPlaceholders' => false,
+                    'showRequiredIndicator' => true,
+                ],
+            ],
+            'smtpSettings' => [
+                'type' => 'object',
+                'default' => [
+                    'host' => '',
+                    'port' => '',
+                    'username' => '',
+                    'password' => '',
+                    'encryption' => 'tls',
+                ],
+            ],
+            'validation' => [
+                'type' => 'object',
+                'default' => [
+                    'requireValidation' => true,
+                    'validateEmail' => true,
+                    'validatePhone' => false,
+                ],
+            ],
+        ],
+        'supports' => [
+            'html' => false,
+            'align' => true,
+            'customClassName' => true,
+            'spacing' => [
+                'blockGap' => true,
+                'padding' => true,
+                'margin' => true,
+            ],
+            'border' => [
+                'color' => true,
+                'radius' => true,
+                'style' => true,
+                'width' => true,
+            ],
+            'color' => [
+                'text' => true,
+                'background' => true,
+                'gradients' => true,
+                'link' => true,
+            ],
+            'typography' => [
+                'fontSize' => true,
+                'lineHeight' => true,
+                'textAlign' => true,
+            ],
+            'layout' => true,
+            'dimensions' => [
+                'minHeight' => true,
+            ],
+            'shadow' => true,
+        ],
+    ]);
+}
+add_action('init', 'ace_register_form_block');
+
+function ace_render_product_context_block() {
+    if (!ace_is_woocommerce_available() || !is_singular('product')) {
+        return '';
+    }
+
+    $product_context = ace_get_product_context_data();
+    if (!$product_context) {
+        return '';
+    }
+
+    $fields = [
+        'product_id' => $product_context['id'],
+        'product_name' => $product_context['name'],
+        'product_sku' => $product_context['sku'],
+        'product_price' => $product_context['price'],
+        'product_permalink' => $product_context['permalink'],
+    ];
+
+    $output = '';
+    foreach ($fields as $field_name => $field_value) {
+        $output .= sprintf(
+            '<input type="hidden" name="%1$s" value="%2$s" readonly="readonly" aria-hidden="true" />',
+            esc_attr($field_name),
+            esc_attr((string) $field_value)
+        );
+    }
+
+    return $output;
+}
+
+function ace_register_product_context_block() {
+    if (!ace_is_woocommerce_available()) {
+        return;
+    }
+
+    register_block_type('adaptive-content-enhancer/product-context', [
+        'render_callback' => 'ace_render_product_context_block',
+        'attributes' => [],
+        'supports' => [
+            'html' => false,
+            'multiple' => false,
+            'reusable' => false,
+            'customClassName' => false,
+        ],
+        'parent' => ['adaptive-content-enhancer/form'],
+    ]);
+}
+add_action('init', 'ace_register_product_context_block');
 
 
 $cache_key = 'ace_all_options_cache';
@@ -311,9 +821,61 @@ function acefields_get_unserialized_meta($meta_value) {
 register_block_type('adaptive-content-enhancer/text-field', array(
     'render_callback' => 'ace_field_options_render_block',
     'attributes' => array(
+        'selectedMetaKey' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
         'selectedGroup' => array(
             'type' => 'string',
             'default' => ''
+        ),
+        'content' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'title' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'description' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'label' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'placeholder' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'helpText' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'inputType' => array(
+            'type' => 'string',
+            'default' => 'text'
+        ),
+        'autocomplete' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'isRequired' => array(
+            'type' => 'boolean',
+            'default' => false
+        ),
+        'rows' => array(
+            'type' => 'number',
+            'default' => 4
+        ),
+        'minLength' => array(
+            'type' => 'number',
+            'default' => 0
+        ),
+        'maxLength' => array(
+            'type' => 'number',
+            'default' => 0
         ),
         'choiceValue' => array(
             'type' => 'string',
@@ -383,47 +945,93 @@ register_block_type('adaptive-content-enhancer/text-field', array(
 ));
 
 function ace_field_options_render_block($attributes, $content, $block) {
-    $is_inside_form = isset($attributes['isInsideForm']) ? $attributes['isInsideForm'] : false;
-
-
-
+    $is_inside_form = !empty($attributes['isInsideForm']);
     $wrapper_attributes = get_block_wrapper_attributes();
     $selected_group = $attributes['selectedGroup'] ?? '';
     $selected_field_type = $attributes['selectedFieldType'] ?? '';
-    $show_as_input = $attributes['showAsInputOnFrontend'] ?? false;
-    $show_labels = $attributes['showLabelsOnFrontend'] ?? false;
-    $selected_meta_key = $attributes['selectedMetaKey'] ?? ''; // For text blocks
-    $content = $attributes['content'] ?? ''; // Content for text blocks
+    $show_as_input = $is_inside_form || !empty($attributes['showAsInputOnFrontend']);
+    $show_labels = $is_inside_form || !empty($attributes['showLabelsOnFrontend']);
+    $selected_meta_key = $attributes['selectedMetaKey'] ?? '';
+    $content = $attributes['content'] ?? '';
     $output = '';
+    $field_name = ace_get_form_field_name($attributes);
+    $field_id = $field_name ? 'ace-field-' . $field_name : wp_unique_id('ace-field-');
+    $group_data = [];
+    $title = $attributes['title'] ?? '';
+    $is_required = !empty($attributes['isRequired']);
+    $input_type = ace_get_form_input_type($attributes);
 
-
-    // Fetch the dynamically stored group options from the database
     if (!empty($selected_meta_key)) {
-        $option_name = 'choices_' . $selected_meta_key; // Build the correct option name
-        $group_data = get_option($option_name, []); // Get the option from the database
+        $option_name = 'choices_' . create_underscored_value($selected_meta_key);
+        $group_data = get_option($option_name, []);
 
-        // Extract the title dynamically if available
         if (!empty($group_data['title'])) {
             $title = $group_data['title'];
-        } else {
-            $title = $attributes['title'] ?? ''; // Fallback to block attribute title
         }
     }
 
+    if (!empty($selected_group)) {
+        $option_name = 'choices_' . create_underscored_value($selected_group);
+        $selected_group_data = get_option($option_name, []);
+        if (!empty($selected_group_data) && is_array($selected_group_data)) {
+            $group_data = array_merge($selected_group_data, $group_data);
+        }
+    }
 
-    // Handle Text Blocks
+    $field_label = ace_get_form_field_label($attributes, $title ?: $selected_meta_key ?: $selected_group);
+    $field_help_text = ace_get_form_field_help_text($attributes, $group_data);
+    $placeholder_fallback = $group_data['description'] ?? '';
+    if ($placeholder_fallback === '') {
+        $placeholder_fallback = 'Enter ' . ($field_label ?: $selected_meta_key ?: $selected_group);
+    }
+    $field_placeholder = ace_get_form_field_placeholder($attributes, $placeholder_fallback);
+    $constraint_attributes = ace_get_form_field_constraint_attributes($attributes);
+    $required_class = $is_required ? ' is-required' : '';
+    $required_description = $is_required ? '<span class="screen-reader-text">(required)</span>' : '';
+    $help_markup = $field_help_text !== '' ? sprintf('<p class="ace-form-field__help">%s</p>', esc_html($field_help_text)) : '';
+
     if (!empty($selected_meta_key)) {
         if ($is_inside_form) {
-            // Render input field if inside a form container
+            $input_attributes = array_merge($constraint_attributes, [
+                'id' => $field_id,
+                'name' => $field_name,
+                'class' => 'ace-form-field__input ace-form-field__input--' . $input_type,
+                'placeholder' => $field_placeholder,
+            ]);
+
+            if ($input_type === 'textarea') {
+                $input_attributes['rows'] = max(2, (int) ($attributes['rows'] ?? 4));
+                $input_markup = sprintf(
+                    '<textarea %1$s></textarea>',
+                    ace_build_html_attributes($input_attributes)
+                );
+            } else {
+                $input_attributes['type'] = $input_type;
+                $input_attributes['value'] = '';
+                $input_markup = sprintf(
+                    '<input %1$s />',
+                    ace_build_html_attributes($input_attributes)
+                );
+            }
+
             $output = sprintf(
-                '<label>%s</label><br/><input type="text" class="acemedia-text-input" name="%s" value="%s" placeholder="%s" />',
-                esc_attr($title),
-                esc_attr($selected_meta_key),
-                esc_attr($content),
-                esc_attr("Enter value for " . $selected_meta_key)
+                '<div class="ace-form-field ace-form-field--text ace-form-field--%1$s">
+                    <label class="ace-form-field__label ace-form-field__label--static%2$s" for="%3$s">%4$s%5$s</label>
+                    <div class="ace-form-field__control-wrap">
+                        %6$s
+                        <label class="ace-form-field__label ace-form-field__label--floating%2$s" for="%3$s">%4$s%5$s</label>
+                    </div>
+                    %7$s
+                </div>',
+                esc_attr($input_type),
+                esc_attr($required_class),
+                esc_attr($field_id),
+                esc_html($field_label ?: $selected_meta_key),
+                $required_description,
+                $input_markup,
+                $help_markup
             );
         } else {
-            // Render plain text as a paragraph
             $output = sprintf(
                 '<p class="acemedia-text-field" data-meta-key="%s">%s</p>',
                 esc_attr($selected_meta_key),
@@ -434,57 +1042,98 @@ function ace_field_options_render_block($attributes, $content, $block) {
         return sprintf('<div %s>%s</div>', $wrapper_attributes, $output);
     }
 
-    // Fetch the group options dynamically for options blocks
     $group_options = get_group_options($selected_group, $attributes);
     $dropdown_label = $group_options['label'] ?? '';
-    $dropdown_title = $group_options['title'] ?? ''; // Use dynamically fetched title
+    $dropdown_title = $group_options['title'] ?? '';
 
-    // Existing logic for options blocks
-    if ($show_as_input && $selected_field_type != 'text') {
+    if ($show_as_input && $selected_field_type !== 'text') {
         switch ($selected_field_type) {
             case 'truefalse':
-                // Fetch true/false labels dynamically
-                $true_label = $group_options['label'] ?? '';
+                $true_label = $field_label ?: $dropdown_title ?: ($group_options['label'] ?? '');
                 $is_checked = in_array($attributes['trueFalseValue'], ['1', true, 'true'], true) ? 'checked' : '';
                 $output = sprintf(
-                    '<label><input type="checkbox" class="acemedia-checkbox" %s> %s</label>',
+                    '<div class="ace-form-field ace-form-field--toggle"><label class="ace-form-field__label ace-form-field__label--toggle%5$s" for="%1$s"><input id="%1$s" type="checkbox" class="acemedia-checkbox" name="%2$s" value="1" %3$s %6$s> %4$s%7$s</label>%8$s</div>',
+                    esc_attr($field_id),
+                    esc_attr($field_name),
                     $is_checked,
-                    esc_html($true_label)
+                    esc_html($true_label),
+                    esc_attr($required_class),
+                    $is_required ? 'required aria-required="true"' : '',
+                    $required_description,
+                    $help_markup
                 );
                 break;
 
             case 'checkbox':
             case 'radio':
-                // Render checkbox/radio options
-                foreach ($group_options['options'] as $option) {
-                    $isSelected = $attributes['choiceValue'] === $option['value'] ? 'checked' : '';
-                    $inputType = ($selected_field_type === 'checkbox') ? 'checkbox' : 'radio';
+                $input_type = ($selected_field_type === 'checkbox') ? 'checkbox' : 'radio';
+                $selected_values = $attributes['choiceValue'] ?? [];
+                if (!is_array($selected_values)) {
+                    $selected_values = [$selected_values];
+                }
+
+                if ($show_labels && ($field_label || $dropdown_title)) {
                     $output .= sprintf(
-                        '<label><input type="%s" name="%s" value="%s" class="acemedia-%s" %s> %s</label>',
-                        esc_attr($inputType),
-                        esc_attr($selected_group),
+                        '<fieldset class="ace-form-field ace-form-field--%1$s"><legend class="ace-form-field__label%2$s">%3$s%4$s</legend>',
+                        esc_attr($selected_field_type),
+                        esc_attr($required_class),
+                        esc_html($field_label ?: $dropdown_title),
+                        $required_description
+                    );
+                } else {
+                    $output .= sprintf('<fieldset class="ace-form-field ace-form-field--%1$s">', esc_attr($selected_field_type));
+                }
+
+                foreach ($group_options['options'] as $index => $option) {
+                    $is_selected = in_array((string) $option['value'], array_map('strval', $selected_values), true) ? 'checked' : '';
+                    $output .= sprintf(
+                        '<label><input type="%1$s" name="%2$s" value="%3$s" class="acemedia-%1$s" %4$s %6$s> %5$s</label>',
+                        esc_attr($input_type),
+                        esc_attr($field_name),
                         esc_attr($option['value']),
-                        esc_attr($inputType),
-                        $isSelected,
-                        esc_html($option['label'])
+                        $is_selected,
+                        esc_html($option['label']),
+                        ($is_required && $index === 0) ? 'required aria-required="true"' : ''
                     );
                 }
+                $output .= $help_markup . '</fieldset>';
                 break;
 
             default:
-                // Render dropdown
-                if ($show_labels) {
-                    $output .= '<label>';
-                    $output .= esc_html($dropdown_title) . '<br />'; // Render the title dynamically
+                $select_attributes = [
+                    'id' => $field_id,
+                    'name' => $field_name,
+                    'class' => 'acemedia-input ace-form-field__input ace-form-field__input--select',
+                ];
+                if ($is_required) {
+                    $select_attributes['required'] = 'required';
+                    $select_attributes['aria-required'] = 'true';
                 }
 
-                $select = '<select class="acemedia-input">';
+                if ($show_labels) {
+                    $output .= sprintf(
+                        '<label class="ace-form-field ace-form-field--select ace-form-field__label-wrapper" for="%1$s"><span class="ace-form-field__label%3$s">%2$s%4$s</span>',
+                        esc_attr($field_id),
+                        esc_html($field_label ?: $dropdown_title),
+                        esc_attr($required_class),
+                        $required_description
+                    );
+                }
+
+                $select = sprintf('<select %1$s>', ace_build_html_attributes($select_attributes));
+                if ($field_placeholder !== '') {
+                    $select .= sprintf(
+                        '<option value="" %1$s>%2$s</option>',
+                        $is_required ? 'disabled selected' : '',
+                        esc_html($field_placeholder)
+                    );
+                }
                 foreach ($group_options['options'] as $option) {
-                    $isSelected = $attributes['choiceValue'] === $option['value'] ? 'selected' : '';
+                    $is_selected = $attributes['choiceValue'] === $option['value'] ? 'selected' : '';
                     $select .= sprintf(
                         '<option value="%s" %s>%s</option>',
                         esc_attr($option['value']),
-                        $isSelected,
+                        $is_selected,
                         esc_html($option['label'])
                     );
                 }
@@ -492,12 +1141,13 @@ function ace_field_options_render_block($attributes, $content, $block) {
                 $output .= $select;
 
                 if ($show_labels) {
-                    $output .= '</label>';
+                    $output .= $help_markup . '</label>';
+                } else {
+                    $output .= $help_markup;
                 }
                 break;
         }
     } else {
-        // Plain text rendering for options blocks
         if ($selected_field_type === 'truefalse') {
             $dropdown_label = $group_options['label'] ?? '';
         } elseif ($selected_field_type === 'text') {
@@ -572,10 +1222,52 @@ function ace_enqueue_form_block() {
     wp_set_script_translations('ace-form-block', 'ace');
 }
 
+add_action('enqueue_block_editor_assets', 'ace_enqueue_product_context_block');
+
+function ace_enqueue_product_context_block() {
+    if (!ace_is_woocommerce_available()) {
+        return;
+    }
+
+    $dir = plugin_dir_path(__FILE__);
+    $url = plugin_dir_url(__FILE__);
+
+    if (!file_exists("{$dir}/assets/js/blocks/product-context.js")) {
+        return;
+    }
+
+    if (file_exists("{$dir}/assets/js/blocks/product-context.asset.php")) {
+        $asset = include "{$dir}/assets/js/blocks/product-context.asset.php";
+
+        wp_enqueue_script(
+            'ace-product-context-block',
+            "{$url}/assets/js/blocks/product-context.js",
+            $asset['dependencies'],
+            $asset['version'],
+            true
+        );
+    } else {
+        wp_enqueue_script(
+            'ace-product-context-block',
+            "{$url}/assets/js/blocks/product-context.js",
+            ['wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components'],
+            filemtime("{$dir}/assets/js/blocks/product-context.js"),
+            true
+        );
+    }
+
+    wp_localize_script('ace-product-context-block', 'aceWooProductContext', [
+        'isAvailable' => true,
+        'sampleProduct' => ace_get_latest_product_context_sample(),
+    ]);
+}
+
 
 
 
 function get_group_options($selected_group, $attributes) {
+    global $all_options;
+
     $selected_group = create_underscored_value($selected_group);
     $dropdown_value_ref = $attributes['choiceValue'] ?? '';
 
@@ -656,6 +1348,30 @@ register_block_type('adaptive-content-enhancer/option', array(
         'selectedFieldType' => array(
             'type' => 'string',
             'default' => ''
+        ),
+        'title' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'description' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'label' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'placeholder' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'helpText' => array(
+            'type' => 'string',
+            'default' => ''
+        ),
+        'isRequired' => array(
+            'type' => 'boolean',
+            'default' => false
         ),
         'style' => array(
             'type' => 'object',
@@ -1555,6 +2271,12 @@ add_action('rest_api_init', function() {
             return current_user_can('manage_options'); // Ensure the user has permission
         }
     ));
+
+    register_rest_route('ace/v1', '/submit-form', array(
+        'methods' => 'POST',
+        'callback' => 'ace_submit_form',
+        'permission_callback' => '__return_true',
+    ));
 });
 
 function ace_delete_option(WP_REST_Request $request) {
@@ -1650,6 +2372,91 @@ function ace_save_options(WP_REST_Request $request) {
     ), 200);
 }
 
+function ace_submit_form(WP_REST_Request $request) {
+    $honeypot = sanitize_text_field((string) $request->get_param('ace_hp'));
+    if ($honeypot !== '') {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'Spam detected.',
+        ), 400);
+    }
+
+    $nonce = (string) $request->get_param('ace_form_nonce');
+    if (!$nonce || !wp_verify_nonce($nonce, 'ace_submit_form')) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'Invalid form nonce.',
+        ), 403);
+    }
+
+    $config_payload = (string) $request->get_param('ace_form_config');
+    $config_signature = (string) $request->get_param('ace_form_signature');
+
+    if (
+        $config_payload === '' ||
+        $config_signature === '' ||
+        !hash_equals(ace_sign_contact_form_config($config_payload), $config_signature)
+    ) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'Invalid form configuration.',
+        ), 400);
+    }
+
+    $decoded_config = base64_decode($config_payload, true);
+    $config = $decoded_config ? json_decode($decoded_config, true) : null;
+
+    if (!is_array($config)) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'Could not read the form configuration.',
+        ), 400);
+    }
+
+    $recipient = sanitize_email($config['recipient'] ?? '');
+    if (!$recipient || !is_email($recipient)) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'This form is missing a valid recipient email address.',
+        ), 400);
+    }
+
+    $fields = ace_normalize_form_submission($request->get_param('fields'));
+    if (empty($fields)) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => 'Please complete at least one field before sending the form.',
+        ), 400);
+    }
+
+    $reply_to = ace_find_reply_to_email($fields);
+    $page_url = esc_url_raw((string) $request->get_param('page_url'));
+    $subject = sanitize_text_field($config['subject'] ?? '');
+    if ($subject === '') {
+        $subject = sprintf('New contact form submission from %s', wp_parse_url(home_url(), PHP_URL_HOST));
+    }
+
+    $message = ace_build_form_email_message($config, $fields, $page_url);
+    $headers = array('Content-Type: text/plain; charset=UTF-8');
+
+    if ($reply_to) {
+        $headers[] = 'Reply-To: ' . $reply_to;
+    }
+
+    $sent = wp_mail($recipient, $subject, $message, $headers);
+    if (!$sent) {
+        return new WP_REST_Response(array(
+            'success' => false,
+            'message' => sanitize_text_field($config['errorMessage'] ?? 'There was an error sending your message.'),
+        ), 500);
+    }
+
+    return new WP_REST_Response(array(
+        'success' => true,
+        'message' => sanitize_text_field($config['successMessage'] ?? 'Thank you for your message!'),
+    ), 200);
+}
+
 function get_user_roles($object, $field_name, $request) {
     return get_userdata($object['id'])->roles;
   }
@@ -1672,15 +2479,28 @@ function ace_get_choices(WP_REST_Request $request) {
     $field_type = $request->get_param('field_type');
     $tags = $request->get_param('tags');
     $search_query = $request->get_param('search_query');
+    $choice_name = $request->get_param('choice_name');
+    $names = $request->get_param('names');
 
     $offset = ($page - 1) * $per_page;
 
-    // Fetch all choices to determine total count before any filtering
     $all_choices = $all_options;
-    $total_choices = count($all_choices);
 
-    // Apply filters if specified
     $choices = $all_choices;
+    if ($choice_name) {
+        $normalized_choice_name = create_underscored_value($choice_name);
+        $choices = array_filter($choices, function($choice) use ($normalized_choice_name) {
+            return create_underscored_value($choice['name'] ?? '') === $normalized_choice_name;
+        });
+    }
+
+    if ($names) {
+        $requested_names = array_filter(array_map('create_underscored_value', explode(',', $names)));
+        $choices = array_filter($choices, function($choice) use ($requested_names) {
+            return in_array(create_underscored_value($choice['name'] ?? ''), $requested_names, true);
+        });
+    }
+
     if ($field_type) {
         $field_types = explode(',', $field_type);
         $choices = array_filter($choices, function($choice) use ($field_types) {
@@ -1704,7 +2524,8 @@ function ace_get_choices(WP_REST_Request $request) {
         });
     }
 
-    // Sort and paginate the filtered choices
+    $total_choices = count($choices);
+
     usort($choices, function($a, $b) use ($sort_by) {
         switch ($sort_by) {
             case 'created':
@@ -1721,7 +2542,7 @@ function ace_get_choices(WP_REST_Request $request) {
     });
 
     $paginated_choices = array_slice($choices, $offset, $per_page);
-    $total_pages = ceil(count($choices) / $per_page);
+    $total_pages = max(1, (int) ceil(count($choices) / $per_page));
 
     // Fetch all tags and include them in the response
     $tags = get_terms(array(

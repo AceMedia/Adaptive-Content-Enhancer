@@ -1,0 +1,166 @@
+.ace-form-container {
+	--ace-form-field-gap: 1rem;
+	--ace-form-label-gap: 0.5rem;
+	--ace-form-input-padding: 0.875rem 1rem;
+	--ace-form-input-radius: 0.5rem;
+	--ace-form-input-border-width: 1px;
+	--ace-form-input-border-color: #cfd4dc;
+	--ace-form-input-background: #fff;
+	--ace-form-input-color: #1e1e1e;
+	--ace-form-placeholder-color: #6b7280;
+	--ace-form-focus-border-color: #1d4ed8;
+	--ace-form-focus-background: #fff;
+
+	display: grid;
+	gap: var(--wp--style--block-gap, 1rem);
+
+	.ace-form-honeypot {
+		position: absolute;
+		left: -9999px;
+		width: 1px;
+		height: 1px;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.ace-form-field {
+		display: grid;
+		gap: var(--ace-form-field-gap);
+	}
+
+	.ace-form-field__control-wrap {
+		position: relative;
+	}
+
+	.ace-form-field__label {
+		font-weight: 600;
+	}
+
+	.ace-form-field__label--static {
+		display: block;
+		margin-bottom: var(--ace-form-label-gap);
+	}
+
+	.ace-form-field__label--floating {
+		display: none;
+	}
+
+	.ace-form-field__help {
+		margin: 0;
+		font-size: 0.875em;
+		opacity: 0.8;
+	}
+
+	.ace-form-field__label.is-required::after {
+		content: " *";
+	}
+
+	fieldset.ace-form-field {
+		border: 0;
+		padding: 0;
+		margin: 0;
+	}
+
+	input[type="text"],
+	input[type="email"],
+	input[type="tel"],
+	input[type="url"],
+	input[type="number"],
+	select,
+	textarea {
+		width: 100%;
+		padding: var(--ace-form-input-padding);
+		border-radius: var(--ace-form-input-radius);
+		border: var(--ace-form-input-border-width) solid
+			var(--ace-form-input-border-color);
+		background: var(--ace-form-input-background);
+		color: var(--ace-form-input-color);
+		transition: border-color 0.2s ease, background-color 0.2s ease,
+			box-shadow 0.2s ease;
+	}
+
+	input::placeholder,
+	textarea::placeholder {
+		color: var(--ace-form-placeholder-color);
+	}
+
+	input:focus,
+	select:focus,
+	textarea:focus {
+		border-color: var(--ace-form-focus-border-color);
+		background: var(--ace-form-focus-background);
+		outline: none;
+		box-shadow: 0 0 0 1px var(--ace-form-focus-border-color);
+	}
+
+	.wp-block-button__link.is-disabled,
+	button:disabled,
+	input[type="submit"]:disabled {
+		opacity: 0.6;
+		pointer-events: none;
+	}
+
+	&.ace-form-container--floating-placeholders {
+		input::placeholder,
+		textarea::placeholder {
+			color: transparent;
+		}
+
+		.ace-form-field--text,
+		.ace-form-field--email,
+		.ace-form-field--tel,
+		.ace-form-field--url,
+		.ace-form-field--number,
+		.ace-form-field--textarea {
+			.ace-form-field__label--static {
+				display: none;
+			}
+
+			.ace-form-field__label--floating {
+				position: absolute;
+				top: 50%;
+				left: 1rem;
+				display: inline-flex;
+				align-items: center;
+				padding: 0 0.25rem;
+				background: var(--ace-form-input-background);
+				color: var(--ace-form-placeholder-color);
+				transform: translateY(-50%);
+				transform-origin: left top;
+				pointer-events: none;
+				transition: transform 0.2s ease, top 0.2s ease, color 0.2s ease,
+					font-size 0.2s ease;
+			}
+
+			textarea + .ace-form-field__label--floating {
+				top: 1.25rem;
+				transform: translateY(0);
+			}
+
+			input:focus + .ace-form-field__label--floating,
+			input:not(:placeholder-shown) + .ace-form-field__label--floating,
+			textarea:focus + .ace-form-field__label--floating,
+			textarea:not(:placeholder-shown) + .ace-form-field__label--floating {
+				top: 0;
+				transform: translateY(-50%) scale(0.86);
+				color: var(--ace-form-focus-border-color);
+			}
+		}
+	}
+}
+
+.ace-form-status {
+	padding: 0.75rem 1rem;
+	border-radius: 4px;
+	font-weight: 600;
+
+	&--success {
+		background: #edf7ed;
+		color: #1e4620;
+	}
+
+	&--error {
+		background: #fbeaea;
+		color: #8a1f11;
+	}
+}
