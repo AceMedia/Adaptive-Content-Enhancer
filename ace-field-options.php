@@ -2444,6 +2444,20 @@ function ace_submit_form(WP_REST_Request $request) {
     }
 
     $sent = wp_mail($recipient, $subject, $message, $headers);
+
+    /**
+     * Fires after a front-end form submission has been processed.
+     *
+     * Runs whether or not the notification email was delivered, so
+     * listeners can capture the lead even when mail transport fails.
+     *
+     * @param array           $fields  Normalised field values keyed by underscored field name.
+     * @param array           $config  Verified form configuration (recipient, subject, messages).
+     * @param WP_REST_Request $request The submission request.
+     * @param bool            $sent    Whether the notification email was sent.
+     */
+    do_action('ace_form_submitted', $fields, $config, $request, $sent);
+
     if (!$sent) {
         return new WP_REST_Response(array(
             'success' => false,
