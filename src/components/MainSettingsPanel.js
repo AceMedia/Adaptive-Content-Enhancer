@@ -177,7 +177,7 @@ const MainSettingsPanel = ({
     return (
         <>
             <Flex gap={6} className="main-panel">
-                <FlexItem style={{ alignSelf: 'flex-start', maxWidth: '25%' }} className="side-panel">
+                <FlexItem style={{ alignSelf: 'flex-start' }} className="side-panel">
                     <SettingsHeader handleAddChoiceGroup={handleAddChoiceGroup} />
                     <SideBar 
                         handleSortChange={handleSortChange}

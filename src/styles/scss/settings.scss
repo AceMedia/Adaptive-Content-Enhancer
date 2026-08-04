@@ -47,7 +47,6 @@ table {
 		> div { // Targeting direct child elements
 			align-items: stretch;
 			justify-items: stretch;
-			flex-grow: 1;
 		}
 	}
 
@@ -109,7 +108,15 @@ table {
 		padding: 1.5em;
 		min-width: 20%;
 		width: 30%;
-
+		flex: 0 0 300px;
+		padding-right: 20px;
+		> div {
+			display: flex;
+			flex-direction: column;
+			gap: 1em;
+			position: sticky;
+			top: calc(1em + 32px);
+		}
 		.components-base-control__label {
 			display: none;
 		}
@@ -213,9 +220,6 @@ ul#adminmenu > li.current > a.current::after {
 
 .components-card,
 .components-modal__frame {
-	box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
-	border-radius: 0.5em !important;
-	border: 1px solid rgb(203, 213, 225) !important;
 
 	.components-card__header {
 		position: relative;
@@ -602,8 +606,21 @@ label {
 }
 
 .currently-viewing {
-	font-size: 1em;
-	color: $primary-color;
+	position: sticky;
+	top: 32px;
+	z-index: 99;
+	padding: 1em 1.5em 2em;
+	margin: -1.5em -1.5em -1em !important;
+	background: linear-gradient(180deg, $slate 53%, transparent 100%); 
+	transition: .25s linear all;
+    display: flex;
+    justify-content: space-between;
+	&.alpha {
+		padding-left: 50px;
+	}
+	.components-checkbox-control {
+		display: inline-block;
+	}
 	svg {
 		transform: scale(1.2);
 		color: $dark-primary-color
