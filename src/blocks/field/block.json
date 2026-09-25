@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "adaptive-content-enhancer/field",
+  "version": "0.500.0",
+  "title": "Field",
+  "category": "widgets",
+  "description": "A form or custom-data field.",
+  "textdomain": "adaptive-content-enhancer",
+  "ancestor": [ "adaptive-content-enhancer/form", "adaptive-content-enhancer/field-group" ],
+  "attributes": {
+    "type": { "type": "string", "default": "text" },
+    "key": { "type": "string", "default": "" },
+    "label": { "type": "string", "default": "" },
+    "help": { "type": "string", "default": "" },
+    "placeholder": { "type": "string", "default": "" },
+    "required": { "type": "boolean", "default": false },
+    "choices": { "type": "array", "default": [] },
+    "defaultValue": { "type": "object", "default": { "source": "static", "value": "" } },
+    "rules": { "type": "object", "default": {} },
+    "conditions": { "type": "object", "default": {} },
+    "autocomplete": { "type": "string", "default": "" },
+    "personal": { "type": "boolean", "default": false },
+    "width": { "type": "string", "default": "" }
+  },
+  "supports": {
+    "html": false,
+    "spacing": { "margin": true },
+    "typography": { "fontSize": true },
+    "interactivity": true
+  },
+  "editorScript": "file:./index.js",
+  "editorStyle": "file:./index.css",
+  "style": "file:./style-index.css",
+  "render": "file:./render.php"
+}

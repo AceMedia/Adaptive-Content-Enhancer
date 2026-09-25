@@ -14,6 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+// Keep this historical entry point active while the plugin is migrated to the
+// namespaced bootstrap. Existing sites store this filename in active_plugins.
+if ( ! defined( 'ACE_ACE_LOADER_FILE' ) ) {
+    define( 'ACE_ACE_LOADER_FILE', __FILE__ );
+}
+require_once __DIR__ . '/adaptive-content-enhancer.php';
+
 // Register the admin menu page for managing Option Groups.
 add_action( 'admin_menu', 'ace_field_options_admin_menu' );
 
@@ -743,6 +750,8 @@ add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_asse
 add_action('init', 'acefields_register_dynamic_meta_and_bindings');
 
 function acefields_register_dynamic_meta_and_bindings() {
+    global $all_options;
+
     // Define a mapping of field types to how they should be treated
     $field_types = [
         'text' => 'string',

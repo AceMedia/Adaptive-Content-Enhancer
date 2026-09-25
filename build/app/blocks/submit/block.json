@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "adaptive-content-enhancer/submit",
+  "version": "0.500.0",
+  "title": "Submit",
+  "category": "widgets",
+  "textdomain": "adaptive-content-enhancer",
+  "ancestor": [
+    "adaptive-content-enhancer/form"
+  ],
+  "attributes": {
+    "text": {
+      "type": "string",
+      "default": "Send"
+    }
+  },
+  "supports": {
+    "html": false,
+    "color": true,
+    "spacing": true,
+    "typography": true
+  },
+  "editorScript": "file:./index.js",
+  "render": "file:./render.php"
+}
