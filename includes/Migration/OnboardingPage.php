@@ -136,7 +136,9 @@ final class OnboardingPage {
 		$report = get_transient( 'ace_data_migration_report_' . get_current_user_id() );
 		delete_transient( 'ace_data_migration_report_' . get_current_user_id() );
 		echo '<div class="wrap ace-content-admin ace-import-page">';
-		echo '<nav class="nav-tab-wrapper" aria-label="' . esc_attr__( 'Import source', 'adaptive-content-enhancer' ) . '"><a class="nav-tab ' . ( 'acf' === $source ? 'nav-tab-active' : '' ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . self::ACF_SLUG ) ) . '">' . esc_html__( 'ACF fields', 'adaptive-content-enhancer' ) . '</a><a class="nav-tab ' . ( 'cf7' === $source ? 'nav-tab-active' : '' ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . self::CF7_SLUG ) ) . '">' . esc_html__( 'CF7 forms and entries', 'adaptive-content-enhancer' ) . '</a></nav>';
+		$acf_found = $status['acf']['groups'] + $status['acf']['fields'];
+		$cf7_found = $status['cf7']['forms'] + $status['cfdb7']['entries'];
+		echo '<nav class="nav-tab-wrapper" aria-label="' . esc_attr__( 'Import source', 'adaptive-content-enhancer' ) . '"><a class="nav-tab ' . ( 'acf' === $source ? 'nav-tab-active' : '' ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . self::ACF_SLUG ) ) . '">' . esc_html__( 'ACF fields', 'adaptive-content-enhancer' ) . ' <span class="count">' . esc_html( $acf_found ? sprintf( __( '%d found', 'adaptive-content-enhancer' ), $acf_found ) : __( 'none found', 'adaptive-content-enhancer' ) ) . '</span></a><a class="nav-tab ' . ( 'cf7' === $source ? 'nav-tab-active' : '' ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . self::CF7_SLUG ) ) . '">' . esc_html__( 'CF7 forms and entries', 'adaptive-content-enhancer' ) . ' <span class="count">' . esc_html( $cf7_found ? sprintf( __( '%d found', 'adaptive-content-enhancer' ), $cf7_found ) : __( 'none found', 'adaptive-content-enhancer' ) ) . '</span></a></nav>';
 		$steps = array( __( 'Detect', 'adaptive-content-enhancer' ), __( 'Preview', 'adaptive-content-enhancer' ), __( 'Adopt', 'adaptive-content-enhancer' ), __( 'Verify', 'adaptive-content-enhancer' ), __( 'Retire', 'adaptive-content-enhancer' ) );
 		echo '<div class="ace-import-wizard"><nav class="ace-import-steps" aria-label="' . esc_attr__( 'Import progress', 'adaptive-content-enhancer' ) . '">';
 		foreach ( $steps as $index => $title ) {
@@ -161,6 +163,9 @@ final class OnboardingPage {
 		echo '<tr><td>CFDB7</td><td>' . esc_html( (string) $status['cfdb7']['entries'] ) . '</td><td>' . esc_html( (string) $status['cfdb7']['missing'] ) . '</td><td>' . esc_html( $status['cfdb7']['active'] ? __( 'Active', 'adaptive-content-enhancer' ) : __( 'Inactive', 'adaptive-content-enhancer' ) ) . '</td></tr>';
 		}
 		echo '</tbody></table>';
+		if ( ( 'acf' === $source && ! $acf_found ) || ( 'cf7' === $source && ! $cf7_found ) ) {
+			echo '<p>' . esc_html__( 'No stored source records were found on this site. You can leave this importer alone unless you have field definitions or forms registered only in custom code.', 'adaptive-content-enhancer' ) . '</p>';
+		}
 		echo '<p class="ace-import-actions"><a class="button button-primary" href="' . esc_url( add_query_arg( 'step', 2 ) ) . '">' . esc_html__( 'Continue to preview', 'adaptive-content-enhancer' ) . '</a></p>';
 		}
 		if ( 2 === $step || 3 === $step ) {
