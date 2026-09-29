@@ -14,7 +14,7 @@ final class Patterns {
 	}
 
 	public static function menu(): void {
-		add_submenu_page( 'ace-forms', __( 'Form patterns', 'adaptive-content-enhancer' ), __( 'Form patterns', 'adaptive-content-enhancer' ), Capabilities::SETTINGS, 'ace-form-patterns', array( self::class, 'render' ) );
+		add_submenu_page( 'adaptive-content-enhancer', __( 'Forms', 'adaptive-content-enhancer' ), __( 'Forms', 'adaptive-content-enhancer' ), Capabilities::SETTINGS, 'ace-form-patterns', array( self::class, 'render' ) );
 	}
 
 	public static function contains_form( array $blocks ): bool {

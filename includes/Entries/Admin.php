@@ -8,8 +8,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class Admin {
 	public static function menu(): void {
-		add_menu_page( __( 'Forms', 'adaptive-content-enhancer' ), __( 'Forms', 'adaptive-content-enhancer' ), Capabilities::VIEW_ENTRIES, 'ace-forms', array( self::class, 'render' ), 'dashicons-email-alt', 22 );
-		add_submenu_page( 'ace-forms', __( 'Entries', 'adaptive-content-enhancer' ), __( 'Entries', 'adaptive-content-enhancer' ), Capabilities::VIEW_ENTRIES, 'ace-forms', array( self::class, 'render' ) );
+		add_submenu_page( 'adaptive-content-enhancer', __( 'Entry archive', 'adaptive-content-enhancer' ), __( 'Entry archive', 'adaptive-content-enhancer' ), Capabilities::VIEW_ENTRIES, 'ace-forms', array( self::class, 'render' ) );
 	}
 
 	public static function render(): void {

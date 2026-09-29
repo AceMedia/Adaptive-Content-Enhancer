@@ -28,7 +28,9 @@ Imported ACF post-object, relationship, taxonomy and user fields now use searcha
 
 ## Local imports and checks
 
-The **Forms → Adopt existing data** screen detects ACF field definitions, Contact Form 7 forms and CFDB7 entry history on each site. Preview each import, adopt the definitions as native block-authored field groups and synced form patterns, optionally replace CF7 placements, then transfer entry history to Adaptive Customer Engagement when it is the active storage provider. The screen checks adopted counts and source plugin status before it offers optional retirement of old definitions or the CFDB7 table. Retirement requires a separate typed confirmation and never removes existing ACF post or term meta values. The earlier **Import ACF** screen and WP-CLI commands remain available.
+The **Ace Content** dashboard groups forms, field groups, entry archives, editor templates, field options and settings under one WordPress admin heading. **Import ACF** and **Import CF7** are separate five-stage onboarding screens: detect, preview, adopt, verify and optionally retire. ACF definitions become block-authored field groups while existing post and term values stay in WordPress meta. CF7 forms become synced patterns; CFDB7 entry history can then be transferred to Adaptive Customer Engagement. The screens check adopted counts and source plugin status before offering retirement. Deletion requires a separate typed confirmation. The earlier URLs redirect to the new import screens, and WP-CLI commands remain available.
+
+The settings screen uses a persistent save bar with optional auto-save. The WordPress Settings API remains the non-JavaScript fallback for Turnstile keys and ACF compatibility. New submissions go directly to Customer Engagement when it is active on the site; ACE's entry archive retains earlier imports and serves as a fallback if that storage provider is unavailable.
 
 Back up the local database first. WP-CLI uses the current `--url` site in this multisite network.
 
