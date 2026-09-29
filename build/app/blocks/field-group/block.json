@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "adaptive-content-enhancer/field-group",
+  "version": "0.500.0",
+  "title": "Field group",
+  "category": "widgets",
+  "textdomain": "adaptive-content-enhancer",
+  "attributes": {
+    "groupKey": {
+      "type": "string",
+      "default": ""
+    },
+    "location": {
+      "type": "array",
+      "default": [
+        [
+          {
+            "param": "post_type",
+            "operator": "==",
+            "value": "post"
+          }
+        ]
+      ]
+    },
+    "presentation": {
+      "type": "string",
+      "default": "sidebar"
+    }
+  },
+  "providesContext": {
+    "ace/fieldGroup": "groupKey"
+  },
+  "supports": {
+    "html": false,
+    "inserter": false
+  },
+  "editorScript": "file:./index.js"
+}

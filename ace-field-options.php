@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Adaptive Content Enhancer (WP ACE)
- * Description: A WordPress block plugin with multiple option groups for dropdowns.
- * Version: 0.421.0
+ * Plugin Name: Adaptive Content Enhancer (legacy entry)
+ * Description: Compatibility entry point for sites still activated through the original plugin file.
+ * Version: 0.500.0
  * Author: Shane Rounce of Ace Media
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -14,11 +14,15 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+// Keep this historical entry point active while the plugin is migrated to the
+// namespaced bootstrap. Existing sites store this filename in active_plugins.
+if ( ! defined( 'ACE_ACE_LOADER_FILE' ) ) {
+    define( 'ACE_ACE_LOADER_FILE', __FILE__ );
+}
+require_once __DIR__ . '/adaptive-content-enhancer.php';
+
 // Register the admin menu page for managing Option Groups.
 add_action( 'admin_menu', 'ace_field_options_admin_menu' );
-
-add_action('admin_post_import_acf_fields', 'handle_acf_import_submission');
-
 
 function ace_field_options_admin_menu() {
     add_menu_page(
@@ -33,14 +37,6 @@ function ace_field_options_admin_menu() {
     
 
 
-    add_submenu_page(
-        'adaptive-content-enhancer',
-        'ACF Import',
-        'ACF Import',
-        'manage_options',
-        'ace-acf-import',
-        'ace_field_options_acf_settings_page_html'
-    );
 }
 
 
@@ -86,6 +82,7 @@ function create_underscored_value($string) {
 // Define a cache key for all options
 
 function get_filtered_choices_options($cache_key) {
+    $cache_key = is_string($cache_key) && $cache_key !== '' ? $cache_key : 'ace_all_options_cache';
     // Attempt to load options from the cache
     $all_options = wp_cache_get($cache_key);
 
@@ -378,15 +375,15 @@ function ace_enqueue_contact_form_frontend_assets() {
     $dir = plugin_dir_path(__FILE__);
     $url = plugin_dir_url(__FILE__);
     $script_handle = 'ace-contact-form-frontend';
-    $script_asset = "{$dir}assets/js/js/form-submit.asset.php";
-    $script_path = "{$dir}assets/js/js/form-submit.js";
+    $script_asset = "{$dir}assets/js/form-submit.asset.php";
+    $script_path = "{$dir}assets/js/form-submit.js";
 
     if (file_exists($script_asset)) {
         $asset = include $script_asset;
 
         wp_enqueue_script(
             $script_handle,
-            "{$url}assets/js/js/form-submit.js",
+            "{$url}assets/js/form-submit.js",
             $asset['dependencies'],
             $asset['version'],
             true
@@ -394,7 +391,7 @@ function ace_enqueue_contact_form_frontend_assets() {
     } elseif (file_exists($script_path)) {
         wp_enqueue_script(
             $script_handle,
-            "{$url}assets/js/js/form-submit.js",
+            "{$url}assets/js/form-submit.js",
             [],
             filemtime($script_path),
             true
@@ -578,7 +575,7 @@ function ace_register_form_block() {
         ],
     ]);
 }
-add_action('init', 'ace_register_form_block');
+// The block-native form is registered from build/blocks by Plugin::register_foundation().
 
 function ace_render_product_context_block() {
     if (!ace_is_woocommerce_available() || !is_singular('product')) {
@@ -726,9 +723,9 @@ function ace_field_options_enqueue_editor_assets() {
     // Editor (backend) script for dropdown block (index.js)
     wp_enqueue_script(
         'acemedia-block-editor',
-        plugins_url('/assets/js/blocks/options.js', __FILE__),
+        plugins_url('/assets/js/options.js', __FILE__),
         array('wp-blocks', 'wp-element', 'wp-edit-post', 'wp-components', 'wp-data'),
-        filemtime(plugin_dir_path(__FILE__) . 'assets/js/blocks/options.js'), // Version number
+        filemtime(plugin_dir_path(__FILE__) . 'assets/js/options.js'), // Version number
         true // Load in the footer
     );
 
@@ -743,6 +740,8 @@ add_action('enqueue_block_editor_assets', 'ace_field_options_enqueue_editor_asse
 add_action('init', 'acefields_register_dynamic_meta_and_bindings');
 
 function acefields_register_dynamic_meta_and_bindings() {
+    global $all_options;
+
     // Define a mapping of field types to how they should be treated
     $field_types = [
         'text' => 'string',
@@ -786,7 +785,9 @@ function acefields_register_dynamic_meta_and_bindings() {
                         'single'            => true,
                         'type'              => $meta_type,
                         'sanitize_callback' => $sanitize_callback,
-                        'auth_callback'     => '__return_true',
+                        'auth_callback'     => static function ( $allowed, $meta_key, $post_id, $user_id ) {
+                            return user_can( (int) $user_id, 'edit_post', (int) $post_id );
+                        },
                     )
                 );
 
@@ -798,12 +799,13 @@ function acefields_register_dynamic_meta_and_bindings() {
 
 
 function acefields_sanitize_serialized_meta($meta_value, $meta_key, $meta_type) {
-    // Check if the meta value is an array and needs to be serialized
+    // WordPress serialises array meta itself; return a clean array to REST.
     if (is_array($meta_value)) {
-        return maybe_serialize($meta_value);
+        return array_values(array_map('sanitize_text_field', $meta_value));
     }
-
-    // Otherwise, return the meta value as is
+    if (is_bool($meta_value)) {
+        return $meta_value;
+    }
     return sanitize_text_field($meta_value);
 }
 
@@ -1169,12 +1171,12 @@ function ace_enqueue_text_block() {
     $dir = plugin_dir_path(__FILE__);
     $url = plugin_dir_url(__FILE__);
 
-    if (file_exists("{$dir}/assets/js/blocks/text.asset.php")) {
-        $asset = include "{$dir}/assets/js/blocks/text.asset.php";
+    if (file_exists("{$dir}/assets/js/text.asset.php")) {
+        $asset = include "{$dir}/assets/js/text.asset.php";
 
         wp_enqueue_script(
             'ace-text-block',
-            "{$url}/assets/js/blocks/text.js",
+            "{$url}/assets/js/text.js",
             $asset['dependencies'],
             $asset['version'],
             true
@@ -1182,9 +1184,9 @@ function ace_enqueue_text_block() {
     } else {
         wp_enqueue_script(
             'ace-text-block',
-            "{$url}/assets/js/blocks/text.js",
+            "{$url}/assets/js/text.js",
             ['wp-blocks', 'wp-element', 'wp-editor'],
-            filemtime("{$dir}/assets/js/blocks/text.js"),
+            filemtime("{$dir}/assets/js/text.js"),
             true
         );
     }
@@ -1193,18 +1195,18 @@ function ace_enqueue_text_block() {
 }
 
 
-add_action('enqueue_block_editor_assets', 'ace_enqueue_form_block');
+// The old editor script is retained for compatibility reference, but the new form block owns this name.
 
 function ace_enqueue_form_block() {
     $dir = plugin_dir_path(__FILE__);
     $url = plugin_dir_url(__FILE__);
 
-    if (file_exists("{$dir}/assets/js/blocks/form.asset.php")) {
-        $asset = include "{$dir}/assets/js/blocks/form.asset.php";
+    if (file_exists("{$dir}/assets/js/form.asset.php")) {
+        $asset = include "{$dir}/assets/js/form.asset.php";
 
         wp_enqueue_script(
             'ace-form-block',
-            "{$url}/assets/js/blocks/form.js",
+            "{$url}/assets/js/form.js",
             $asset['dependencies'],
             $asset['version'],
             true
@@ -1212,9 +1214,9 @@ function ace_enqueue_form_block() {
     } else {
         wp_enqueue_script(
             'ace-form-block',
-            "{$url}/assets/js/blocks/form.js",
+            "{$url}/assets/js/form.js",
             ['wp-blocks', 'wp-element', 'wp-editor'],
-            filemtime("{$dir}/assets/js/blocks/form.js"),
+            filemtime("{$dir}/assets/js/form.js"),
             true
         );
     }
@@ -1232,16 +1234,16 @@ function ace_enqueue_product_context_block() {
     $dir = plugin_dir_path(__FILE__);
     $url = plugin_dir_url(__FILE__);
 
-    if (!file_exists("{$dir}/assets/js/blocks/product-context.js")) {
+    if (!file_exists("{$dir}/assets/js/product-context.js")) {
         return;
     }
 
-    if (file_exists("{$dir}/assets/js/blocks/product-context.asset.php")) {
-        $asset = include "{$dir}/assets/js/blocks/product-context.asset.php";
+    if (file_exists("{$dir}/assets/js/product-context.asset.php")) {
+        $asset = include "{$dir}/assets/js/product-context.asset.php";
 
         wp_enqueue_script(
             'ace-product-context-block',
-            "{$url}/assets/js/blocks/product-context.js",
+            "{$url}/assets/js/product-context.js",
             $asset['dependencies'],
             $asset['version'],
             true
@@ -1249,9 +1251,9 @@ function ace_enqueue_product_context_block() {
     } else {
         wp_enqueue_script(
             'ace-product-context-block',
-            "{$url}/assets/js/blocks/product-context.js",
+            "{$url}/assets/js/product-context.js",
             ['wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components'],
-            filemtime("{$dir}/assets/js/blocks/product-context.js"),
+            filemtime("{$dir}/assets/js/product-context.js"),
             true
         );
     }
@@ -1428,22 +1430,6 @@ register_block_type('adaptive-content-enhancer/option', array(
 ));
 
 
-
-// Extend REST API to include /meta endpoint for each post and specific meta fields
-add_action('rest_api_init', function() {
-    register_rest_route('wp/v2', '/posts/(?P<id>\d+)/meta', array(
-        'methods' => 'GET',
-        'callback' => 'get_post_meta_via_rest',
-        'permission_callback' => '__return_true',
-    ));
-
-    // Register route to get specific meta field
-    register_rest_route('wp/v2', '/posts/(?P<id>\d+)/meta/(?P<key>[\w\d_]+)', array(
-        'methods' => 'GET',
-        'callback' => 'get_specific_post_meta_via_rest',
-        'permission_callback' => '__return_true',
-    ));
-});
 
 function get_post_meta_via_rest($request) {
     $post_id = $request['id'];

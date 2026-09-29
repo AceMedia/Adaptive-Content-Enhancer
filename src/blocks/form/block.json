@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "adaptive-content-enhancer/form",
+  "version": "0.500.0",
+  "title": "Form",
+  "category": "widgets",
+  "description": "A form with fields edited directly in the page.",
+  "textdomain": "adaptive-content-enhancer",
+  "attributes": {
+    "formId": { "type": "string", "default": "" },
+    "name": { "type": "string", "default": "Contact form" },
+    "settings": { "type": "object", "default": {} },
+    "appearance": { "type": "object", "default": { "labels": "floating" } }
+  },
+  "providesContext": { "ace/formId": "formId", "ace/appearance": "appearance" },
+  "supports": { "html": false, "spacing": true, "color": true, "typography": true },
+  "editorScript": "file:./index.js",
+  "style": "file:./style-index.css",
+  "viewScript": "file:./view.js",
+  "render": "file:./render.php"
+}

@@ -1,0 +1,18 @@
+.ace-term-fields {
+	max-width: 760px;
+	display: grid;
+	gap: 1.25rem;
+	section {
+		padding: 1rem;
+		background: var(--wp--preset--color--base, #fff);
+		border: 1px solid #dcdcde;
+		border-radius: .5rem;
+	}
+	section h3 { margin: 0 0 1rem; }
+	.ace-term-media, .ace-term-rows { margin-block: 1rem; }
+	.ace-term-media .components-button + .components-button { margin-left: .5rem; }
+	.ace-term-rows { padding: 1rem; border: 1px solid #dcdcde; border-radius: .5rem; }
+	.ace-term-row { padding: 1rem; margin-block: .75rem; background: #f6f7f7; border-radius: .4rem; }
+	.ace-term-row h4 { margin: 0 0 .75rem; }
+	.components-base-control { max-width: 100%; }
+}

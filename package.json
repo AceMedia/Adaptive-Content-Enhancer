@@ -1,27 +1,31 @@
 {
     "name": "ace-field-options",
-    "version": "0.421.0",
-    "description": "Example block scaffolded with Create Block tool.",
+    "version": "0.500.0",
+    "description": "Block-native forms and custom fields for WordPress.",
     "author": "Shane Rounce",
     "license": "GPL-2.0-or-later",
     "main": "assets/js/index.js",
     "scripts": {
-        "build": "npm-run-all clean-assets build-js build-css",
+        "build": "npm-run-all clean-assets build-blocks build-app build-legacy-js build-legacy-css clean-manifest",
+        "build-blocks": "wp-scripts build --blocks-manifest --experimental-modules --webpack-src-dir=src/blocks --output-path=build/blocks",
+        "clean-manifest": "sed -i 's/[[:space:]]*$//' build/blocks/blocks-manifest.php assets/js/*.asset.php",
+        "build-app": "wp-scripts build src/editor/index.js --output-path=build/editor && wp-scripts build src/admin/index.js --output-path=build/admin",
+        "build-legacy-js": "wp-scripts build src/index.js src/blocks/form.js src/blocks/text.js src/blocks/options.js src/blocks/product-context.js src/js/form-submit.js --output-path=assets/js",
         "build-js": "wp-scripts build",
         "dev-js": "wp-scripts start --watch",
-        "build-css": "sass src/styles/scss:assets/styles --no-source-map",
+        "build-legacy-css": "sass src/styles/scss:assets/styles --no-source-map",
         "clean-assets": "rm -rf assets/js && mkdir -p assets/js",
-        "watch-css": "chokidar 'src/**/*.scss' -c 'npm run build-css'",
+        "watch-css": "chokidar 'src/**/*.scss' -c 'npm run build-legacy-css'",
         "format": "wp-scripts format",
         "lint:css": "wp-scripts lint-style src/styles/**/*.scss --fix",
         "lint:js": "wp-scripts lint-js src/**/**/*.js",
         "packages-update": "wp-scripts packages-update",
         "plugin-zip": "wp-scripts plugin-zip",
-        "start": "npm-run-all dev-js watch-css"
+        "start": "wp-scripts start --blocks-manifest --experimental-modules --webpack-src-dir=src/blocks --output-path=build/blocks"
     },
     "devDependencies": {
         "@wordpress/icons": "^10.10.0",
-        "@wordpress/scripts": "^30.3.0",
+        "@wordpress/scripts": "^36.0.0",
         "chokidar-cli": "^3.0.0",
         "css-loader": "^7.1.2",
         "npm-run-all": "^4.1.5",
@@ -31,15 +35,16 @@
     },
     "files": [
         "README.md",
+        "adaptive-content-enhancer.php",
         "ace-field-options.php",
+        "includes",
+        "build",
         "assets"
     ],
     "dependencies": {
         "@fortawesome/fontawesome-svg-core": "^6.6.0",
         "@fortawesome/free-solid-svg-icons": "^6.6.0",
         "@fortawesome/react-fontawesome": "^0.2.2",
-        "hex-rgb": "^5.0.0",
-        "hex-to-rgba": "^2.0.1",
         "react-select": "^5.8.2"
     }
 }

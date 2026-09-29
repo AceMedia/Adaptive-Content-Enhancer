@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "adaptive-content-enhancer/form-step",
+  "version": "0.500.0",
+  "title": "Form step",
+  "category": "widgets",
+  "description": "A page of fields within a multi-step form.",
+  "textdomain": "adaptive-content-enhancer",
+  "ancestor": [
+    "adaptive-content-enhancer/form"
+  ],
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "Step"
+    },
+    "description": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "supports": {
+    "html": false,
+    "spacing": true
+  },
+  "editorScript": "file:./index.js",
+  "style": "file:./style-index.css",
+  "render": "file:./render.php"
+}

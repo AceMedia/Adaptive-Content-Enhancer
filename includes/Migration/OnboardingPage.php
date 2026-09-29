@@ -1,0 +1,228 @@
+<?php
+/** Guided adoption and optional retirement of ACF and Contact Form 7 data. */
+namespace ACE\AdaptiveContentEnhancer\Migration;
+
+use ACE\AdaptiveContentEnhancer\Fields\FieldGroups;
+use ACE\AdaptiveContentEnhancer\Forms\Patterns;
+
+defined( 'ABSPATH' ) || exit;
+
+final class OnboardingPage {
+	private const SLUG = 'ace-data-migration';
+	private const CONFIRM = 'DELETE LEGACY DATA';
+
+	public static function menu(): void {
+		add_submenu_page( 'ace-forms', __( 'Adopt existing data', 'adaptive-content-enhancer' ), __( 'Adopt existing data', 'adaptive-content-enhancer' ), 'manage_options', self::SLUG, array( self::class, 'render' ) );
+	}
+
+	private static function source_posts( string $type ): array {
+		return get_posts( array( 'post_type' => $type, 'post_status' => 'any', 'numberposts' => -1, 'orderby' => 'ID', 'order' => 'ASC' ) );
+	}
+
+	private static function source_active( array $prefixes ): bool {
+		$active = array_merge( (array) get_option( 'active_plugins', array() ), array_keys( (array) get_site_option( 'active_sitewide_plugins', array() ) ) );
+		foreach ( $active as $plugin ) {
+			foreach ( $prefixes as $prefix ) {
+				if ( str_starts_with( (string) $plugin, $prefix ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private static function acf_field_ids( array $fields, array &$ids ): void {
+		foreach ( $fields as $field ) {
+			$id = absint( $field['acf']['id'] ?? 0 );
+			if ( $id ) {
+				$ids[ $id ] = true;
+			}
+			self::acf_field_ids( $field['subFields'] ?? array(), $ids );
+		}
+	}
+
+	private static function table_exists( string $table ): bool {
+		global $wpdb;
+		return $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+	}
+
+	/** Live coverage checks are repeated immediately before every retirement action. */
+	public static function status(): array {
+		global $wpdb;
+		$groups = self::source_posts( 'acf-field-group' );
+		$fields = self::source_posts( 'acf-field' );
+		$forms = self::source_posts( 'wpcf7_contact_form' );
+		$group_ids = array();
+		$field_ids = array();
+		foreach ( FieldGroups::all() as $group ) {
+			$id = absint( get_post_meta( $group['id'], 'ace_source_id', true ) );
+			if ( $id ) {
+				$group_ids[ $id ] = true;
+			}
+			self::acf_field_ids( $group['fields'], $field_ids );
+		}
+		$missing_groups = array_filter( $groups, static fn( \WP_Post $post ): bool => ! isset( $group_ids[ $post->ID ] ) );
+		$missing_fields = array_filter( $fields, static fn( \WP_Post $post ): bool => ! isset( $field_ids[ $post->ID ] ) );
+		$map = get_option( 'ace_forms_cf7_map', array() );
+		$missing_forms = array_filter( $forms, static function ( \WP_Post $post ) use ( $map ): bool {
+			$pattern = get_post( absint( $map[ $post->ID ]['pattern_id'] ?? 0 ) );
+			return ! $pattern || 'publish' !== $pattern->post_status || ! Patterns::is_form_pattern( $pattern );
+		} );
+		$placements = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_content LIKE '%contact-form-7%' AND post_type <> 'wpcf7_contact_form' AND post_status NOT IN ('trash','auto-draft','inherit')" );
+		$legacy_table = $wpdb->prefix . 'db7_forms';
+		$legacy_ids = self::table_exists( $legacy_table ) ? array_map( 'intval', $wpdb->get_col( "SELECT form_id FROM {$legacy_table}" ) ) : array();
+		$imported = array_fill_keys( array_map( 'intval', $wpdb->get_col( "SELECT meta_value FROM {$wpdb->prefix}ace_form_entry_meta WHERE meta_key='cfdb7_id'" ) ), true );
+		$missing_entries = array_values( array_filter( $legacy_ids, static fn( int $id ): bool => ! isset( $imported[ $id ] ) ) );
+		$engagement = 'customer-engagement' === apply_filters( 'ace_forms_storage_provider', 'local' ) && class_exists( '\\ACE\\AdaptiveCustomerEngagement\\Migration\\AceEntriesImporter' );
+		$engagement_pending = null;
+		if ( $engagement && ! $missing_entries && $legacy_ids ) {
+			$report = \ACE\AdaptiveCustomerEngagement\Migration\AceEntriesImporter::run( true );
+			if ( ! isset( $report['error'] ) ) {
+				$engagement_pending = (int) ( $report['imported'] ?? 0 ) + (int) ( $report['failed'] ?? 0 );
+			}
+		}
+		return array(
+			'acf' => array( 'groups' => count( $groups ), 'fields' => count( $fields ), 'missing_groups' => count( $missing_groups ), 'missing_fields' => count( $missing_fields ), 'active' => self::source_active( array( 'advanced-custom-fields/', 'advanced-custom-fields-pro/', 'acf-pro/' ) ) ),
+			'cf7' => array( 'forms' => count( $forms ), 'missing' => count( $missing_forms ), 'placements' => $placements, 'active' => self::source_active( array( 'contact-form-7/' ) ) ),
+			'cfdb7' => array( 'entries' => count( $legacy_ids ), 'missing' => count( $missing_entries ), 'engagement' => $engagement, 'engagement_pending' => $engagement_pending, 'active' => self::source_active( array( 'contact-form-cfdb7/' ) ) ),
+		);
+	}
+
+	private static function action_form( string $action, string $label, bool $retire = false, array $options = array() ): void {
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="ace_data_migration"/><input type="hidden" name="migration_action" value="' . esc_attr( $action ) . '"/>';
+		wp_nonce_field( 'ace_data_migration' );
+		foreach ( $options as $name => $text ) {
+			echo '<p><label><input type="checkbox" name="' . esc_attr( $name ) . '" value="1"/> ' . esc_html( $text ) . '</label></p>';
+		}
+		if ( $retire ) {
+			echo '<p><label>' . esc_html__( 'Type DELETE LEGACY DATA to confirm', 'adaptive-content-enhancer' ) . ' <input type="text" name="confirm" autocomplete="off" required/></label></p>';
+		}
+		submit_button( $label, $retire ? 'delete' : 'primary', 'submit', false );
+		echo '</form>';
+	}
+
+	public static function render(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You cannot manage data migration.', 'adaptive-content-enhancer' ) );
+		}
+		$status = self::status();
+		$report = get_transient( 'ace_data_migration_report_' . get_current_user_id() );
+		delete_transient( 'ace_data_migration_report_' . get_current_user_id() );
+		echo '<div class="wrap"><h1>' . esc_html__( 'Adopt existing data', 'adaptive-content-enhancer' ) . '</h1>';
+		echo '<p>' . esc_html__( 'This site adopts ACF definitions as field-group blocks, CF7 definitions as synced form patterns, and CFDB7 history as form entries. Existing ACF post and term values are already WordPress meta, so they stay in place.', 'adaptive-content-enhancer' ) . '</p>';
+		if ( is_array( $report ) ) {
+			echo '<div class="notice notice-info"><p><strong>' . esc_html__( 'Last action', 'adaptive-content-enhancer' ) . '</strong></p><ul>';
+			foreach ( array_slice( $report, 0, 60 ) as $line ) {
+				echo '<li>' . esc_html( (string) $line ) . '</li>';
+			}
+			echo '</ul></div>';
+		}
+		echo '<h2>' . esc_html__( '1. Review source data', 'adaptive-content-enhancer' ) . '</h2><table class="widefat striped"><thead><tr><th>' . esc_html__( 'Source', 'adaptive-content-enhancer' ) . '</th><th>' . esc_html__( 'Found', 'adaptive-content-enhancer' ) . '</th><th>' . esc_html__( 'Still to adopt', 'adaptive-content-enhancer' ) . '</th><th>' . esc_html__( 'Source plugin', 'adaptive-content-enhancer' ) . '</th></tr></thead><tbody>';
+		echo '<tr><td>ACF</td><td>' . esc_html( sprintf( '%d groups, %d fields', $status['acf']['groups'], $status['acf']['fields'] ) ) . '</td><td>' . esc_html( sprintf( '%d groups, %d fields', $status['acf']['missing_groups'], $status['acf']['missing_fields'] ) ) . '</td><td>' . esc_html( $status['acf']['active'] ? __( 'Active', 'adaptive-content-enhancer' ) : __( 'Inactive', 'adaptive-content-enhancer' ) ) . '</td></tr>';
+		echo '<tr><td>Contact Form 7</td><td>' . esc_html( (string) $status['cf7']['forms'] ) . '</td><td>' . esc_html( sprintf( '%d forms, %d placements', $status['cf7']['missing'], $status['cf7']['placements'] ) ) . '</td><td>' . esc_html( $status['cf7']['active'] ? __( 'Active', 'adaptive-content-enhancer' ) : __( 'Inactive', 'adaptive-content-enhancer' ) ) . '</td></tr>';
+		echo '<tr><td>CFDB7</td><td>' . esc_html( (string) $status['cfdb7']['entries'] ) . '</td><td>' . esc_html( (string) $status['cfdb7']['missing'] ) . '</td><td>' . esc_html( $status['cfdb7']['active'] ? __( 'Active', 'adaptive-content-enhancer' ) : __( 'Inactive', 'adaptive-content-enhancer' ) ) . '</td></tr></tbody></table>';
+		echo '<h2>' . esc_html__( '2. Adopt and verify', 'adaptive-content-enhancer' ) . '</h2>';
+		if ( $status['acf']['groups'] || $status['acf']['fields'] ) {
+			echo '<h3>ACF → ' . esc_html__( 'Field groups', 'adaptive-content-enhancer' ) . '</h3><p>' . esc_html__( 'Import missing definitions. Existing edited ACE groups are kept.', 'adaptive-content-enhancer' ) . '</p>';
+			self::action_form( 'preview_acf', __( 'Preview ACF adoption', 'adaptive-content-enhancer' ) );
+			self::action_form( 'import_acf', __( 'Adopt ACF fields', 'adaptive-content-enhancer' ) );
+			echo '<p><a href="' . esc_url( admin_url( 'edit.php?post_type=ace_field_group' ) ) . '">' . esc_html__( 'Review adopted field groups', 'adaptive-content-enhancer' ) . '</a></p>';
+		}
+		if ( $status['cf7']['forms'] ) {
+			echo '<h3>Contact Form 7 → ' . esc_html__( 'Form patterns', 'adaptive-content-enhancer' ) . '</h3>';
+			self::action_form( 'preview_cf7', __( 'Preview CF7 adoption', 'adaptive-content-enhancer' ), false, array( 'replace_placements' => __( 'Include site content replacements in the preview', 'adaptive-content-enhancer' ) ) );
+			self::action_form( 'import_cf7', __( 'Adopt CF7 forms', 'adaptive-content-enhancer' ), false, array( 'replace_placements' => __( 'Replace CF7 blocks and shortcodes in site content with synced patterns', 'adaptive-content-enhancer' ), 'refresh_notifications' => __( 'Refresh notifications on forms already imported', 'adaptive-content-enhancer' ) ) );
+			echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=ace-form-patterns' ) ) . '">' . esc_html__( 'Review adopted form patterns', 'adaptive-content-enhancer' ) . '</a></p>';
+		}
+		if ( $status['cfdb7']['entries'] ) {
+			echo '<h3>CFDB7 → ' . esc_html__( 'Entry history', 'adaptive-content-enhancer' ) . '</h3>';
+			self::action_form( 'preview_cfdb7', __( 'Preview CFDB7 adoption', 'adaptive-content-enhancer' ) );
+			self::action_form( 'import_cfdb7', __( 'Adopt CFDB7 entries', 'adaptive-content-enhancer' ) );
+			if ( $status['cfdb7']['engagement'] ) {
+				echo '<p>' . esc_html( null === $status['cfdb7']['engagement_pending'] ? __( 'Adopt CFDB7 entries before checking Customer Engagement coverage.', 'adaptive-content-enhancer' ) : sprintf( __( '%d ACE archive entries still need transferring to Customer Engagement.', 'adaptive-content-enhancer' ), $status['cfdb7']['engagement_pending'] ) ) . '</p>';
+				self::action_form( 'transfer_engagement', __( 'Transfer history to Customer Engagement', 'adaptive-content-enhancer' ) );
+			} else {
+				echo '<p>' . esc_html__( 'Activate Adaptive Customer Engagement as the storage provider before transferring history or retiring the old table.', 'adaptive-content-enhancer' ) . '</p>';
+			}
+		}
+		echo '<h2>' . esc_html__( '3. Retire old data', 'adaptive-content-enhancer' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Retirement is optional and separate from adoption. Review the adopted blocks and any custom ACF code, then deactivate each source plugin. ACE keeps native meta values, synced patterns and imported entries.', 'adaptive-content-enhancer' ) . '</p>';
+		self::retirement_row( 'acf', $status['acf']['groups'] + $status['acf']['fields'], ! $status['acf']['missing_groups'] && ! $status['acf']['missing_fields'] && ! $status['acf']['active'], __( 'Delete old ACF field definitions', 'adaptive-content-enhancer' ), __( 'ACF definitions remain, are not fully adopted, or ACF is still active.', 'adaptive-content-enhancer' ) );
+		self::retirement_row( 'cf7', $status['cf7']['forms'], ! $status['cf7']['missing'] && ! $status['cf7']['placements'] && ! $status['cf7']['active'], __( 'Delete old CF7 form definitions', 'adaptive-content-enhancer' ), __( 'CF7 forms or placements remain, or CF7 is still active.', 'adaptive-content-enhancer' ) );
+		self::retirement_row( 'cfdb7', $status['cfdb7']['entries'], ! $status['cfdb7']['missing'] && $status['cfdb7']['engagement'] && 0 === $status['cfdb7']['engagement_pending'] && ! $status['cfdb7']['active'], __( 'Delete old CFDB7 entry table', 'adaptive-content-enhancer' ), __( 'Entries are not fully transferred to Customer Engagement, or CFDB7 is still active.', 'adaptive-content-enhancer' ) );
+		echo '</div>';
+	}
+
+	private static function retirement_row( string $source, int $count, bool $ready, string $label, string $reason ): void {
+		if ( ! $count ) {
+			return;
+		}
+		echo '<h3>' . esc_html( strtoupper( $source ) ) . '</h3>';
+		if ( $ready ) {
+			self::action_form( 'retire_' . $source, $label, true );
+		} else {
+			echo '<p>' . esc_html( $reason ) . '</p>';
+		}
+	}
+
+	public static function handle(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You cannot manage data migration.', 'adaptive-content-enhancer' ) );
+		}
+		check_admin_referer( 'ace_data_migration' );
+		$action = isset( $_POST['migration_action'] ) ? sanitize_key( wp_unslash( $_POST['migration_action'] ) ) : '';
+		$report = array();
+		if ( str_starts_with( $action, 'retire_' ) ) {
+			$confirmed = isset( $_POST['confirm'] ) ? sanitize_text_field( wp_unslash( $_POST['confirm'] ) ) : '';
+			if ( self::CONFIRM !== $confirmed ) {
+				$report[] = __( 'Retirement was not confirmed.', 'adaptive-content-enhancer' );
+			} else {
+				$report = self::retire( substr( $action, 7 ) );
+			}
+		} elseif ( 'import_acf' === $action || 'preview_acf' === $action ) {
+			$report = AcfImporter::import( 'preview_acf' === $action );
+		} elseif ( 'import_cf7' === $action || 'preview_cf7' === $action ) {
+			$report = Cf7Importer::import( 'preview_cf7' === $action, ! empty( $_POST['replace_placements'] ), ! empty( $_POST['refresh_notifications'] ) );
+		} elseif ( 'import_cfdb7' === $action || 'preview_cfdb7' === $action ) {
+			$result = Cfdb7Importer::import( 'preview_cfdb7' === $action );
+			foreach ( $result as $key => $value ) {
+				$report[] = $key . ': ' . ( is_scalar( $value ) ? (string) $value : wp_json_encode( $value ) );
+			}
+		} elseif ( 'transfer_engagement' === $action && class_exists( '\\ACE\\AdaptiveCustomerEngagement\\Migration\\AceEntriesImporter' ) && 'customer-engagement' === apply_filters( 'ace_forms_storage_provider', 'local' ) ) {
+			$result = \ACE\AdaptiveCustomerEngagement\Migration\AceEntriesImporter::run( false );
+			foreach ( $result as $key => $value ) {
+				$report[] = $key . ': ' . ( is_scalar( $value ) ? (string) $value : wp_json_encode( $value ) );
+			}
+		} else {
+			$report[] = __( 'Unknown or unavailable migration action.', 'adaptive-content-enhancer' );
+		}
+		set_transient( 'ace_data_migration_report_' . get_current_user_id(), $report, 10 * MINUTE_IN_SECONDS );
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG ) );
+		exit;
+	}
+
+	private static function retire( string $source ): array {
+		global $wpdb;
+		$status = self::status();
+		if ( 'acf' === $source && $status['acf']['groups'] + $status['acf']['fields'] > 0 && ! $status['acf']['missing_groups'] && ! $status['acf']['missing_fields'] && ! $status['acf']['active'] ) {
+			$count = 0;
+			foreach ( array_merge( self::source_posts( 'acf-field' ), self::source_posts( 'acf-field-group' ) ) as $post ) {
+				$count += (bool) wp_delete_post( $post->ID, true );
+			}
+			return array( sprintf( __( 'Deleted %d old ACF definition posts. Native meta values remain.', 'adaptive-content-enhancer' ), $count ) );
+		}
+		if ( 'cf7' === $source && $status['cf7']['forms'] > 0 && ! $status['cf7']['missing'] && ! $status['cf7']['placements'] && ! $status['cf7']['active'] ) {
+			$count = 0;
+			foreach ( self::source_posts( 'wpcf7_contact_form' ) as $post ) {
+				$count += (bool) wp_delete_post( $post->ID, true );
+			}
+			return array( sprintf( __( 'Deleted %d old CF7 form definitions. ACE patterns remain.', 'adaptive-content-enhancer' ), $count ) );
+		}
+		if ( 'cfdb7' === $source && $status['cfdb7']['entries'] > 0 && ! $status['cfdb7']['missing'] && $status['cfdb7']['engagement'] && 0 === $status['cfdb7']['engagement_pending'] && ! $status['cfdb7']['active'] ) {
+			$table = $wpdb->prefix . 'db7_forms';
+			$result = $wpdb->query( "DROP TABLE `{$table}`" );
+			return array( false === $result ? __( 'Could not delete the CFDB7 table.', 'adaptive-content-enhancer' ) : __( 'Deleted the old CFDB7 entry table. Customer Engagement retains the adopted history.', 'adaptive-content-enhancer' ) );
+		}
+		return array( __( 'Retirement is unavailable until all source data is adopted and its plugin is inactive.', 'adaptive-content-enhancer' ) );
+	}
+}
