@@ -49,7 +49,7 @@ final class FormRender {
 			'' === $notice ? ' hidden' : '',
 			esc_html( $notice ),
 			esc_url( rest_url() ),
-			Turnstile::widget()
+			Turnstile::widget( $id )
 		);
 	}
 }

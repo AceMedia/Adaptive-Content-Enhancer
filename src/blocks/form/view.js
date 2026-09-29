@@ -106,9 +106,25 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		}
 		const started = form.querySelector( '[name="ace_started_at"]' );
 		if ( started ) started.value = String( Math.floor( Date.now() / 1000 ) );
+		let submitting = false;
+		const resetTurnstile = () => {
+			const widget = form.querySelector( '.cf-turnstile[id]' );
+			if ( ! widget || ! window.turnstile?.reset ) {
+				return;
+			}
+			try {
+				window.turnstile.reset( `#${ widget.id }` );
+			} catch {
+				// Keep the saved submission visible if the widget is unavailable.
+			}
+		};
 		form.addEventListener( 'submit', async ( event ) => {
 			event.preventDefault();
+			if ( submitting ) {
+				return;
+			}
 			if ( ! form.reportValidity() ) return;
+			submitting = true;
 			const status = form.querySelector( '.ace-form-status' );
 			const button = form.querySelector( '[type="submit"]' );
 			for ( const error of form.querySelectorAll( '.ace-field-error' ) ) error.remove();
@@ -132,6 +148,7 @@ document.addEventListener( 'DOMContentLoaded', () => {
 				} else fields[ key ] = value;
 			}
 			if ( button ) button.disabled = true;
+			form.setAttribute( 'aria-busy', 'true' );
 			status.hidden = true;
 			try {
 				const payload = { fields, ace_hp: formData.get( 'ace_hp' ), ace_started_at: formData.get( 'ace_started_at' ), turnstile_token: formData.get( 'cf-turnstile-response' ) || '', page_url: location.href };
@@ -165,7 +182,7 @@ document.addEventListener( 'DOMContentLoaded', () => {
 				}
 				form.reset();
 				updateConditions();
-				window.turnstile?.reset();
+				resetTurnstile();
 				if ( started ) started.value = String( Math.floor( Date.now() / 1000 ) );
 				status.className = 'ace-form-status ace-form-status--success';
 				status.textContent = result.message || form.dataset.successMessage;
@@ -174,13 +191,15 @@ document.addEventListener( 'DOMContentLoaded', () => {
 				form.dispatchEvent( new CustomEvent( 'ace:form-submitted', { bubbles: true, detail } ) );
 				window.dataLayer?.push( { event: 'ace_form_submit', form_id: detail.formId, form_name: detail.formName, entry_id: detail.entryId } );
 			} catch ( error ) {
-				window.turnstile?.reset();
+				resetTurnstile();
 				status.className = 'ace-form-status ace-form-status--error';
 				status.textContent = error.message;
 			} finally {
 				status.hidden = false;
 				( firstInvalid || status ).focus();
 				if ( button ) button.disabled = false;
+				form.removeAttribute( 'aria-busy' );
+				submitting = false;
 			}
 		} );
 	}

@@ -10,7 +10,7 @@
         "build-blocks": "wp-scripts build --blocks-manifest --experimental-modules --webpack-src-dir=src/blocks --output-path=build/blocks",
         "clean-manifest": "sed -i 's/[[:space:]]*$//' build/blocks/blocks-manifest.php assets/js/*.asset.php",
         "build-app": "wp-scripts build src/editor/index.js --output-path=build/editor && wp-scripts build src/admin/index.js --output-path=build/admin",
-        "build-legacy-js": "wp-scripts build src/index.js src/blocks/form.js src/blocks/text.js src/blocks/options.js src/blocks/product-context.js src/js/form-submit.js --output-path=assets/js",
+        "build-legacy-js": "wp-scripts build src/index.js src/blocks/text.js src/blocks/options.js src/blocks/product-context.js --output-path=assets/js",
         "build-js": "wp-scripts build",
         "dev-js": "wp-scripts start --watch",
         "build-legacy-css": "sass src/styles/scss:assets/styles --no-source-map",

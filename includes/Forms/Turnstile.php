@@ -15,13 +15,14 @@ final class Turnstile {
 		return ! empty( $settings['site_key'] ) && ! empty( $settings['secret_key'] );
 	}
 
-	public static function widget(): string {
+	public static function widget( string $form_id = '' ): string {
 		if ( ! self::enabled() ) {
 			return '';
 		}
 		wp_enqueue_script( 'ace-turnstile', 'https://challenges.cloudflare.com/turnstile/v0/api.js', array(), null, true );
 		$settings = self::settings();
-		return '<div class="ace-turnstile cf-turnstile" data-sitekey="' . esc_attr( $settings['site_key'] ) . '"></div>';
+		$id = wp_unique_id( 'ace-turnstile-' . ( wp_is_uuid( $form_id ) ? $form_id . '-' : '' ) );
+		return '<div id="' . esc_attr( $id ) . '" class="ace-turnstile cf-turnstile" data-sitekey="' . esc_attr( $settings['site_key'] ) . '"></div>';
 	}
 
 	public static function verify( string $token ): true|\WP_Error {
