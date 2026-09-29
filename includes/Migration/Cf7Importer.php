@@ -95,7 +95,7 @@ final class Cf7Importer {
 				$settings['confirmation']['from'] = $confirmation_sender;
 			}
 		}
-		$attributes = array( 'formId' => $uuid, 'name' => $post->post_title, 'settings' => $settings, 'className' => 'ace-imported-cf7' );
+		$attributes = array( 'formId' => $uuid, 'name' => $post->post_title, 'settings' => $settings );
 		$content = '';
 		if ( preg_match( '/<h[1-6][^>]*>(.*?)<\/h[1-6]>/is', $template, $heading ) ) {
 			$text = wp_strip_all_tags( $heading[1] );
