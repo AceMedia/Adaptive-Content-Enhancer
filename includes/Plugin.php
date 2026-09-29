@@ -23,6 +23,7 @@ use ACE\AdaptiveContentEnhancer\Fields\ImportPage;
 use ACE\AdaptiveContentEnhancer\Fields\TermEditor;
 use ACE\AdaptiveContentEnhancer\Fields\EditorTemplates;
 use ACE\AdaptiveContentEnhancer\Fields\Associations;
+use ACE\AdaptiveContentEnhancer\Migration\OnboardingPage;
 use ACE\AdaptiveContentEnhancer\Abilities\Registry as AbilitiesRegistry;
 use ACE\AdaptiveContentEnhancer\Security\Capabilities;
 
@@ -60,7 +61,9 @@ final class Plugin {
 		add_action( 'admin_menu', array( EditorTemplates::class, 'menu' ) );
 		add_action( 'admin_menu', array( Settings::class, 'menu' ) );
 		add_action( 'admin_menu', array( ImportPage::class, 'menu' ) );
+		add_action( 'admin_menu', array( OnboardingPage::class, 'menu' ) );
 		add_action( 'admin_post_ace_fields_import_acf', array( ImportPage::class, 'handle' ) );
+		add_action( 'admin_post_ace_data_migration', array( OnboardingPage::class, 'handle' ) );
 		add_action( 'admin_init', array( Settings::class, 'register' ) );
 		add_action( 'admin_init', array( Patterns::class, 'backfill' ) );
 		add_action( 'admin_init', array( EditorTemplates::class, 'register' ) );

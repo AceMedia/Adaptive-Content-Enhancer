@@ -28,6 +28,8 @@ Imported ACF post-object, relationship, taxonomy and user fields now use searcha
 
 ## Local imports and checks
 
+The **Forms → Adopt existing data** screen detects ACF field definitions, Contact Form 7 forms and CFDB7 entry history on each site. Preview each import, adopt the definitions as native block-authored field groups and synced form patterns, optionally replace CF7 placements, then transfer entry history to Adaptive Customer Engagement when it is the active storage provider. The screen checks adopted counts and source plugin status before it offers optional retirement of old definitions or the CFDB7 table. Retirement requires a separate typed confirmation and never removes existing ACF post or term meta values. The earlier **Import ACF** screen and WP-CLI commands remain available.
+
 Back up the local database first. WP-CLI uses the current `--url` site in this multisite network.
 
 ```bash
