@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "adaptive-content-enhancer/field-repeater",
+  "version": "0.500.0",
+  "title": "Repeater or layout",
+  "category": "widgets",
+  "textdomain": "adaptive-content-enhancer",
+  "ancestor": [ "adaptive-content-enhancer/field-group" ],
+  "attributes": {
+    "key": { "type": "string", "default": "" },
+    "label": { "type": "string", "default": "" },
+    "type": { "type": "string", "default": "repeater" },
+    "acf": { "type": "object", "default": {} },
+    "storage": { "type": "string", "default": "native" }
+  },
+  "supports": { "html": false },
+  "editorScript": "file:./index.js"
+}

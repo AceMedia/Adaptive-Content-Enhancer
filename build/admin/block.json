@@ -1,0 +1,23 @@
+{
+  "apiVersion": 2,
+  "name": "ace-field-options/choices-block",
+  "title": "Dropdown Block",
+  "category": "widgets",
+  "icon": "list-view",
+  "description": "A block with dynamic dropdown options from selected groups.",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "selectedGroup": {
+      "type": "string",
+      "default": ""
+    },
+    "choiceValue": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "textdomain": "ace-field-options",
+  "editorScript": "file:./index.js"
+}

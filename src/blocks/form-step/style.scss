@@ -1,0 +1,5 @@
+.wp-block-adaptive-content-enhancer-form-step {
+	&[hidden] { display: none !important; }
+	&.ace-form-step-editor { padding: 1rem; border: 1px solid currentColor; border-radius: .5rem; }
+	.ace-form-step-nav { display: flex; gap: .75rem; margin-top: 1.25rem; }
+}

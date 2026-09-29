@@ -1,0 +1,22 @@
+.ace-field-group-editor {
+	padding: var(--wp--preset--spacing--30, 1rem);
+	background: var(--wp--preset--color--base, #fff);
+	color: var(--wp--preset--color--contrast, #111);
+	border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+	border-radius: .5rem;
+	> p:first-child { margin-top: 0; font-weight: 700; }
+	.ace-form-field {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: .7rem 1rem;
+		margin-block: .3rem;
+		background: color-mix(in srgb, var(--wp--preset--color--accent-5, #f7f7f7) 60%, var(--wp--preset--color--base, #fff));
+		border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+		border-radius: .4rem;
+	}
+	.ace-form-field__label { color: var(--wp--preset--color--contrast, #111); font-weight: 600; }
+	.ace-meta-type-preview { color: var(--wp--preset--color--accent-1, #364048); font-size: .82em; white-space: nowrap; }
+	.ace-field-repeater-editor { padding: 1rem; border: 1px dashed currentColor; border-radius: .4rem; }
+}

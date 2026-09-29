@@ -4,7 +4,7 @@
  * Plugin URI:        https://acemedia.ninja/
  * Description:       Block-native forms and custom fields for WordPress.
  * Version:           0.500.0
- * Requires at least: 7.1
+ * Requires at least: 7.0
  * Requires PHP:      8.4
  * Author:            Shane Rounce
  * Author URI:        https://acemedia.ninja/

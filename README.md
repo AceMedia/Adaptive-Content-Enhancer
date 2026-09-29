@@ -1,195 +1,68 @@
-### Adaptive Content Enhancer (WP ACE)
-Contributors: Shane Rounce  
-Tags: block, custom fields, dynamic content, editor enhancements  
-Tested up to: 6.7  
-Stable tag: 0.421.0  
-License: GPL-2.0-or-later  
-License URI: https://www.gnu.org/licenses/gpl-2.0.html  
-Short 
+# Adaptive Content Enhancer
 
-Adaptive Content Enhancer offers flexible custom field management for the WordPress block editor, enabling interactive content editing.
+Block-authored forms and field groups for WordPress multisite. This is a local development build; keep Contact Form 7, CFDB7 and ACF active until migration checks are complete.
 
----
+The original `ace-field-options.php` entry point remains for sites that activated that file previously. WordPress may show it as a separate **legacy entry** in the plugin list; activate only one entry per site.
 
-### Description
+## Forms
 
-WP ACE offers a streamlined way to manage custom fields and dropdowns in the WordPress editor, ~including support for ACF field integration~, custom dropdown groups, and true/false fields. With an intuitive interface, users can define field groups, manage options, and render dynamic content on the front end based on selected attributes. WP ACE is ideal for developers looking to enhance content creation capabilities with robust customization features.
+Insert the **Form** block in a page or synced pattern. Add **Field**, **Form step** and **Submit** blocks within it. A new form gets a UUID; saving the post registers its current definition. Existing CF7 forms can be imported into synced patterns. A field can display conditionally based on another field's value; the same rule applies during server validation. Multiple Form step blocks provide browser navigation, while all steps remain visible without JavaScript. Forms submit through `POST /ace-forms/v1/forms/{form_id}/entries` and without JavaScript through `admin-post.php?action=ace_form_submit`.
 
-Key Features:
-- **Create and manage custom field groups** (dropdowns, checkboxes, radio buttons, and true/false toggles).
-- **Seamless integration into the WordPress block editor** - Add fields directly into the editor, with customizable behaviors and settings.
-- **Enhanced settings management** - Configure options and field groups with an intuitive UI, supported by modular components.
-- **Dynamic data fetching and rendering** - Utilize advanced REST API support to fetch and render content based on custom configurations.
-- **Real-time AJAX processing** - Save and manage field groups and options without page reloads, ensuring a smooth user experience.
-- **Extendable functionality** - Developers can extend WP ACE with custom filters and settings for more advanced scenarios.
-- **Role-based access control** - Assign specific roles to field groups to control who can view or edit them.
-- **Post type association** - Associate field groups with specific post types for more granular control.
-- **Tag management** - Create, edit, and assign tags to field groups for better organization and filtering.
-- **Bulk actions** - Perform bulk actions such as deleting multiple field groups at once.
-- **Customizable UI** - Customize the appearance of field groups and options with color pickers and other UI controls.
-- **Auto-save and live save** - Enable auto-save and live save features to ensure changes are saved in real-time.
-- **Pagination and sorting** - Navigate through field groups with pagination and sort them by various criteria.
-- **Search functionality** - Search for field groups and options using a built-in search feature.
-- **Custom hooks** - Utilize custom hooks for fetching choices and saving options to the API.
-- **Customizable styles** - Apply custom styles to field groups and options using SCSS.
+Saved forms appear under **Forms → Form patterns** and in WordPress's **Forms** pattern category. Editing a synced pattern updates its placements. The directory includes existing imported patterns as well as new patterns containing an ACE Form block. Frontend forms collect submissions; they are separate from field groups and editor content templates used to edit post meta.
 
----
+The form inspector provides recipients, sender, subject, body, Reply-To, CC, BCC, customer confirmation, success text and **Input appearance**. Imported CF7 senders use `{site_domain}` or `{network_domain}` so a local `.pi` address resolves to the matching domain; invalid sender headers are ignored. Input appearance offers outlined, filled, underlined and soft controls; floating or standard labels; spacing; radius; and colours from the active theme palette. Floating labels move when a control is focused or filled. The forms use WordPress preset CSS variables on both the site and block editor. The **Product enquiry** variation includes a hidden product field populated from the current post title; field defaults can also come from a fixed value or URL parameter.
 
-### API Endpoints
+Available form controls include text, text area, email, telephone, URL, number, range, date, time, date and time, colour, select, radio, checkboxes, consent, hidden and file. File types and sizes are checked server-side. Turnstile is optional. With Customer Engagement active, current captures and delivery results appear under its **Forms** screen; the ACE **Forms** screen holds imported and fallback entries with CSV export. A local development mu-plugin intercepts `wp_mail()`, so a successful local mail log means the message was accepted by the local guard, not delivered.
 
-WP ACE provides several custom REST API endpoints to manage field groups and options:
+Association fields can choose a published post or product, several related posts, a public taxonomy term, a taxonomy itself, or a public post type. Configure allowed post types or taxonomies in the Field block sidebar; leave them empty to use every public REST-enabled source. Visitors get a searchable list with a native select fallback, and submitted IDs or slugs are checked against the configured source before storage. User association remains an editor-only field and requires permission to list users.
 
-- **GET /ace/v1/get-choices**: Fetches the available choices.
-- **POST /ace/v1/save-options**: Saves new or updated choices.
-- **POST /ace/v1/delete-option**: Deletes a specified choice.
-- **GET /ace/v1/roles**: Fetches the available user roles.
+## Custom fields
 
-These endpoints facilitate dynamic data fetching and management within the WordPress admin interface.
+Field definitions are `ace_field_group` posts built from the **Field group**, **Field** and **Nested field** blocks. Set location rules in the group inspector. Post-type fields use registered WordPress post meta and appear in the post editor sidebar. Taxonomy fields use registered term meta and an ACE value panel on the term edit screen. Flexible ACF rows are stored with their original row meta keys and can be edited there. The PHP value API is `ace_get_field()`, `ace_update_field()` and `ace_get_rows()`. Simple post meta can use the core `core/post-meta` block binding; ACE also registers `adaptive-content-enhancer/field` for other values.
 
----
+Under **Fields → Editor templates**, an administrator can choose a published synced content pattern for each block-enabled post type and choose an unlocked, insertion-locked or fully locked editor. ACE assigns the pattern through WordPress's native post-type `template` and `template_lock` settings for new posts. Use bound blocks in that content pattern to display registered meta; edit field values through the ACE controls. Frontend form patterns are excluded from the template selector. Existing posts keep their content.
 
-### Components
+The optional `ace_fields_acf_compat` setting enables basic `get_field()`, `the_field()`, `have_rows()`, `the_row()` and `get_sub_field()` wrappers only when ACF has not already defined those functions. It is off by default. The original ACF field posts and meta values remain in place after import.
 
-WP ACE is built with modular React components to ensure a seamless user experience:
+Imported ACF post-object, relationship, taxonomy and user fields now use searchable selectors in the post editor. Existing ACF source restrictions are read from their imported settings; new fields use the association settings in the Field block sidebar. Values remain native WordPress IDs or post-type slugs in registered meta, and `ace_get_field()` can still format them as objects.
 
-- **Settings**: The main component for managing field groups and options.
-- **ChoiceCards**: Displays individual choice cards with options.
-- **SideBar**: Provides filtering and sorting options for the choices.
-- **SaveBar**: Handles saving changes and displaying save status.
-- **MainSettingsPanel**: The primary panel for configuring settings and managing choices.
+## Local imports and checks
 
-Each component is designed to be reusable and extendable, allowing for easy customization and enhancement.
+Back up the local database first. WP-CLI uses the current `--url` site in this multisite network.
 
----
+```bash
+wp ace-forms import-cf7 --dry-run --replace-shortcodes --url=https://iegemea.pi
+wp ace-forms import-cf7 --replace-shortcodes --url=https://iegemea.pi
+wp ace-forms import-cf7 --refresh-notifications --url=https://iegemea.pi
+wp ace-forms import-cfdb7 --dry-run --url=https://iegemea.pi
+wp ace-forms import-cfdb7 --url=https://iegemea.pi
+wp ace-fields import-acf --dry-run --url=https://iegemea.pi
+wp ace-fields import-acf --url=https://iegemea.pi
+```
 
-### State Management
+The CF7 importer preserves existing synced pattern fields and appearance when refreshing notifications. It only replaces placements that match an existing valid imported pattern. Re-running the CFDB7 importer should not duplicate entries. The ACF importer creates a recovery group for orphaned source fields instead of discarding them. It skips groups already imported by default; use `--group=<key> --overwrite` to refresh a specific group from ACF and retain a revision.
 
-WP ACE uses React hooks for state management:
+On this local network, the shared product template uses a registered `core/pattern` placeholder that resolves to the site's synced product enquiry form through `core/block`. IEG uses the imported QUOTE pattern; Taylor Bins uses its Contact Us pattern. The three stale CF7-only inline style blocks were removed from local pages with revisions retained. Main, shop and dev use Cloudflare's public test Turnstile keys in their local database, so browser submissions work on `.pi` domains. Set real site-specific keys before enabling Turnstile on live.
 
-- **useState**: Manages local state within components.
-- **useEffect**: Handles side effects, such as fetching data from the API.
-- **useReducer**: (If applicable) Manages complex state logic.
+The gitignored local safety mu-plugin also suppresses CF7's old reCAPTCHA asset and temporarily preserves imported Customer Engagement form history during scheduled local retention runs. This only affects the Pi mirror. Decide the live retention period before deployment; Customer Engagement's current setting is 730 days.
 
-State is lifted to the highest necessary level to ensure data consistency across components.
+Local editor links: [IEG contact](https://iegemea.pi/wp-admin/post.php?post=1749&action=edit), [IEG quote pattern](https://iegemea.pi/wp-admin/post.php?post=15606&action=edit), [Taylor Bins contact pattern](https://egberttaylor.pi/wp-admin/post.php?post=984&action=edit). The local mail guard suppresses outbound messages even when `wp_mail()` reports success.
 
----
+## Extension points
 
-### Custom Hooks
+The submission pipeline detects Adaptive Customer Engagement through the `ace_forms_storage_provider` filter. When active, Customer Engagement stores the capture, session and company links, notification outcomes, confirmation outcome, and private upload references. ACE Forms continues to own the blocks, validation, uploads, notifications and authenticated download route. The capture is saved before notifications are sent, then delivery results are written back to its record. When Customer Engagement is inactive or cannot save a submission, ACE Forms stores a complete local entry. Earlier ACE and CFDB7-imported entries remain in the ACE entries archive; Customer Engagement offers an idempotent command to copy CFDB7 history into its reporting store. The `ace_forms_entry_created` and `ace_form_submitted` actions still fire once; their context includes `storage_provider` and the latter no longer causes a duplicate Customer Engagement row. The browser fires `ace-forms:submitted` and the earlier `ace:form-submitted` event, and pushes `ace_form_submit` to `dataLayer` when present. Additional field types can register with `ace_field_types_register`.
 
-WP ACE includes custom hooks to encapsulate reusable logic:
+WordPress Abilities API exposes the read-only `adaptive-content-enhancer/list-forms` and `adaptive-content-enhancer/list-field-groups` abilities to users with the matching ACE capabilities. Anonymous callers cannot execute them.
 
-- **useFetchFields**: Fetches choices from the API and manages loading state.
-- **useSaveChoice**: Handles saving a choice to the API and updating local state.
+## Current migration limits
 
-These hooks simplify component logic and promote code reuse.
+The current importer handles the ACF definitions and values found on the local IEG main and dev sites, including post and taxonomy groups. The local main and dev Company News pages now use the native recent-posts block, and unregistered zero-output `acf/user-login` blocks were removed from their DB-overridden headers with revisions retained. No active ACF block instances remain on the local main, dev or shop sites; any newly discovered ACF block with live field data or a render callback still needs a dedicated migration. Source CF7 definitions missing from the local database cannot be reconstructed from this importer. Location rules beyond the supported editor contexts, user/options value editing, richer relationship pickers, retention controls, asynchronous integrations and DataViews for entries remain to be finished before switching off the source plugins.
 
----
+## Build
 
-### Build and Development
+```bash
+npm ci
+npm run build
+```
 
-To build and develop WP ACE, follow these steps:
-
-1. **Install Dependencies**: Run `npm install` to install the necessary dependencies.
-2. **Build the Project**: Use `npm run build` to build the project for production.
-3. **Start Development Server**: Use `npm run start` to start the development server with live reloading.
-4. **Build JavaScript**: Use `npm run build-js` to build the JavaScript files.
-5. **Watch JavaScript**: Use `npm run dev-js` to watch for changes in JavaScript files and rebuild automatically.
-6. **Build CSS**: Use `npm run build-css` to build the CSS files from SCSS.
-7. **Watch CSS**: Use `npm run watch-css` to watch for changes in SCSS files and rebuild CSS automatically.
-8. **Clean Assets**: Use `npm run clean-assets` to clean the assets directory.
-9. **Format Code**: Use `npm run format` to format the codebase.
-10. **Lint CSS**: Use `npm run lint:css` to lint the CSS files.
-11. **Lint JavaScript**: Use `npm run lint:js` to lint the JavaScript files.
-12. **Update Packages**: Use `npm run packages-update` to update the npm packages.
-13. **Create Plugin Zip**: Use `npm run plugin-zip` to create a zip file of the plugin for distribution.
-
-The project uses Webpack for bundling and Babel for transpiling modern JavaScript.
-
----
-
-### Installation
-
-1. Upload the plugin files to the `/wp-content/plugins/wp-adaptive-content-enhancer` directory, or install the plugin through the WordPress plugins screen directly.
-2. Activate the plugin through the 'Plugins' screen in WordPress.
-3. Navigate to the 'Fields' ~and 'ACF Import'~ menu under 'Settings' to configure field groups ~and import ACF fields~.
-
----
-
-### Frequently Asked Questions
-
-**Q: How do I add a new dropdown group or true/false field?**
-A: Navigate to the 'Fields' settings page in the admin panel. Here you can create, edit, or delete field groups, including options for dropdowns, checkboxes, and true/false toggles.
-
-**Q: How do I lock down field groups based on user roles?**
-A: When creating or editing a field group, you can assign specific roles to the group. This controls who can view or edit the group. Navigate to the 'Fields' settings page, select a field group, and use the 'Associated Roles' section to assign roles.
-
-**Q: How do I associate field groups with specific post types?**
-A: You can associate field groups with specific post types to control where they appear. Navigate to the 'Fields' settings page, select a field group, and use the 'Associated Post Types' section to assign post types.
-
-**Q: How do I manage tags for field groups?**
-A: Navigate to the 'Fields' settings page, select a field group, and use the 'Tags' section to assign tags. You can create new tags or select existing ones. Tags help in organizing and filtering field groups.
-
-**Q: How do I use the bulk edit feature?**
-A: In the 'Fields' settings page, enable 'Quick Edit' mode. You can then select multiple field groups using the checkboxes and perform bulk actions such as deleting selected groups. Use the 'Toggle All' switch to select or deselect all groups at once.
-
-**Q: Does WP ACE support AJAX-based updates?**
-A: Absolutely. WP ACE uses AJAX for real-time management of field groups and options, ensuring seamless updates without reloading the page.
-
-**Q: How do I customize the appearance of field groups?**
-A: You can customize the appearance of field groups using the color picker and other UI controls available in the 'Fields' settings page. This allows you to apply custom styles to field groups and options.
-
-**Q: How do I enable auto-save and live save features?**
-A: Navigate to the 'Settings' page and enable the auto-save and live save options. This ensures that changes are saved in real-time without the need for manual saving.
-
-**Q: How do I search for field groups and options?**
-A: Use the built-in search feature available in the 'Fields' settings page. Enter your search query in the search bar to find specific field groups and options.
-
-**Q: How do I sort and paginate field groups?**
-A: Use the sorting and pagination controls available in the 'Fields' settings page. You can sort field groups by various criteria and navigate through them using the pagination controls.
-
-**Q: How do I use custom hooks in WP ACE?**
-A: WP ACE includes custom hooks such as useFetchFields and useSaveChoice to encapsulate reusable logic. These hooks simplify component logic and promote code reuse. Refer to the documentation for detailed usage instructions.
-
-**Q: How do I apply custom styles to field groups and options?**
-A: WP ACE allows you to apply custom styles using SCSS. Customize the appearance of field groups and options by modifying the SCSS files included in the plugin.
-
----
-
-### Screenshots
-
-1. **Settings Screen** - The main interface for managing dropdown groups and true/false fields.
-2. **Editor Integration** - Example of how WP ACE integrates seamlessly within the WordPress block editor.
-3. ~**ACF Import** - Easily import ACF fields directly into WP ACE for seamless integration.~
-
----
-
-### Changelog
-
-**0.421.0**
-- Enhanced Role-based Access Control: Improved the ability to assign specific roles to field groups, controlling who can view or edit them.
-- Post Type Association: Added functionality to associate field groups with specific post types for more granular control.
-- Tag Management: Enhanced tag management features, allowing users to create, edit, and assign tags to field groups for better organization and filtering.
-- Bulk Actions: Improved bulk actions functionality, including the ability to delete multiple field groups at once.
-- Customizable UI: Added more UI customization options, including color pickers and other controls to customize the appearance of field groups and options.
-- Auto-save and Auto Save: Implemented auto-save and live save features to ensure changes are saved in real-time without manual intervention.
-- Pagination and Sorting: Enhanced pagination and sorting controls to navigate through field groups and sort them by various criteria.
-- Search Functionality: Added a built-in search feature to find specific field groups and options easily.
-- Custom Hooks: Introduced custom hooks such as useFetchChoices and useSaveChoice to encapsulate reusable logic and simplify component development.
-- Customizable Styles: Enabled the application of custom styles to field groups and options using SCSS.
-- Improved Error Handling: Enhanced error handling for meta value updates to prevent issues when saving posts.
-- UI Enhancements: Various UI improvements for a better user experience, including updates to the settings page and editor integration.
-- Bug Fixes: Addressed several bugs and issues reported since the initial release, improving overall stability and performance.
-
-
-**0.420.0**
-- Initial release.
-- Added support for custom dropdown, checkbox, radio button, and true/false fields.
-- Integrated REST API support for dynamically fetching and rendering field data.
-- **AJAX support** for real-time field group management.
-- **Settings and block integration components** for an enhanced editor experience.
-
----
-
-### Additional Information
-
-WP ACE provides a comprehensive suite of tools for integrating custom field data into WordPress content. Whether you're enhancing editorial experiences or developing custom content management solutions, WP ACE makes it easy to extend the power of the WordPress block editor with adaptive content fields.
+The block scripts and styles in `src/blocks` build into `build/blocks`; editor and admin components build separately. Do not edit generated files directly.

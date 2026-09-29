@@ -11,6 +11,11 @@
     "adaptive-content-enhancer/form",
     "adaptive-content-enhancer/field-group"
   ],
+  "usesContext": [
+    "ace/formId",
+    "ace/appearance",
+    "ace/fieldGroup"
+  ],
   "attributes": {
     "type": {
       "type": "string",
@@ -66,6 +71,14 @@
     "width": {
       "type": "string",
       "default": ""
+    },
+    "acf": {
+      "type": "object",
+      "default": {}
+    },
+    "storage": {
+      "type": "string",
+      "default": "native"
     }
   },
   "supports": {

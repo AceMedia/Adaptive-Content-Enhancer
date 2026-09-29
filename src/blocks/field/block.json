@@ -8,6 +8,7 @@
   "description": "A form or custom-data field.",
   "textdomain": "adaptive-content-enhancer",
   "ancestor": [ "adaptive-content-enhancer/form", "adaptive-content-enhancer/field-group" ],
+  "usesContext": [ "ace/formId", "ace/appearance", "ace/fieldGroup" ],
   "attributes": {
     "type": { "type": "string", "default": "text" },
     "key": { "type": "string", "default": "" },
@@ -16,12 +17,15 @@
     "placeholder": { "type": "string", "default": "" },
     "required": { "type": "boolean", "default": false },
     "choices": { "type": "array", "default": [] },
+    "association": { "type": "object", "default": {} },
     "defaultValue": { "type": "object", "default": { "source": "static", "value": "" } },
     "rules": { "type": "object", "default": {} },
     "conditions": { "type": "object", "default": {} },
     "autocomplete": { "type": "string", "default": "" },
     "personal": { "type": "boolean", "default": false },
-    "width": { "type": "string", "default": "" }
+    "width": { "type": "string", "default": "" },
+    "acf": { "type": "object", "default": {} },
+    "storage": { "type": "string", "default": "native" }
   },
   "supports": {
     "html": false,

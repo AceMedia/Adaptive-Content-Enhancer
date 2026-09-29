@@ -45,16 +45,16 @@ final class Registry {
 			'time' => 'Time', 'datetime' => 'Date and time', 'colour' => 'Colour', 'select' => 'Select',
 			'radio' => 'Radio', 'true-false' => 'True/false', 'consent' => 'Consent', 'hidden' => 'Hidden',
 			'file' => 'File', 'image' => 'Image', 'link' => 'Link', 'post-object' => 'Post object',
-			'relationship' => 'Relationship', 'taxonomy' => 'Taxonomy', 'user' => 'User', 'location' => 'Location',
+			'taxonomy' => 'Taxonomy term', 'taxonomy-type' => 'Taxonomy', 'post-type' => 'Post type', 'user' => 'User', 'location' => 'Location',
 			'group' => 'Group', 'name' => 'Name', 'address' => 'Address',
 		);
 
 		foreach ( $labels as $slug => $label ) {
-			$type = in_array( $slug, array( 'number', 'range' ), true ) ? 'number' : ( 'true-false' === $slug ? 'boolean' : 'string' );
+			$type = in_array( $slug, array( 'number', 'range' ), true ) ? 'number' : ( 'true-false' === $slug ? 'boolean' : ( in_array( $slug, array( 'link', 'location', 'group', 'name', 'address' ), true ) ? 'object' : 'string' ) );
 			$this->register( new StandardType( $slug, __( $label, 'adaptive-content-enhancer' ), $type ) );
 		}
 
-		foreach ( array( 'checkbox' => 'Checkboxes', 'gallery' => 'Gallery', 'repeater' => 'Repeater', 'flexible' => 'Flexible content' ) as $slug => $label ) {
+		foreach ( array( 'checkbox' => 'Checkboxes', 'gallery' => 'Gallery', 'relationship' => 'Relationship list', 'repeater' => 'Repeater', 'flexible' => 'Flexible content' ) as $slug => $label ) {
 			$this->register( new StandardType( $slug, __( $label, 'adaptive-content-enhancer' ), 'array' ) );
 		}
 

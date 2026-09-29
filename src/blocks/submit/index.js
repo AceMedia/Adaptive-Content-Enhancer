@@ -5,7 +5,7 @@ import metadata from './block.json';
 registerBlockType( metadata.name, {
 	edit: ( { attributes, setAttributes } ) => (
 		<div { ...useBlockProps() }>
-			<RichText tagName="span" value={ attributes.text } onChange={ ( text ) => setAttributes( { text } ) } />
+			<RichText tagName="button" className="ace-form-submit" value={ attributes.text } onChange={ ( text ) => setAttributes( { text } ) } />
 		</div>
 	),
 	save: () => null,
