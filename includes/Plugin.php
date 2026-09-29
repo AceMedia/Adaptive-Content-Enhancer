@@ -26,6 +26,7 @@ use ACE\AdaptiveContentEnhancer\Fields\Associations;
 use ACE\AdaptiveContentEnhancer\Migration\OnboardingPage;
 use ACE\AdaptiveContentEnhancer\Abilities\Registry as AbilitiesRegistry;
 use ACE\AdaptiveContentEnhancer\Security\Capabilities;
+use ACE\AdaptiveContentEnhancer\Admin\Dashboard;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -56,15 +57,18 @@ final class Plugin {
 		add_action( 'wp_abilities_api_categories_init', array( AbilitiesRegistry::class, 'category' ) );
 		add_action( 'wp_abilities_api_init', array( AbilitiesRegistry::class, 'register' ) );
 		add_action( 'admin_init', array( Capabilities::class, 'grant' ) );
+		add_action( 'admin_menu', array( Dashboard::class, 'menu' ), 5 );
 		add_action( 'admin_menu', array( Admin::class, 'menu' ) );
 		add_action( 'admin_menu', array( Patterns::class, 'menu' ) );
 		add_action( 'admin_menu', array( EditorTemplates::class, 'menu' ) );
 		add_action( 'admin_menu', array( Settings::class, 'menu' ) );
-		add_action( 'admin_menu', array( ImportPage::class, 'menu' ) );
 		add_action( 'admin_menu', array( OnboardingPage::class, 'menu' ) );
 		add_action( 'admin_post_ace_fields_import_acf', array( ImportPage::class, 'handle' ) );
 		add_action( 'admin_post_ace_data_migration', array( OnboardingPage::class, 'handle' ) );
+		add_action( 'admin_init', array( OnboardingPage::class, 'redirect_legacy' ) );
 		add_action( 'admin_init', array( Settings::class, 'register' ) );
+		add_action( 'admin_enqueue_scripts', array( Dashboard::class, 'assets' ) );
+		add_action( 'wp_ajax_ace_content_save_settings', array( Settings::class, 'ajax_save' ) );
 		add_action( 'admin_init', array( Patterns::class, 'backfill' ) );
 		add_action( 'admin_init', array( EditorTemplates::class, 'register' ) );
 		add_action( 'admin_init', array( TermEditor::class, 'register' ) );

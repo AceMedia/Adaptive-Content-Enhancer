@@ -25,14 +25,13 @@ require_once __DIR__ . '/adaptive-content-enhancer.php';
 add_action( 'admin_menu', 'ace_field_options_admin_menu' );
 
 function ace_field_options_admin_menu() {
-    add_menu_page(
-        'Fields',
-        'Fields',
-        'manage_options',
+    add_submenu_page(
         'adaptive-content-enhancer',
-        'adaptive_content_enhancer_choices_page_react',
-        'dashicons-list-view',
-        20
+        'Field options',
+        'Field options',
+        'manage_options',
+        'ace-field-options',
+        'adaptive_content_enhancer_choices_page_react'
     );
     
 
@@ -1316,7 +1315,7 @@ function get_group_options($selected_group, $attributes) {
 
 function ace_field_options_admin_styles($hook) {
     // Only load on plugin settings page
-    if ('toplevel_page_adaptive-content-enhancer' !== $hook) {
+    if (!str_contains($hook, 'ace-field-options')) {
         return;
     }
 
@@ -2197,7 +2196,7 @@ function ace_field_options_enqueue_settings_page_scripts() {
     $screen = get_current_screen();
 
     // Check if we are on the settings page for this plugin
-    if ($screen->id === 'toplevel_page_adaptive-content-enhancer') {
+    if ($screen && str_contains($screen->id, 'ace-field-options')) {
         wp_enqueue_script(
             'acemedia-settings-react',
             plugins_url('/assets/js/index.js', __FILE__),
