@@ -23,10 +23,9 @@ final class CompatibilityScan {
 			if ( in_array( $directory, array( 'adaptive-content-enhancer', 'advanced-custom-fields', 'advanced-custom-fields-pro', 'acf-pro', 'contact-form-7' ), true ) ) {
 				continue;
 			}
-			$path = WP_PLUGIN_DIR . '/' . $plugin;
-			$roots[] = is_file( $path ) ? dirname( $path ) : WP_PLUGIN_DIR . '/' . $directory;
+			$roots[] = str_contains( (string) $plugin, '/' ) ? WP_PLUGIN_DIR . '/' . $directory : WP_PLUGIN_DIR . '/' . $plugin;
 		}
-		return array_values( array_unique( array_filter( $roots, 'is_dir' ) ) );
+		return array_values( array_unique( array_filter( $roots, static fn( string $path ): bool => is_dir( $path ) || is_file( $path ) ) ) );
 	}
 
 	/** @return array{supported:int,review:int,samples:array,files:int,truncated:bool} */
@@ -41,10 +40,14 @@ final class CompatibilityScan {
 		$bytes = 0;
 		foreach ( $roots as $root ) {
 			$root_files = 0;
-			try {
-				$iterator = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root, \FilesystemIterator::SKIP_DOTS ) );
-			} catch ( \UnexpectedValueException $error ) {
-				continue;
+			if ( is_file( $root ) ) {
+				$iterator = new \ArrayIterator( array( new \SplFileInfo( $root ) ) );
+			} else {
+				try {
+					$iterator = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root, \FilesystemIterator::SKIP_DOTS ) );
+				} catch ( \UnexpectedValueException $error ) {
+					continue;
+				}
 			}
 			foreach ( $iterator as $file ) {
 				$path = $file->getPathname();
