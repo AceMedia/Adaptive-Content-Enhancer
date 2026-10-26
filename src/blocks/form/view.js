@@ -187,6 +187,7 @@ document.addEventListener( 'DOMContentLoaded', () => {
 				status.className = 'ace-form-status ace-form-status--success';
 				status.textContent = result.message || form.dataset.successMessage;
 				const detail = { formId: form.dataset.aceForm, formName: result.formName || '', entryId: result.entryId, conversion: true };
+				if ( result.document && typeof result.document === 'object' ) detail.document = result.document;
 				form.dispatchEvent( new CustomEvent( 'ace-forms:submitted', { bubbles: true, detail } ) );
 				form.dispatchEvent( new CustomEvent( 'ace:form-submitted', { bubbles: true, detail } ) );
 				window.dataLayer?.push( { event: 'ace_form_submit', form_id: detail.formId, form_name: detail.formName, entry_id: detail.entryId } );
