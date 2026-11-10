@@ -128,7 +128,8 @@ final class StandardType extends FieldType {
 
 		if ( isset( $field['choices'] ) && is_array( $field['choices'] ) && ! empty( $field['choices'] ) ) {
 			$allowed = array_map( static fn( array $choice ): string => (string) ( $choice['value'] ?? '' ), $field['choices'] );
-			$values  = is_array( $value ) ? $value : array( $value );
+			// An unanswered optional choice is blank, not invalid; "required" is checked separately.
+			$values  = array_filter( array_map( 'strval', is_array( $value ) ? $value : array( $value ) ), static fn( string $chosen ): bool => '' !== $chosen );
 
 			if ( array_diff( $values, $allowed ) ) {
 				return new \WP_Error( 'ace_invalid_choice', __( 'Please choose a valid option.', 'adaptive-content-enhancer' ) );
