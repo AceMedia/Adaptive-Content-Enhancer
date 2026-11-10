@@ -116,8 +116,13 @@ final class Cf7Importer {
 			$type = strtolower( $match[1][0] );
 			$raw = trim( $match[3][0] );
 			if ( 'submit' === $type ) {
-				$label = trim( $raw, " \t\n\r\0\x0B\"'" ) ?: 'Send enquiry';
-				$content .= '<!-- wp:adaptive-content-enhancer/submit ' . wp_json_encode( array( 'text' => $label ) ) . " /-->\n";
+				// CF7 options such as class:foo id:bar come before the quoted label.
+				$label = preg_match( '/"([^"]+)"/', $raw, $quoted ) ? $quoted[1] : ( trim( preg_replace( '/\b(?:class|id):\S+/', '', $raw ), " \t\n\r\0\x0B\"'" ) ?: 'Send enquiry' );
+				$submit = array( 'text' => $label );
+				if ( preg_match_all( '/\bclass:(\S+)/', $raw, $classes ) ) {
+					$submit['className'] = implode( ' ', array_map( 'sanitize_html_class', $classes[1] ) );
+				}
+				$content .= '<!-- wp:adaptive-content-enhancer/submit ' . wp_json_encode( $submit ) . " /-->\n";
 				continue;
 			}
 			$name = strtok( $raw, " \t\n" );
@@ -146,6 +151,10 @@ final class Cf7Importer {
 			if ( in_array( $type, array( 'select', 'checkbox', 'radio' ), true ) ) {
 				preg_match_all( '/"([^"]+)"/', $raw, $choices );
 				$field['choices'] = array_map( static fn( string $value ): array => array( 'label' => $value, 'value' => $value ), $choices[1] );
+				// first_as_label makes the first quoted value a placeholder; ACE renders its own blank option.
+				if ( 'select' === $type && preg_match( '/\bfirst_as_label\b/', $raw ) ) {
+					array_shift( $field['choices'] );
+				}
 			}
 			$content .= '<!-- wp:adaptive-content-enhancer/field ' . wp_json_encode( $field ) . " /-->\n";
 		}
