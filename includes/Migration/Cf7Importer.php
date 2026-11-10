@@ -141,6 +141,8 @@ final class Cf7Importer {
 				$label_text = false === $label_close ? $label_fragment : substr( $label_fragment, 0, $label_close );
 				$label = trim( preg_replace( '/^Enter your\s*/i', '', wp_strip_all_tags( $label_text ) ) );
 				$label = trim( preg_replace( '/\[(?:text|email|tel)[^\]]*\]/i', '', $label ), " *\t\n" );
+				// ACE marks required fields itself, so a literal "(required)" would show twice.
+				$label = trim( preg_replace( '/\s*\((?:required|optional)\)\s*$/i', '', $label ) );
 			} elseif ( preg_match_all( '/<h[1-6][^>]*>(.*?)<\/h[1-6]>/is', $before, $headings ) && ! empty( $headings[1] ) ) {
 				$label = wp_strip_all_tags( end( $headings[1] ) );
 			}
