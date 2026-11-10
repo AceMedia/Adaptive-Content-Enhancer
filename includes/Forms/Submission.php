@@ -184,8 +184,10 @@ final class Submission {
 		if ( $reply_to ) {
 			$headers[] = 'Reply-To: ' . $reply_to;
 		}
-		$details = array( 'files' => $file_records );
-		$config = array( 'formId' => $id, 'formName' => $form['name'], 'recipient' => $to[0] ?? '', 'subject' => $subject, 'successMessage' => $settings['successMessage'] ?? '', 'errorMessage' => $settings['errorMessage'] ?? '' );
+		$screen = Screen::assess( $form, $values, $contact_email, $contact_name );
+		list( $subject, $body ) = Screen::tag( $screen, $subject, $body );
+		$details = array( 'files' => $file_records, 'screen' => $screen );
+		$config = array( 'formId' => $id, 'formName' => $form['name'], 'recipient' => $to[0] ?? '', 'subject' => $subject, 'successMessage' => $settings['successMessage'] ?? '', 'errorMessage' => $settings['errorMessage'] ?? '', 'screen' => $screen );
 		$provider = apply_filters( 'ace_forms_storage_provider', 'local' );
 		$entry_id = 0;
 		if ( 'customer-engagement' === $provider ) {
@@ -223,7 +225,7 @@ final class Submission {
 			apply_filters( 'ace_forms_update_submission', false, $entry_id, $details, $sent );
 		} else {
 			global $wpdb;
-			foreach ( array( 'notification' => 'mail_log', 'confirmation' => 'confirmation_log' ) as $key => $meta_key ) {
+			foreach ( array( 'notification' => 'mail_log', 'confirmation' => 'confirmation_log', 'screen' => 'screen' ) as $key => $meta_key ) {
 				if ( isset( $details[ $key ] ) ) {
 					$wpdb->insert( $wpdb->prefix . 'ace_form_entry_meta', array( 'entry_id' => $entry_id, 'meta_key' => $meta_key, 'meta_value' => wp_json_encode( $details[ $key ] ) ) );
 				}
@@ -239,7 +241,7 @@ final class Submission {
 		$inserted = $wpdb->insert( $wpdb->prefix . 'ace_form_entries', array(
 			'form_id' => $id,
 			'source_post_id' => $page_id,
-			'status' => 'new',
+			'status' => 'suspect' === ( $details['screen']['verdict'] ?? '' ) ? 'suspect' : 'new',
 			'data' => wp_json_encode( $values ),
 			'search_text' => implode( ' ', array_map( 'strval', array_filter( $values, 'is_scalar' ) ) ),
 			'contact_email' => $contact_email,
