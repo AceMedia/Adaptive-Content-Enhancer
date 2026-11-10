@@ -13,8 +13,9 @@ use ACE\AdaptiveContentEnhancer\Security\Capabilities;
 defined( 'ABSPATH' ) || exit;
 
 final class Activator {
-	public static function activate( bool $network_wide = false ): void {
-		if ( is_multisite() && $network_wide ) {
+	/** WordPress passes null rather than false for a single-site activation on some installs, so accept any scalar. */
+	public static function activate( mixed $network_wide = false ): void {
+		if ( is_multisite() && true === (bool) $network_wide ) {
 			$site_ids = get_sites( array( 'fields' => 'ids', 'number' => 0 ) );
 
 			foreach ( $site_ids as $site_id ) {
