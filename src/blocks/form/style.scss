@@ -124,7 +124,22 @@
 	.ace-form-status--success { background: color-mix(in srgb, var(--ace-form-accent) 12%, var(--ace-form-surface)); color: var(--ace-form-text); }
 	.ace-form-status--error { background: color-mix(in srgb, var(--wp--preset--color--accent-3, var(--ace-form-accent)) 12%, var(--ace-form-surface)); color: var(--ace-form-text); }
 	.ace-field-error { margin: .25rem 0 0; color: var(--wp--preset--color--accent-3, var(--ace-form-text)); font-size: .9em; }
-	.ace-turnstile { grid-column: 1 / -1; }
+	.ace-form-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 1rem;
+		grid-column: 1 / -1;
+		min-width: 0;
+		> button { flex-shrink: 0; }
+	}
+	.ace-turnstile { grid-column: 1 / -1; border-radius: 6px; outline: 3px solid transparent; outline-offset: 5px; transition: outline-color .2s ease, box-shadow .2s ease; }
+	.ace-turnstile--attention { outline-color: var(--ace-form-accent); box-shadow: 0 0 0 8px color-mix(in srgb, var(--ace-form-accent) 15%, transparent); }
+	button.ace-form-submit--pending { opacity: .45; cursor: pointer; }
+	button.ace-form-submit--pending:hover { transform: none; }
+	button.ace-form-submit--nudge { animation: ace-verification-nudge .7s ease; }
+	.ace-turnstile-hint { flex-basis: 100%; color: var(--ace-form-muted); font-size: .875em; }
+
 	.ace-hidden-field-preview {
 		display: inline-block;
 		padding: .35rem .65rem;
@@ -137,4 +152,16 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.wp-block-adaptive-content-enhancer-form :is(input, select, textarea, button, .ace-form-field__label) { transition: none; }
+}
+
+@keyframes ace-verification-nudge {
+	0%, 100% { transform: translate(0, 0) rotate(0); }
+	20% { transform: rotate(-3deg); }
+	40% { transform: rotate(3deg); }
+	60% { transform: rotate(-2deg); }
+	80% { transform: translate(var(--ace-nudge-x), var(--ace-nudge-y)); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.wp-block-adaptive-content-enhancer-form button.ace-form-submit--nudge,
+	.wp-block-adaptive-content-enhancer-form .ace-turnstile { animation: none; transition: none; }
 }

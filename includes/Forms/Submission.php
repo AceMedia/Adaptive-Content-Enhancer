@@ -62,7 +62,7 @@ final class Submission {
 			return new \WP_Error( 'ace_form_spam', __( 'Your enquiry could not be accepted.', 'adaptive-content-enhancer' ), array( 'status' => 400 ) );
 		}
 		$no_js = true === $request->get_param( 'no_js' );
-		if ( $no_js && 7 !== absint( $request->get_param( 'ace_nojs_answer' ) ) ) {
+		if ( $no_js && ! Turnstile::required() && 7 !== absint( $request->get_param( 'ace_nojs_answer' ) ) ) {
 			return new \WP_Error( 'ace_form_no_js_challenge', __( 'Please answer the verification question.', 'adaptive-content-enhancer' ), array( 'status' => 400 ) );
 		}
 		$started = absint( $request->get_param( 'ace_started_at' ) );
@@ -77,7 +77,7 @@ final class Submission {
 			return new \WP_Error( 'ace_form_rate_limit', __( 'Too many attempts. Please try again later.', 'adaptive-content-enhancer' ), array( 'status' => 429 ) );
 		}
 		set_transient( $rate_key, $count + 1, 10 * MINUTE_IN_SECONDS );
-		$turnstile = $no_js ? true : Turnstile::verify( (string) $request->get_param( 'turnstile_token' ) );
+		$turnstile = $no_js && ! Turnstile::required() ? true : Turnstile::verify( (string) $request->get_param( 'turnstile_token' ) );
 		if ( is_wp_error( $turnstile ) ) {
 			return $turnstile;
 		}
@@ -185,10 +185,11 @@ final class Submission {
 			$headers[] = 'Reply-To: ' . $reply_to;
 		}
 		$screen = Screen::assess( $form, $values, $contact_email, $contact_name );
-		list( $subject, $body ) = Screen::tag( $screen, $subject, $body );
+		$held = 'clean' !== ( $screen['verdict'] ?? '' );
 		$details = array( 'files' => $file_records, 'screen' => $screen );
 		$config = array( 'formId' => $id, 'formName' => $form['name'], 'recipient' => $to[0] ?? '', 'subject' => $subject, 'successMessage' => $settings['successMessage'] ?? '', 'errorMessage' => $settings['errorMessage'] ?? '', 'screen' => $screen );
-		$provider = apply_filters( 'ace_forms_storage_provider', 'local' );
+		// Keep untrusted entries out of CRM identity enrichment until reviewed.
+		$provider = $held ? 'local' : apply_filters( 'ace_forms_storage_provider', 'local' );
 		$entry_id = 0;
 		if ( 'customer-engagement' === $provider ) {
 			$entry_id = (int) apply_filters( 'ace_forms_store_submission', 0, $values, $config, $request, false, $details );
@@ -207,10 +208,10 @@ final class Submission {
 		$config['storage_provider'] = $provider;
 		$config['already_stored'] = true;
 		do_action( 'ace_forms_entry_created', $entry_id, $form, $values, array( 'page_url' => $page_url, 'storage_provider' => $provider ) );
-		$sent = $to ? wp_mail( $to, $subject, $body, $headers ) : false;
-		$details['notification'] = array( 'to' => $to, 'subject' => $subject, 'body' => $body, 'headers' => $headers, 'sent' => $sent, 'date' => current_time( 'mysql', true ) );
+		$sent = ! $held && $to ? wp_mail( $to, $subject, $body, $headers ) : false;
+		$details['notification'] = array( 'to' => $to, 'subject' => $subject, 'body' => $body, 'headers' => $headers, 'sent' => $sent, 'held' => $held, 'date' => current_time( 'mysql', true ) );
 		$confirmation = is_array( $settings['confirmation'] ?? null ) ? $settings['confirmation'] : array();
-		if ( ! empty( $confirmation['enabled'] ) && $contact_email && is_email( $contact_email ) ) {
+		if ( ! $held && ! empty( $confirmation['enabled'] ) && $contact_email && is_email( $contact_email ) ) {
 			$confirmation_subject = self::merge( (string) ( $confirmation['subject'] ?? __( 'We received your enquiry', 'adaptive-content-enhancer' ) ), $values, $page_id, $page_url );
 			$confirmation_body = self::merge( (string) ( $confirmation['body'] ?? '' ), $values, $page_id, $page_url );
 			$confirmation_headers = array( 'Content-Type: text/plain; charset=UTF-8' );
@@ -241,7 +242,7 @@ final class Submission {
 		$inserted = $wpdb->insert( $wpdb->prefix . 'ace_form_entries', array(
 			'form_id' => $id,
 			'source_post_id' => $page_id,
-			'status' => 'suspect' === ( $details['screen']['verdict'] ?? '' ) ? 'suspect' : 'new',
+			'status' => 'clean' === ( $details['screen']['verdict'] ?? '' ) ? 'new' : 'suspect',
 			'data' => wp_json_encode( $values ),
 			'search_text' => implode( ' ', array_map( 'strval', array_filter( $values, 'is_scalar' ) ) ),
 			'contact_email' => $contact_email,

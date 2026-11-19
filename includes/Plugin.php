@@ -42,6 +42,11 @@ final class Plugin {
 	}
 
 	public function boot(): void {
+		if ( is_multisite() ) {
+			add_action( 'network_admin_menu', array( \ACE\AdaptiveContentEnhancer\Admin\NetworkSettings::class, 'menu' ) );
+			add_action( 'network_admin_edit_ace_content_network_settings', array( \ACE\AdaptiveContentEnhancer\Admin\NetworkSettings::class, 'save' ) );
+			add_filter( 'default_option_ace_fields_acf_compat', array( \ACE\AdaptiveContentEnhancer\Admin\NetworkSettings::class, 'acf_default' ), 20 );
+		}
 		require_once ACE_ACE_DIR . 'includes/Fields/Functions.php';
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 		add_action( 'init', array( $this, 'register_foundation' ), 5 );
@@ -59,6 +64,8 @@ final class Plugin {
 		add_action( 'admin_init', array( Capabilities::class, 'grant' ) );
 		add_action( 'admin_menu', array( Dashboard::class, 'menu' ), 5 );
 		add_action( 'admin_menu', array( Admin::class, 'menu' ) );
+		add_action( 'admin_menu', array( \ACE\AdaptiveContentEnhancer\Forms\Review::class, 'menu' ) );
+		add_action( 'admin_post_ace_forms_review', array( \ACE\AdaptiveContentEnhancer\Forms\Review::class, 'handle' ) );
 		add_action( 'admin_menu', array( Patterns::class, 'menu' ) );
 		add_action( 'admin_menu', array( EditorTemplates::class, 'menu' ) );
 		add_action( 'admin_menu', array( Settings::class, 'menu' ) );
@@ -69,6 +76,8 @@ final class Plugin {
 		add_action( 'admin_init', array( Settings::class, 'register' ) );
 		add_action( 'admin_enqueue_scripts', array( Dashboard::class, 'assets' ) );
 		add_action( 'wp_ajax_ace_content_save_settings', array( Settings::class, 'ajax_save' ) );
+		add_action( 'update_option_ace_forms_turnstile', array( \ACE\AdaptiveContentEnhancer\Admin\NetworkSettings::class, 'purge_site_cache' ), 10, 0 );
+		add_action( 'add_option_ace_forms_turnstile', array( \ACE\AdaptiveContentEnhancer\Admin\NetworkSettings::class, 'purge_site_cache' ), 10, 0 );
 		add_action( 'admin_init', array( Patterns::class, 'backfill' ) );
 		add_action( 'admin_init', array( EditorTemplates::class, 'register' ) );
 		add_action( 'admin_init', array( TermEditor::class, 'register' ) );

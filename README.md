@@ -70,3 +70,48 @@ npm run build
 ```
 
 The block scripts and styles in `src/blocks` build into `build/blocks`; editor and admin components build separately. Do not edit generated files directly.
+
+
+### Turnstile and spam review
+
+Public block forms use the Turnstile keys under **Ace Content → Settings**. On a
+multisite network, enter shared production keys in **Network Admin → Ace Content**
+and enable **Require Turnstile on every site in this network**. This
+uses the network keys on every subsite, including newly added sites. Configure
+the Cloudflare widget to allow each mapped hostname before enabling enforcement.
+Network enforcement cannot be overridden by subsite settings. Network settings are stored separately from site settings and can only be changed by network administrators. A blank secret field preserves the stored secret, which is never printed into the network form. Incomplete keys cannot be saved with network enforcement enabled. Changing shared protection invalidates Ace Redis page and block caches for each site, plus its Varnish bridge. Site-specific key changes invalidate that site only. Other cache integrations can listen to `ace_forms_protection_changed` with the blog ID. Earlier main-site enforcement settings remain supported until network settings are saved. The network screen also lists mapped hostnames, protection status and links to each site's settings and spam review. Incomplete required
+configuration fails closed. Cloudflare verification must succeed with the current
+site's hostname and the `ace_form` action. Test secrets are rejected in production.
+Protected forms require JavaScript, including submissions through admin-post;
+the arithmetic fallback is only available when Turnstile is not configured.
+
+Suspect messages are saved locally as `suspect` before any email or CRM enrichment.
+Neither recipient notifications nor sender confirmations are sent. Clean messages
+continue through the configured storage provider and notification process.
+**Ace Content → Spam review** groups the latest 200 held entries by message
+similarity. Open an entry to see the message and screening reasons, confirm spam,
+or approve and send its saved notification. Approval sends the original recipient
+notification once; it does not send a delayed sender confirmation. Failed delivery
+leaves the entry held for an explicit retry. Reviewed entries remain in the Entry
+archive. Existing historical submissions are not automatically reclassified or sent. Earlier flagged entries that were already emailed can be marked genuine to teach screening without sending them again.
+
+Only explicit decisions teach future screening. Learning is per site, capped at
+200 message signatures for 90 days, and stores salted hashes of message trigrams,
+not message text, email addresses or sender blocklists. Messages with fewer than
+eight words are never learned. A similarity of at least 85% is required; reviewing
+a matching message as genuine supersedes its previous learned decision. Automatic
+screening never trains itself. Clustering is a review aid and does not bulk approve
+or delete messages. The existing screening filters remain available for site rules.
+
+Local integration checks, with temporary database fixtures, intercepted mail and
+mocked Siteverify responses (requires `WP_LOCAL_DEV` and WP-CLI):
+
+```sh
+wp eval 'require "assets/plugins/adaptive-content-enhancer/tests/form-spam-review.php";' --url=https://iegemea.pi --skip-themes
+```
+
+
+Network Admin → Ace Content also controls the default for basic ACF function
+compatibility on sites without a saved preference. Existing site choices take
+precedence. Forms, mail recipients, storage providers, captured entries and spam
+learning stay within each site; this page does not create a separate form builder.

@@ -107,26 +107,110 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		const started = form.querySelector( '[name="ace_started_at"]' );
 		if ( started ) started.value = String( Math.floor( Date.now() / 1000 ) );
 		let submitting = false;
+		const button = form.querySelector( '[type="submit"]' );
+		const widget = form.querySelector( '.ace-turnstile[id]' );
+		let verified = ! widget;
+		let widgetId;
+		let hintTimer;
+		const setVerified = ( passed ) => {
+			verified = passed;
+			if ( ! button || ! widget ) return;
+			button.setAttribute( 'aria-disabled', passed ? 'false' : 'true' );
+			button.classList.toggle( 'ace-form-submit--pending', ! passed );
+			if ( passed ) {
+				widget.classList.remove( 'ace-turnstile--attention' );
+				button.classList.remove( 'ace-form-submit--nudge' );
+			}
+		};
+		const promptVerification = () => {
+			if ( ! widget || ! button ) return;
+			const target = widget.getBoundingClientRect();
+			const origin = button.getBoundingClientRect();
+			const dx = target.x + target.width / 2 - origin.x - origin.width / 2;
+			const dy = target.y + target.height / 2 - origin.y - origin.height / 2;
+			const distance = Math.hypot( dx, dy ) || 1;
+			button.style.setProperty( '--ace-nudge-x', `${ dx / distance * 7 }px` );
+			button.style.setProperty( '--ace-nudge-y', `${ dy / distance * 7 }px` );
+			button.classList.remove( 'ace-form-submit--nudge' );
+			void button.offsetWidth; // Restart the gesture on another attempt.
+			button.classList.add( 'ace-form-submit--nudge' );
+			widget.classList.add( 'ace-turnstile--attention' );
+			const hint = form.querySelector( '.ace-turnstile-hint' );
+			if ( hint ) hint.textContent = __( 'Please complete the verification before sending.', 'adaptive-content-enhancer' );
+			widget.scrollIntoView( { block: 'nearest', inline: 'nearest', behavior: 'auto' } );
+			widget.focus( { preventScroll: true } );
+			clearTimeout( hintTimer );
+			hintTimer = setTimeout( () => {
+				widget.classList.remove( 'ace-turnstile--attention' );
+				button.classList.remove( 'ace-form-submit--nudge' );
+			}, 3500 );
+		};
+		if ( widget && button ) {
+			const actions = button.closest( '.wp-block-adaptive-content-enhancer-submit' ) || document.createElement( 'div' );
+			if ( ! actions.parentNode ) { button.before( actions ); actions.append( button ); }
+			actions.classList.add( 'ace-form-actions' );
+			actions.append( widget );
+			widget.tabIndex = -1;
+			const hint = document.createElement( 'span' );
+			hint.className = 'ace-turnstile-hint';
+			hint.id = `${ widget.id }-hint`;
+			hint.setAttribute( 'role', 'status' );
+			hint.setAttribute( 'aria-live', 'polite' );
+			hint.textContent = __( 'Complete the verification to enable Send.', 'adaptive-content-enhancer' );
+			actions.append( hint );
+			button.setAttribute( 'aria-describedby', `${ button.getAttribute( 'aria-describedby' ) || '' } ${ hint.id }`.trim() );
+			widget.setAttribute( 'aria-describedby', hint.id );
+			setVerified( false );
+			button.addEventListener( 'click', ( event ) => {
+				if ( verified ) return;
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				promptVerification();
+			}, true );
+			const render = () => {
+				if ( ! window.turnstile?.render ) return false;
+				try {
+					widgetId = window.turnstile.render( widget, {
+						sitekey: widget.dataset.sitekey,
+						action: widget.dataset.action,
+						size: actions.clientWidth - button.offsetWidth >= 316 ? 'normal' : 'compact',
+						callback: () => { setVerified( true ); hint.textContent = __( 'Verification complete. You can send your enquiry.', 'adaptive-content-enhancer' ); },
+						'expired-callback': () => { setVerified( false ); hint.textContent = __( 'Verification expired. Please complete it again.', 'adaptive-content-enhancer' ); },
+						'error-callback': () => { setVerified( false ); hint.textContent = __( 'Verification could not load. Please try again or reload the page.', 'adaptive-content-enhancer' ); },
+						'timeout-callback': () => { setVerified( false ); },
+					} );
+				} catch {
+					hint.textContent = __( 'Verification could not load. Please reload the page.', 'adaptive-content-enhancer' );
+				}
+				return true;
+			};
+			if ( ! render() ) {
+				let attempts = 0;
+				const timer = setInterval( () => {
+					if ( render() || ++attempts >= 120 ) {
+						clearInterval( timer );
+						if ( widgetId === undefined ) hint.textContent = __( 'Verification could not load. Please reload the page.', 'adaptive-content-enhancer' );
+					}
+				}, 250 );
+			}
+		}
 		const resetTurnstile = () => {
-			const widget = form.querySelector( '.cf-turnstile[id]' );
-			if ( ! widget || ! window.turnstile?.reset ) {
-				return;
-			}
-			try {
-				window.turnstile.reset( `#${ widget.id }` );
-			} catch {
-				// Keep the saved submission visible if the widget is unavailable.
-			}
+			if ( ! widget ) return;
+			setVerified( false );
+			const hint = form.querySelector( '.ace-turnstile-hint' );
+			if ( hint ) hint.textContent = __( 'Complete the verification to enable Send.', 'adaptive-content-enhancer' );
+			if ( widgetId === undefined || ! window.turnstile?.reset ) return;
+			try { window.turnstile.reset( widgetId ); } catch { /* The server still requires a fresh token. */ }
 		};
 		form.addEventListener( 'submit', async ( event ) => {
 			event.preventDefault();
 			if ( submitting ) {
 				return;
 			}
+			if ( ! verified ) { promptVerification(); return; }
 			if ( ! form.reportValidity() ) return;
 			submitting = true;
 			const status = form.querySelector( '.ace-form-status' );
-			const button = form.querySelector( '[type="submit"]' );
 			for ( const error of form.querySelectorAll( '.ace-field-error' ) ) error.remove();
 			for ( const control of form.querySelectorAll( '[aria-invalid="true"]' ) ) {
 				control.removeAttribute( 'aria-invalid' );

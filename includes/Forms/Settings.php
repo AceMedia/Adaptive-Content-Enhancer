@@ -20,7 +20,12 @@ final class Settings {
 
 	public static function sanitise( mixed $value ): array {
 		$value = is_array( $value ) ? $value : array();
-		return array( 'site_key' => sanitize_text_field( $value['site_key'] ?? '' ), 'secret_key' => sanitize_text_field( $value['secret_key'] ?? '' ) );
+		$existing = Turnstile::local_settings();
+		if ( is_multisite() && is_main_site() && ! empty( $existing['network_required'] ) && ! current_user_can( 'manage_network_options' ) ) {
+			return $existing;
+		}
+		$network_required = ! empty( $existing['network_required'] );
+		return array( 'network_required' => $network_required, 'site_key' => sanitize_text_field( $value['site_key'] ?? '' ), 'secret_key' => sanitize_text_field( $value['secret_key'] ?? '' ) );
 	}
 
 	public static function ajax_save(): void {
@@ -38,7 +43,7 @@ final class Settings {
 		if ( ! current_user_can( Capabilities::SETTINGS ) ) {
 			wp_die( esc_html__( 'You cannot change content settings.', 'adaptive-content-enhancer' ) );
 		}
-		$settings = Turnstile::settings();
+		$settings = Turnstile::local_settings();
 		$storage = 'customer-engagement' === apply_filters( 'ace_forms_storage_provider', 'local' );
 		$scan = CompatibilityScan::results();
 		$sources = OnboardingPage::status();
@@ -51,7 +56,15 @@ final class Settings {
 		echo '<div class="ace-content-layout"><nav class="ace-content-sidebar" aria-label="' . esc_attr__( 'Settings sections', 'adaptive-content-enhancer' ) . '"><a href="#form-protection">' . esc_html__( 'Form protection', 'adaptive-content-enhancer' ) . '</a><a href="#field-compatibility">' . esc_html__( 'Field compatibility', 'adaptive-content-enhancer' ) . '</a><a href="#entry-storage">' . esc_html__( 'Entry storage', 'adaptive-content-enhancer' ) . '</a></nav>';
 		echo '<form id="ace-content-settings-form" class="ace-content-settings-form" method="post" action="' . esc_url( admin_url( 'options.php' ) ) . '">';
 		settings_fields( 'ace_content_settings' );
-		echo '<section class="ace-content-panel" id="form-protection"><h2>' . esc_html__( 'Form protection', 'adaptive-content-enhancer' ) . '</h2><p>' . esc_html__( 'Use site-specific Cloudflare Turnstile keys for public forms.', 'adaptive-content-enhancer' ) . '</p><div class="ace-content-field"><label for="ace-turnstile-site">' . esc_html__( 'Turnstile site key', 'adaptive-content-enhancer' ) . '</label><input class="regular-text" id="ace-turnstile-site" name="ace_forms_turnstile[site_key]" value="' . esc_attr( $settings['site_key'] ?? '' ) . '" autocomplete="off"/></div><div class="ace-content-field"><label for="ace-turnstile-secret">' . esc_html__( 'Turnstile secret key', 'adaptive-content-enhancer' ) . '</label><input class="regular-text" type="password" id="ace-turnstile-secret" name="ace_forms_turnstile[secret_key]" value="' . esc_attr( $settings['secret_key'] ?? '' ) . '" autocomplete="new-password"/></div></section>';
+		echo '<section class="ace-content-panel" id="form-protection"><h2>' . esc_html__( 'Form protection', 'adaptive-content-enhancer' ) . '</h2><p>' . esc_html__( 'Protect all public forms with Cloudflare Turnstile. Network keys must allow every mapped hostname. Protected forms require JavaScript; there is no verification bypass.', 'adaptive-content-enhancer' ) . '</p><div class="ace-content-field"><label for="ace-turnstile-site">' . esc_html__( 'Turnstile site key', 'adaptive-content-enhancer' ) . '</label><input class="regular-text" id="ace-turnstile-site" name="ace_forms_turnstile[site_key]" value="' . esc_attr( $settings['site_key'] ?? '' ) . '" autocomplete="off"/></div><div class="ace-content-field"><label for="ace-turnstile-secret">' . esc_html__( 'Turnstile secret key', 'adaptive-content-enhancer' ) . '</label><input class="regular-text" type="password" id="ace-turnstile-secret" name="ace_forms_turnstile[secret_key]" value="' . esc_attr( $settings['secret_key'] ?? '' ) . '" autocomplete="new-password"/></div></section>';
+		if ( is_multisite() ) {
+			$network = \ACE\AdaptiveContentEnhancer\Admin\NetworkSettings::get();
+			echo '<p>' . esc_html( ! empty( $network['turnstile']['network_required'] ) ? __( 'Network Turnstile protection is enforced. Local keys cannot override it.', 'adaptive-content-enhancer' ) : __( 'Shared Turnstile keys and plugin defaults are managed in Network Admin → Ace Content.', 'adaptive-content-enhancer' ) );
+			if ( current_user_can( 'manage_network_options' ) ) {
+				echo ' <a href="' . esc_url( network_admin_url( 'admin.php?page=ace-content-network' ) ) . '">' . esc_html__( 'Network settings', 'adaptive-content-enhancer' ) . '</a>';
+			}
+			echo '</p>';
+		}
 		echo '<section class="ace-content-panel" id="field-compatibility"><h2>' . esc_html__( 'Field compatibility', 'adaptive-content-enhancer' ) . '</h2><p>' . esc_html__( 'ACE stores adopted fields as WordPress post meta. This option helps existing PHP templates and plugins keep reading those values after ACF is retired.', 'adaptive-content-enhancer' ) . '</p><label class="ace-content-check"><input type="hidden" name="ace_fields_acf_compat" value="0"/><input type="checkbox" name="ace_fields_acf_compat" value="1" ' . checked( (bool) get_option( 'ace_fields_acf_compat' ), true, false ) . '/><span><strong>' . esc_html__( 'Enable basic ACF function compatibility', 'adaptive-content-enhancer' ) . '</strong><small>' . esc_html__( 'Provides get_field(), the_field(), have_rows(), the_row() and get_sub_field() only when ACF does not provide them.', 'adaptive-content-enhancer' ) . '</small></span></label>';
 		if ( $acf_active ) {
 			echo '<p><strong>' . esc_html__( 'ACF is active on this site.', 'adaptive-content-enhancer' ) . '</strong> ' . esc_html__( 'Its own functions take precedence. Review adopted fields and code usage before deactivating it.', 'adaptive-content-enhancer' ) . '</p>';

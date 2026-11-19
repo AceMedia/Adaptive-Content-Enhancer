@@ -2,7 +2,7 @@
   "$schema": "https://schemas.wp.org/trunk/block.json",
   "apiVersion": 3,
   "name": "adaptive-content-enhancer/form",
-  "version": "0.500.0",
+  "version": "0.500.1",
   "title": "Form",
   "category": "widgets",
   "description": "A form with fields edited directly in the page.",

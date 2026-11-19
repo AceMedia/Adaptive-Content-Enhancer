@@ -91,6 +91,7 @@ final class Admin {
 		}
 		$back = add_query_arg( 'page', 'ace-forms', admin_url( 'admin.php' ) );
 		echo '<p><a href="' . esc_url( $back ) . '">← ' . esc_html__( 'All entries', 'adaptive-content-enhancer' ) . '</a></p><h2>' . esc_html__( 'Entry', 'adaptive-content-enhancer' ) . ' #' . esc_html( (string) $id ) . '</h2>';
+		\ACE\AdaptiveContentEnhancer\Forms\Review::controls( $row );
 		echo '<p>' . esc_html( $row->created_at ) . ' · ' . esc_html( $row->status ) . '</p><table class="widefat striped"><tbody>';
 		foreach ( (array) json_decode( $row->data, true ) as $key => $value ) {
 			echo '<tr><th scope="row">' . esc_html( $key ) . '</th><td>' . esc_html( is_scalar( $value ) ? (string) $value : wp_json_encode( $value ) ) . '</td></tr>';

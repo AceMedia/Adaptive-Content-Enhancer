@@ -38,7 +38,7 @@ final class FormRender {
 		$notice = 'success' === $status ? $success : ( 'error' === $status ? __( 'Please check your details and try again.', 'adaptive-content-enhancer' ) : '' );
 		$notice_class = 'success' === $status ? ' ace-form-status--success' : ( 'error' === $status ? ' ace-form-status--error' : '' );
 		return sprintf(
-			'<form %1$s method="post" enctype="multipart/form-data" action="%2$s" data-ace-form="%3$s" data-rest-root="%10$s" data-success-message="%4$s"><input type="hidden" name="action" value="ace_form_submit"/><input type="hidden" name="form_id" value="%3$s"/><input type="hidden" name="ace_started_at" value="%5$d"/><div class="ace-form-honeypot" aria-hidden="true"><label>Leave this blank <input type="text" name="ace_hp" value="" tabindex="-1" autocomplete="off"/></label></div>%6$s%11$s<noscript><label>To confirm you are a person, what is three plus four? <input type="number" name="ace_nojs_answer" required/></label></noscript><div class="ace-form-status%7$s" role="status" aria-live="polite" tabindex="-1"%8$s>%9$s</div></form>',
+			'<form %1$s method="post" enctype="multipart/form-data" action="%2$s" data-ace-form="%3$s" data-rest-root="%10$s" data-success-message="%4$s"><input type="hidden" name="action" value="ace_form_submit"/><input type="hidden" name="form_id" value="%3$s"/><input type="hidden" name="ace_started_at" value="%5$d"/><div class="ace-form-honeypot" aria-hidden="true"><label>Leave this blank <input type="text" name="ace_hp" value="" tabindex="-1" autocomplete="off"/></label></div>%6$s%11$s%12$s<div class="ace-form-status%7$s" role="status" aria-live="polite" tabindex="-1"%8$s>%9$s</div></form>',
 			get_block_wrapper_attributes( array( 'class' => 'ace-form-container ace-input--' . $style . ' ace-labels--' . $labels . ' ace-density--' . $density, 'style' => implode( ';', $colours ) ) ),
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr( $id ),
@@ -49,7 +49,8 @@ final class FormRender {
 			'' === $notice ? ' hidden' : '',
 			esc_html( $notice ),
 			esc_url( rest_url() ),
-			Turnstile::widget( $id )
+			Turnstile::widget( $id ),
+			Turnstile::required() ? '<noscript><p>' . esc_html__( 'Please enable JavaScript to verify and submit this form, or contact us directly.', 'adaptive-content-enhancer' ) . '</p></noscript>' : '<noscript><label>To confirm you are a person, what is three plus four? <input type="number" name="ace_nojs_answer" required/></label></noscript>'
 		);
 	}
 }

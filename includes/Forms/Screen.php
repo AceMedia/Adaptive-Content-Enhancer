@@ -1,5 +1,5 @@
 <?php
-/** Content screen for enquiries: flags sales pitches, SEO offers and bulk RFQ scams without ever dropping them. */
+/** Content screen for enquiries: holds sales pitches, SEO offers and bulk RFQ scams for review. */
 namespace ACE\AdaptiveContentEnhancer\Forms;
 
 defined( 'ABSPATH' ) || exit;
@@ -9,8 +9,7 @@ final class Screen {
 	public const THRESHOLD = 4;
 
 	/**
-	 * Score a submission. Nothing is blocked here: the notification still goes to the form's recipients,
-	 * tagged in the subject and with the reasons at the top of the body.
+	 * Score a submission before notification delivery. Explicit reviewer decisions teach future screening.
 	 *
 	 * @return array{verdict: string, score: int, reasons: string[]}
 	 */
@@ -84,6 +83,7 @@ final class Screen {
 			'score' => $score,
 			'reasons' => $reasons,
 		);
+		$result = Review::assess( $form, $values, $result );
 		/** Lets a site adjust the verdict, e.g. allow-list a known customer domain. */
 		return (array) apply_filters( 'ace_forms_screen_result', $result, $form, $values, $contact_email );
 	}
@@ -93,7 +93,7 @@ final class Screen {
 		if ( 'suspect' !== ( $screen['verdict'] ?? '' ) ) {
 			return array( $subject, $body );
 		}
-		$note = __( 'Possible spam or sales email. It was sent to you anyway so nothing genuine is missed.', 'adaptive-content-enhancer' ) . "\n"
+		$note = __( 'Possible spam or sales email. Held for review before delivery.', 'adaptive-content-enhancer' ) . "\n"
 			/* translators: %d: screening score. */
 			. sprintf( __( 'Why (score %d):', 'adaptive-content-enhancer' ), (int) $screen['score'] ) . "\n- " . implode( "\n- ", $screen['reasons'] ) . "\n\n-----\n\n";
 		return array( __( '[Possible spam]', 'adaptive-content-enhancer' ) . ' ' . $subject, $note . $body );
