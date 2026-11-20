@@ -59,14 +59,17 @@ final class Submission {
 			return new \WP_Error( 'ace_form_not_found', __( 'This form is unavailable.', 'adaptive-content-enhancer' ), array( 'status' => 404 ) );
 		}
 		if ( '' !== (string) $request->get_param( 'ace_hp' ) ) {
+			ProtectionStats::record( 'honeypot' );
 			return new \WP_Error( 'ace_form_spam', __( 'Your enquiry could not be accepted.', 'adaptive-content-enhancer' ), array( 'status' => 400 ) );
 		}
 		$no_js = true === $request->get_param( 'no_js' );
 		if ( $no_js && ! Turnstile::required() && 7 !== absint( $request->get_param( 'ace_nojs_answer' ) ) ) {
+			ProtectionStats::record( 'fallback_failed' );
 			return new \WP_Error( 'ace_form_no_js_challenge', __( 'Please answer the verification question.', 'adaptive-content-enhancer' ), array( 'status' => 400 ) );
 		}
 		$started = absint( $request->get_param( 'ace_started_at' ) );
 		if ( ! $started || $started > time() || time() - $started < ( $no_js ? 5 : 2 ) ) {
+			ProtectionStats::record( 'too_fast' );
 			return new \WP_Error( 'ace_form_timing', __( 'Please wait a moment and try again.', 'adaptive-content-enhancer' ), array( 'status' => 400 ) );
 		}
 		$ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) );
@@ -74,12 +77,19 @@ final class Submission {
 		$rate_key = ( $no_js ? 'ace_form_rate_nojs_' : 'ace_form_rate_' ) . md5( $id . $ip_hash );
 		$count = (int) get_transient( $rate_key );
 		if ( $count >= ( $no_js ? 3 : 12 ) ) {
+			ProtectionStats::record( 'rate_limited' );
 			return new \WP_Error( 'ace_form_rate_limit', __( 'Too many attempts. Please try again later.', 'adaptive-content-enhancer' ), array( 'status' => 429 ) );
 		}
 		set_transient( $rate_key, $count + 1, 10 * MINUTE_IN_SECONDS );
 		$turnstile = $no_js && ! Turnstile::required() ? true : Turnstile::verify( (string) $request->get_param( 'turnstile_token' ) );
 		if ( is_wp_error( $turnstile ) ) {
+			ProtectionStats::record( $turnstile->get_error_code() );
 			return $turnstile;
+		}
+		if ( Turnstile::required() ) {
+			ProtectionStats::record( 'verified' );
+		} else {
+			ProtectionStats::record( 'unprotected' );
 		}
 
 		$submitted = $request->get_param( 'fields' );
@@ -205,6 +215,7 @@ final class Submission {
 			return new \WP_Error( 'ace_form_storage', __( 'Your enquiry could not be saved.', 'adaptive-content-enhancer' ), array( 'status' => 500 ) );
 		}
 		$config['entryId'] = $entry_id;
+		ProtectionStats::record( $held ? 'held' : 'screened_clean' );
 		$config['storage_provider'] = $provider;
 		$config['already_stored'] = true;
 		do_action( 'ace_forms_entry_created', $entry_id, $form, $values, array( 'page_url' => $page_url, 'storage_provider' => $provider ) );

@@ -63,6 +63,88 @@ final class Review {
 		update_option( 'ace_forms_review_learning', array_slice( array_values( $lessons ), -200 ), false );
 	}
 
+	/**
+	 * Reviewer hints only: these features never enter assess(), learn() or decide().
+	 * Contact fields and whole-language/script matches are deliberately excluded.
+	 */
+	private static function campaign_signals( array $form, array $values, array $screen ): array {
+		$messages = array();
+		foreach ( $form['fields'] ?? array() as $key => $field ) {
+			if ( 'textarea' === ( $field['type'] ?? '' ) && is_scalar( $values[ $key ] ?? null ) ) {
+				$messages[] = (string) $values[ $key ];
+			}
+		}
+		$text = strtolower( html_entity_decode( substr( implode( ' ', $messages ), 0, 30000 ), ENT_QUOTES, 'UTF-8' ) );
+		$signals = array();
+		$reasons = array_filter( (array) ( $screen['reasons'] ?? array() ), 'is_string' );
+		$link_context = false;
+		foreach ( $reasons as $reason ) {
+			if ( preg_match( '/links? in the message|site promotion/i', $reason ) ) {
+				$link_context = true;
+			}
+			// Specific quoted matches, rather than an entire broad screening category.
+			if ( str_contains( $reason, ':' ) && preg_match_all( '/"([^"]{3,80})"/u', $reason, $matches ) ) {
+				$category = strtolower( trim( strstr( $reason, ':', true ) ) );
+				foreach ( array_slice( $matches[1], 0, 3 ) as $term ) {
+					$term = strtolower( trim( $term ) );
+					$signals[ 'term:' . $category . ':' . $term ] = sprintf( __( 'Shared screening term: %s', 'adaptive-content-enhancer' ), $term );
+				}
+			}
+		}
+		// Read URL hosts, not paths/query strings or sender email domains.
+		preg_match_all( '~(?:https?://|www\.)[^\s<>"\[\]]+~i', $text, $urls );
+		foreach ( array_slice( $urls[0], 0, 30 ) as $url ) {
+			$host = strtolower( (string) wp_parse_url( str_starts_with( $url, 'www.' ) ? 'https://' . $url : $url, PHP_URL_HOST ) );
+			$host = preg_replace( '/^www\./', '', rtrim( $host, '.' ) );
+			$own = preg_replace( '/^www\./', '', strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) );
+			if ( $host && str_contains( $host, '.' ) && ! filter_var( $host, FILTER_VALIDATE_IP ) && $host !== $own && ! str_ends_with( $host, '.' . $own ) ) {
+				$signals[ 'host:' . $host ] = sprintf( __( 'Promoted domain: %s', 'adaptive-content-enhancer' ), $host );
+			}
+		}
+		// Numbered and spaced host variants are common link campaigns. Require an
+		// independent link/promotion screening reason so product/model numbers do
+		// not group enquiries by themselves. This is not a public-suffix parser.
+		if ( $link_context ) {
+			preg_match_all( '~(?<![a-z0-9@])([a-z][a-z-]{2,29})[ .-]*([0-9]{1,4})[ .]+(?:[a-z]{2}|com|net|org|info|biz|xyz|top|site|online|click|shop|store|pro)(?![a-z0-9])~i', wp_strip_all_tags( $text ), $families );
+			foreach ( array_slice( array_unique( $families[1] ), 0, 12 ) as $family ) {
+				$signals[ 'rotating-host:' . $family ] = sprintf( __( 'Rotating promoted host family: %s[number]', 'adaptive-content-enhancer' ), $family );
+			}
+		}
+		return $signals;
+	}
+
+	/**
+	 * Build advisory queue groups without persisting anything or changing verdicts.
+	 * Every campaign member must share the same signal, preventing bridge entries
+	 * from joining unrelated campaigns. Existing close-text matching stays intact.
+	 *
+	 * @param array $entries Items with row, form, values and screen keys.
+	 */
+	public static function group_entries( array $entries ): array {
+		$groups = array();
+		foreach ( $entries as $entry ) {
+			$signature = self::signature( $entry['form'], $entry['values'] );
+			$signals = self::campaign_signals( $entry['form'], $entry['values'], $entry['screen'] );
+			$index = count( $groups );
+			$shared = $signals;
+			foreach ( $groups as $key => $group ) {
+				$common = array_intersect_key( $group['signals'], $signals );
+				if ( $common || self::similar( $signature, $group['signature'] ) ) {
+					$index = $key;
+					$shared = $common;
+					break;
+				}
+			}
+			if ( ! isset( $groups[ $index ] ) ) {
+				$groups[ $index ] = array( 'signature' => $signature, 'signals' => $shared, 'rows' => array() );
+			} else {
+				$groups[ $index ]['signals'] = $shared;
+			}
+			$groups[ $index ]['rows'][] = $entry['row'];
+		}
+		return $groups;
+	}
+
 	public static function menu(): void {
 		add_submenu_page( 'adaptive-content-enhancer', __( 'Spam review', 'adaptive-content-enhancer' ), __( 'Spam review', 'adaptive-content-enhancer' ), Capabilities::EDIT_ENTRIES, 'ace-forms-review', array( self::class, 'render' ) );
 	}
@@ -73,27 +155,33 @@ final class Review {
 		}
 		global $wpdb;
 		$rows = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}ace_form_entries WHERE status='suspect' ORDER BY id DESC LIMIT 200" );
-		$clusters = array();
+		// Load the latest saved screening evidence in one query for this bounded queue.
+		$screens = array();
+		if ( $rows ) {
+			$ids = array_map( static fn( $row ) => (int) $row->id, $rows );
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$meta = $wpdb->get_results( $wpdb->prepare( "SELECT entry_id, meta_value FROM {$wpdb->prefix}ace_form_entry_meta WHERE meta_key='screen' AND entry_id IN ({$placeholders}) ORDER BY id ASC", $ids ) );
+			foreach ( $meta as $item ) {
+				$screens[ (int) $item->entry_id ] = (array) json_decode( $item->meta_value, true );
+			}
+		}
+		$entries = array();
 		foreach ( $rows as $row ) {
 			$values = (array) json_decode( $row->data, true );
 			$form = FormRegistry::get( $row->form_id ) ?? array();
-			$signature = self::signature( $form, $values );
-			$group = count( $clusters );
-			foreach ( $clusters as $index => $cluster ) {
-				if ( self::similar( $signature, $cluster['signature'] ) ) {
-					$group = $index;
-					break;
-				}
-			}
-			$clusters[ $group ]['signature'] = $signature;
-			$clusters[ $group ]['rows'][] = $row;
+			$entries[] = array( 'row' => $row, 'form' => $form, 'values' => $values, 'screen' => $screens[ (int) $row->id ] ?? array() );
 		}
-		echo '<div class="wrap"><h1>' . esc_html__( 'Spam review', 'adaptive-content-enhancer' ) . '</h1><p>' . esc_html__( 'New held enquiries send no notification or confirmation. Earlier flagged entries may already have been emailed. Similar messages are grouped below (latest 200 held entries). Review each entry to confirm spam or approve and send. Decisions teach this site for 90 days; short messages are never learned.', 'adaptive-content-enhancer' ) . '</p>';
+		$clusters = self::group_entries( $entries );
+		echo '<div class="wrap"><h1>' . esc_html__( 'Spam review', 'adaptive-content-enhancer' ) . '</h1><p>' . esc_html__( 'New held enquiries send no notification or confirmation. Earlier flagged entries may already have been emailed. Messages with similar wording or shared campaign signals are grouped below (latest 200 held entries). Grouping is advisory: it does not confirm spam, train screening or release messages. Review each entry to confirm spam or approve and send. Decisions teach this site for 90 days; short messages are never learned.', 'adaptive-content-enhancer' ) . '</p>';
 		if ( ! $rows ) {
 			echo '<p>' . esc_html__( 'No enquiries awaiting review.', 'adaptive-content-enhancer' ) . '</p>';
 		}
 		foreach ( $clusters as $cluster ) {
-			echo '<h2>' . esc_html( sprintf( __( 'Similar messages: %d', 'adaptive-content-enhancer' ), count( $cluster['rows'] ) ) ) . '</h2><ul>';
+			echo '<h2>' . esc_html( sprintf( __( 'Similar messages: %d', 'adaptive-content-enhancer' ), count( $cluster['rows'] ) ) ) . '</h2>';
+			if ( count( $cluster['rows'] ) > 1 && $cluster['signals'] ) {
+				echo '<p>' . esc_html( implode( '; ', array_slice( array_values( $cluster['signals'] ), 0, 5 ) ) ) . '</p>';
+			}
+			echo '<ul>';
 			foreach ( $cluster['rows'] as $row ) {
 				$url = add_query_arg( array( 'page' => 'ace-forms', 'entry' => $row->id ), admin_url( 'admin.php' ) );
 				echo '<li><a href="' . esc_url( $url ) . '">#' . esc_html( $row->id . ' · ' . $row->created_at . ' · ' . $row->contact_name ) . '</a></li>';

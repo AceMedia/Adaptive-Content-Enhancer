@@ -45,11 +45,17 @@ final class Screen {
 			$reasons[] = 'link in the message';
 		}
 
-		$letters = preg_match_all( '/\p{L}/u', $text );
-		$foreign = preg_match_all( '/[\p{Cyrillic}\p{Han}\p{Hangul}\p{Thai}\p{Arabic}]/u', $text );
-		if ( $letters > 20 && $foreign / $letters > 0.3 ) {
-			$score += 3;
-			$reasons[] = 'mostly non-Latin script';
+		// Script and language are not evidence of spam. Inspect actual enquiry content instead.
+		$messages = array();
+		foreach ( $form['fields'] ?? array( 'message' => array( 'type' => 'textarea' ) ) as $key => $field ) {
+			if ( 'textarea' === ( $field['type'] ?? '' ) && is_scalar( $values[ $key ] ?? null ) ) {
+				$messages[] = (string) $values[ $key ];
+			}
+		}
+		$message = wp_specialchars_decode( implode( "\n", $messages ), ENT_QUOTES );
+		foreach ( self::content_reasons( $message, $contact_name ) as $reason ) {
+			$score += self::THRESHOLD;
+			$reasons[] = $reason;
 		}
 
 		foreach ( $form['fields'] ?? array( 'message' => array( 'type' => 'textarea' ) ) as $key => $field ) {
@@ -86,6 +92,81 @@ final class Screen {
 		$result = Review::assess( $form, $values, $result );
 		/** Lets a site adjust the verdict, e.g. allow-list a known customer domain. */
 		return (array) apply_filters( 'ace_forms_screen_result', $result, $form, $values, $contact_email );
+	}
+
+	/** Strong combinations, rather than individual words a genuine buyer could use. */
+	private static function content_reasons( string $message, string $contact_name ): array {
+		$reasons = array();
+		$text = strtolower( preg_replace( '/\s+/u', ' ', $message ) ?? $message );
+		$generic_supply = preg_match( '/\b(?:long[ -]term (?:contract|supply|business)|(?:contract|supply) (?:for |of |with )?(?:your|the) products|supply of your products)\b/', $text );
+		$catalogue = preg_match( '/\b(?:catalog(?:ue)?s?|brochures?)\b/', $text );
+		$trade = 0;
+		foreach ( array( '/\b(?:fob|exw|cif)\b/', '/\b(?:usd|euro|eur|us dollars?)\b/', '/\b(?:bulk|wholesale) (?:pric(?:e|es|ing)|discounts?)\b/', '/\bpayment (?:terms|methods|conditions)\b/', '/\bshipping (?:terms|options|details|costs?|conditions)\b/' ) as $pattern ) {
+			$trade += (int) (bool) preg_match( $pattern, $text );
+		}
+		// A concrete quoted quantity/specification is buying context, even when polite trade phrases overlap.
+		$specific_request = preg_match( '/\b(?:quote|quotation|price|order|need|require|buy|purchase)\b[^.!?]{0,70}\b\d+(?:[.,]\d+)?\s+(?!(?:products?|items?|units?|usd|eur|euro|dollars?|bulk|wholesale)\b)[a-z][a-z-]*/', $text );
+		if ( ! $specific_request && $generic_supply && preg_match( '/\b(?:your|the) products\b/', $text ) && $catalogue && $trade >= 2 ) {
+			$reasons[] = 'Generic procurement template: generic supply proposal, catalogue and multiple trade terms';
+		}
+
+		// Rotating or spaced related hostnames inserted in prose are different from a buyer's reference URLs.
+		$prose = preg_replace( '~https?://\S+|www\.\S+~iu', '', $message ) ?? $message;
+		preg_match_all( '/\b([a-z][a-z-]{2,25})\s*(\d{1,3})?\s*(\.|\s)\s*(com|net|org|co|at|biz|info|io|eu|uk|de|fr|ru)\b/i', $prose, $hosts, PREG_SET_ORDER );
+		$families = array();
+		foreach ( $hosts as $host ) {
+			$key = substr( strtolower( $host[1] ), 0, 4 );
+			$families[ $key ]['hosts'][ strtolower( $host[1] . $host[2] . '.' . $host[4] ) ] = true;
+			$families[ $key ]['numbered'] = ! empty( $families[ $key ]['numbered'] ) || '' !== $host[2];
+			$families[ $key ]['spaced'] = ( $families[ $key ]['spaced'] ?? 0 ) + (int) ( '.' !== $host[3] );
+		}
+		foreach ( $families as $family ) {
+			$count = count( $family['hosts'] );
+			if ( $family['numbered'] && ( $count >= 3 || ( $count >= 2 && $family['spaced'] >= 2 ) ) ) {
+				$reasons[] = 'Repeated or obfuscated site promotion: related rotating or spaced hostnames';
+				break;
+			}
+		}
+		if ( preg_match_all( '/\[url(?:=|\])/i', $message ) >= 3 ) {
+			$reasons[] = 'Repeated or obfuscated site promotion: repeated formatted links';
+		}
+		if ( self::signature_only( $message, $contact_name ) ) {
+			$reasons[] = 'Insufficient enquiry content: contact signature only';
+		}
+		return $reasons;
+	}
+
+	/** Hold incomplete contact signatures for a person to review; never call them confirmed spam. */
+	private static function signature_only( string $message, string $contact_name ): bool {
+		$lines = preg_split( '/\R/u', trim( $message ), -1, PREG_SPLIT_NO_EMPTY ) ?: array();
+		if ( count( $lines ) < 3 ) {
+			return false;
+		}
+		$contact_lines = 0;
+		$organisation_or_address = false;
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( '' === $line ) {
+				continue;
+			}
+			if ( preg_match( '/^(?:tel(?:ephone)?|phone|mobile|fax|e[ -]?mail|website|web)\s*[:：]\s*\S.+$/iu', $line ) ) {
+				++$contact_lines;
+				continue;
+			}
+			if ( preg_match( '/^(?:address|company|organisation|organization)\s*[:：]\s*\S.+$/iu', $line ) || preg_match( '/^[\p{L}\p{N}\s&.,()\'-]+\b(?:ltd|limited|llc|gmbh|inc|corporation)\.?$/iu', $line ) ) {
+				$organisation_or_address = true;
+				continue;
+			}
+			if ( '' !== trim( $contact_name ) && 0 === strcasecmp( $line, trim( $contact_name ) ) ) {
+				continue;
+			}
+			if ( preg_match( '/^(?:regards|best regards|kind regards|sincerely|agent)[,.!]?$/i', $line ) ) {
+				continue;
+			}
+			// Any unrecognised prose is kept, including brief or multilingual enquiries.
+			return false;
+		}
+		return $contact_lines >= 2 && $organisation_or_address;
 	}
 
 	/** Subject prefix and body preamble for a tagged notification. */
@@ -144,9 +225,6 @@ final class Screen {
 				'cap' => 6,
 				'terms' => array(
 					'/\burgent (?:order|purchase|requirement)\b/',
-					'/\b(?:send|share|provide) (?:us )?(?:your |the )?(?:latest )?(?:price ?list|catalog(?:ue)?s?)\b/',
-					'/\brfq\b/',
-					'/\brequest for (?:quotation|proposal)\b/',
 					'/\bbudget (?:is|has been) (?:allocated|approved)\b/',
 					'/\b(?:owner|managing director|senior executive|ceo)\b.{0,40}\b(?:responsible|direct this)\b/',
 					'/\bstill accepting (?:new )?orders\b/',

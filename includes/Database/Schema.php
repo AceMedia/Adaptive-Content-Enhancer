@@ -10,7 +10,7 @@ namespace ACE\AdaptiveContentEnhancer\Database;
 defined( 'ABSPATH' ) || exit;
 
 final class Schema {
-	public const VERSION        = '0.1.0';
+	public const VERSION        = '0.2.0';
 	public const VERSION_OPTION = 'ace_ace_db_version';
 
 	public static function maybe_upgrade(): void {
@@ -28,6 +28,7 @@ final class Schema {
 		$forms      = $wpdb->prefix . 'ace_forms';
 		$entries    = $wpdb->prefix . 'ace_form_entries';
 		$entry_meta = $wpdb->prefix . 'ace_form_entry_meta';
+		$protection = $wpdb->prefix . 'ace_form_protection';
 
 		dbDelta( "CREATE TABLE {$forms} (
 			form_id CHAR(36) NOT NULL,
@@ -70,6 +71,13 @@ final class Schema {
 			meta_value LONGTEXT NULL,
 			PRIMARY KEY  (id),
 			KEY entry_key (entry_id, meta_key)
+		) {$collate};" );
+
+		dbDelta( "CREATE TABLE {$protection} (
+			day DATE NOT NULL,
+			reason VARCHAR(40) NOT NULL,
+			attempts BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			PRIMARY KEY  (day, reason)
 		) {$collate};" );
 
 		update_option( self::VERSION_OPTION, self::VERSION, false );

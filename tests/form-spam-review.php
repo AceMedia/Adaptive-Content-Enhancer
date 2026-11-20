@@ -127,9 +127,22 @@ function wp_mail( $to, $subject, $body, $headers = array() ): bool {
 		}
 		$r = $request( 'A genuine bin enquiry', true );
 		$r->set_param( 'turnstile_token', '' );
+		$missing_before = (int) $wpdb->get_var( $wpdb->prepare( "SELECT attempts FROM {$wpdb->prefix}ace_form_protection WHERE day=%s AND reason='ace_turnstile_missing'", gmdate( 'Y-m-d' ) ) );
 		$assert( is_wp_error( Submission::process( $id, $r ) ), 'admin-post no-JavaScript path cannot bypass Turnstile' );
 		$r->set_param( 'form_id', $id );
 		$assert( is_wp_error( Submission::rest_submit( $r ) ) && false === $r->get_param( 'no_js' ), 'REST callers cannot select no-JavaScript fallback' );
+		$missing_after = (int) $wpdb->get_var( $wpdb->prepare( "SELECT attempts FROM {$wpdb->prefix}ace_form_protection WHERE day=%s AND reason='ace_turnstile_missing'", gmdate( 'Y-m-d' ) ) );
+		$assert( $missing_after === $missing_before + 2, 'both rejected submission paths record anonymous missing-token outcomes' );
+		$assert( ! $GLOBALS['ace_review_test_mail'] && 0 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}ace_form_entries WHERE form_id=%s", $id ) ), 'rejected attempts send no mail and create no entry' );
+		foreach ( array(
+			'Dear Sales Team, We are looking to establish a long-term contract supply of your products. Please send your products brochure/offer in FOB prices. Currency: USD or EURO. We would appreciate bulk pricing, shipping options and payment terms. Kindly send your current product catalog.',
+			"Example Mould Limited\nAddress: 109 Example Road, Example Town\nTel: +00 1234 567890\nEmail: supplier@example.test",
+		) as $message ) {
+			$held_result = Submission::process( $id, $request( $message ) );
+			$assert( is_array( $held_result ), 'new content review candidate stored successfully' );
+			$entries[] = (int) $held_result['entryId'];
+			$assert( ! $held_result['mailSent'] && ! $GLOBALS['ace_review_test_mail'] && 'local' === $held_result['storageProvider'], 'procurement or signature-only candidate reaches review without notification confirmation or CRM' );
+		}
 		$spam = 'Dear sir, we offer SEO and backlinks to boost your sales with a free audit of your website.';
 		$result = Submission::process( $id, $request( $spam ) );
 		$assert( is_array( $result ), 'suspect submission saved successfully' );

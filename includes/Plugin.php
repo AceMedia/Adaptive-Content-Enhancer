@@ -65,6 +65,8 @@ final class Plugin {
 		add_action( 'admin_menu', array( Dashboard::class, 'menu' ), 5 );
 		add_action( 'admin_menu', array( Admin::class, 'menu' ) );
 		add_action( 'admin_menu', array( \ACE\AdaptiveContentEnhancer\Forms\Review::class, 'menu' ) );
+		add_action( 'admin_menu', array( \ACE\AdaptiveContentEnhancer\Forms\ProtectionStats::class, 'menu' ) );
+		add_action( 'network_admin_menu', array( \ACE\AdaptiveContentEnhancer\Forms\ProtectionStats::class, 'network_menu' ), 20 );
 		add_action( 'admin_post_ace_forms_review', array( \ACE\AdaptiveContentEnhancer\Forms\Review::class, 'handle' ) );
 		add_action( 'admin_menu', array( Patterns::class, 'menu' ) );
 		add_action( 'admin_menu', array( EditorTemplates::class, 'menu' ) );

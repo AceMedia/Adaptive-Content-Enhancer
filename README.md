@@ -89,7 +89,9 @@ Suspect messages are saved locally as `suspect` before any email or CRM enrichme
 Neither recipient notifications nor sender confirmations are sent. Clean messages
 continue through the configured storage provider and notification process.
 **Ace Content → Spam review** groups the latest 200 held entries by message
-similarity. Open an entry to see the message and screening reasons, confirm spam,
+similarity and shared promotion signals. Campaign groups are advisory: sharing a
+promoted hostname or rotating host family does not teach screening or release a
+message. Open an entry to see the message and screening reasons, confirm spam,
 or approve and send its saved notification. Approval sends the original recipient
 notification once; it does not send a delayed sender confirmation. Failed delivery
 leaves the entry held for an explicit retry. Reviewed entries remain in the Entry
@@ -103,11 +105,32 @@ a matching message as genuine supersedes its previous learned decision. Automati
 screening never trains itself. Clustering is a review aid and does not bulk approve
 or delete messages. The existing screening filters remain available for site rules.
 
+Content screening holds strong combinations of generic supply proposals,
+catalogue requests and trade terms. A catalogue or quotation request alone is not
+spam evidence. Contact signatures without an actual enquiry are held for review
+as insufficient content. Language and script do not add spam points. Rotating or
+obfuscated promotion links are assessed separately from ordinary reference URLs.
+
+**Ace Content → Form protection** reports anonymous daily attempt and screening
+counts for 30 days in UTC. **Network Admin → Ace Content → Form protection**
+shows each site's counts, in pages of 50 sites. Fixed categories distinguish
+missing/failed verification, service/configuration failures, successful checks,
+unprotected attempts and content outcomes. Counts begin with this release and
+cannot reconstruct earlier rejections. They are not unique visitors or confirmed
+bots, and verification and content outcomes overlap. These reports cover Ace
+Content forms; registration plugins retain their own reporting. No contact data,
+message text, IP addresses or tokens are stored in the aggregate table. Atomic
+increments preserve concurrent counts. New activity removes buckets older than
+30 days. Reporting failures do not change form acceptance.
+
 Local integration checks, with temporary database fixtures, intercepted mail and
 mocked Siteverify responses (requires `WP_LOCAL_DEV` and WP-CLI):
 
 ```sh
 wp eval 'require "assets/plugins/adaptive-content-enhancer/tests/form-spam-review.php";' --url=https://iegemea.pi --skip-themes
+wp eval-file assets/plugins/adaptive-content-enhancer/tests/form-protection-stats.php --url=https://iegemea.pi --skip-themes
+php assets/plugins/adaptive-content-enhancer/tests/form-screen-content.php
+php assets/plugins/adaptive-content-enhancer/tests/form-review-grouping.php
 ```
 
 
