@@ -138,3 +138,9 @@ Network Admin → Ace Content also controls the default for basic ACF function
 compatibility on sites without a saved preference. Existing site choices take
 precedence. Forms, mail recipients, storage providers, captured entries and spam
 learning stay within each site; this page does not create a separate form builder.
+
+## PHP file and export contracts
+
+Run `php tests/php86-file-export-contracts.php` with PHP 8.4 or newer. It uses synthetic WordPress APIs and private temporary files to check file-route permissions, path and symlink containment, rejected uploads, exact download bytes, export capability and nonce checks, CSV quoting and Unicode, formula neutralisation and selected privacy-export JSON boundaries. It makes no provider request, submission or mail delivery and does not replace a real multipart-upload or full WordPress integration test.
+
+CSV exports explicitly retain the existing comma delimiter, double-quote enclosure and backslash escape setting, avoiding the deprecated implicit PHP default. The plugin minimum remains PHP 8.4.

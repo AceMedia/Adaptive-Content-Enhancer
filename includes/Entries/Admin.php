@@ -130,12 +130,12 @@ final class Admin {
 		header( 'Content-Type: text/csv; charset=UTF-8' );
 		header( 'Content-Disposition: attachment; filename="ace-form-entries.csv"' );
 		$stream = fopen( 'php://output', 'w' );
-		fputcsv( $stream, array( 'ID', 'Form ID', 'Received (UTC)', 'Status', 'Name', 'Email', 'Fields' ) );
+		fputcsv( $stream, array( 'ID', 'Form ID', 'Received (UTC)', 'Status', 'Name', 'Email', 'Fields' ), ',', '"', '\\' );
 		$offset = 0;
 		do {
 			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id,form_id,created_at,status,contact_name,contact_email,data FROM {$table} {$where} ORDER BY id LIMIT %d OFFSET %d", 200, $offset ), ARRAY_A );
 			foreach ( $rows as $row ) {
-				fputcsv( $stream, array_map( array( self::class, 'csv_safe' ), array_values( $row ) ) );
+				fputcsv( $stream, array_map( array( self::class, 'csv_safe' ), array_values( $row ) ), ',', '"', '\\' );
 			}
 			$offset += count( $rows );
 		} while ( 200 === count( $rows ) );

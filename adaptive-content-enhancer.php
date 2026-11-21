@@ -3,7 +3,7 @@
  * Plugin Name:       Adaptive Content Enhancer
  * Plugin URI:        https://acemedia.ninja/
  * Description:       Block-native forms and custom fields for WordPress.
- * Version:           0.500.0
+ * Version:           0.500.1
  * Requires at least: 7.0
  * Requires PHP:      8.4
  * Author:            Shane Rounce
@@ -23,7 +23,7 @@ if ( ! defined( 'ACE_ACE_FILE' ) ) {
 	define( 'ACE_ACE_FILE', __FILE__ );
 	define( 'ACE_ACE_DIR', plugin_dir_path( __FILE__ ) );
 	define( 'ACE_ACE_URL', plugin_dir_url( __FILE__ ) );
-	define( 'ACE_ACE_VERSION', '0.500.0' );
+	define( 'ACE_ACE_VERSION', '0.500.1' );
 }
 
 spl_autoload_register(
